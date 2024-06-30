@@ -1,0 +1,4 @@
+#ifndef _TRVZXS_MISC_TYPES_DEFINITIONS_H
+#define _TRVZXS_MISC_TYPES_DEFINITIONS_H
+#define TRVZXS_NULL ((void*)0)
+#endif

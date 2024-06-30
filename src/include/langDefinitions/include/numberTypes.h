@@ -1,0 +1,4 @@
+#ifndef _NUMBER_TYPES_DEFINITIONS_H
+#define _NUMBER_TYPES_DEFINITIONS_H
+#define TRVZXS_SIZE uint32_t
+#endif
