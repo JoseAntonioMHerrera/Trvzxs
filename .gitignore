@@ -54,3 +54,4 @@ modules/
 .old/
 .editorconfig
 makefile
+.vscode/
