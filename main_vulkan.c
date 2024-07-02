@@ -1,5 +1,5 @@
-#include "SDL2_2_30_3/include/SDL3/SDL_stdinc.h"
-#include "SDL2_2_30_3/include/SDL3/SDL_vulkan.h"
+#include <SDL_stdinc.h>
+#include <SDL_vulkan.h>
 #include <stdint.h>
 #include <time.h>
 #include <vulkan/vulkan.h>
@@ -9,14 +9,14 @@
 #include <unistd.h>
 #include <vulkan/vulkan_core.h>
 #include "src/utils/fileFunctions/include/file_functions.h"
-#include "vertex.h"
+#include "src/include/geometry/vertex.h"
 #include <vulkan/vulkan_core.h>
-#include "src/utils/debug/include/strictDebug.h"
+#include "src/utils/include/strictDebug.h"
 #include "main_vulkan.h"
 #include "include/cglm/cglm.h"
 
-#include <deviceManagment.h>
-#include "vulkanHut.h"
+#include "src/engine/device/deviceManagment.c"
+#include "src/engine/include/vulkanHut.h"
 
 GEOM_OBJECT objects;
 void createDescriptorSetLayout(){

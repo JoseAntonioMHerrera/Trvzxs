@@ -1,5 +1,5 @@
-#include "SDL2_2_30_3/include/SDL3/SDL_vulkan.h"
-#include "SDL2_2_30_3/include/SDL3/SDL.h"
+#include <SDL2/SDL_vulkan.h>
+#include <SDL2/SDL.h>
 #include <vulkan/vulkan.h>
 #include <stdio.h>
 #include <stdlib.h>

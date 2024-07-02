@@ -1,5 +1,8 @@
 
-#include <deviceManagment.h>
+#include "include/deviceManagment.h"
+
+PhysicalDeviceMemoryManager* pdmm;
+
 
 uint32_t checkMemoryTypeCache(PhysicalDeviceMemoryManager* pdmm){
 
@@ -122,7 +125,7 @@ PhysicalDeviceMemoryManager* initPhysicalDeviceMemoryManager(uint32_t supportedG
     pdmm->queueFamilyProperties = malloc(sizeof(pdmm->queueFamilyProperties)* supportedGpuLen);
 }
 
-void initDevice(GPU_INDEX gpuIndex){
+void initDevice(){
 
 }
 
@@ -134,5 +137,5 @@ void storePhysicalDevices(){
     vkEnumeratePhysicalDevices(instance, &supported_gpu_count, NULL);
     assert(supported_gpu_count >= 1);
     initPhysicalDeviceMemoryManager(supported_gpu_count);
-    VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(instance, &supported_gpu_count, pdmm.gpu);
+    VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(instance, &supported_gpu_count, pdmm->gpu);
 };

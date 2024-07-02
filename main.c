@@ -1,4 +1,4 @@
-#include "SDL2_2_30_3/include/SDL3/SDL.h"
+#include <SDL.h>
 #include "main_vulkan.h"
 #include "src/utils/fileFunctions/include/file_functions.h"
 #include <stdio.h>
