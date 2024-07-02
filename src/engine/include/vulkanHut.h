@@ -1,9 +1,10 @@
-#ifndef _TRVZXS_VULKAN_HUT_H_
-#define _TRVZXS_VULKAN_HUT_H_
-#include "vulkan.h"
-#include "SDL2_2_30_3/include/SDL3/SDL.h"
-#include <numberTypes.h>
+#include <vulkan/vulkan.h>
+#include <SDL2/SDL.h>
+#include "../../include/langDefinitions/numberTypes.h"
 
+#pragma once
+
+#include "../device/include/deviceManagment.h"
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
 // Queues for operations
@@ -185,53 +186,6 @@ extern VkQueue graphicsQueue;
 extern VkSurfaceKHR surface;
 
 
-void getMatchingQueueIndices(const VkQueueFamilyProperties* properties, int numProperties, QueueFamilyIndices *queuesIndices) {
-
-    uint32_t currentLessOptimalGraphicQueueIndice = UINT32_MAX;
-    uint32_t currentLessOptimalTransferQueueIndice = UINT32_MAX;
-    uint32_t currentLessOptimalPresentSupportQueueIndice = UINT32_MAX;
-    VkBool32 presentSupport = SDL_FALSE;
-
-    for (int i = 0; i < numProperties; i++) {
-        if ((properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT ) == VK_QUEUE_GRAPHICS_BIT && queuesIndices->graphicsFamily == UINT32_MAX) {
-            VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
-            assert(result == VK_SUCCESS);
-            if(presentSupport){
-                queuesIndices->graphicsFamily = i;
-                queuesIndices->presentFamily = i;
-                presentSupport = SDL_FALSE;
-            }else{
-                currentLessOptimalGraphicQueueIndice = i;
-            }
-        }else if((properties[i].queueFlags & VK_QUEUE_TRANSFER_BIT ) == VK_QUEUE_TRANSFER_BIT && queuesIndices->transferFamily == UINT32_MAX){
-            currentLessOptimalTransferQueueIndice = i;
-            if((properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT ) != VK_QUEUE_GRAPHICS_BIT && (properties[i].queueFlags & VK_QUEUE_COMPUTE_BIT ) != VK_QUEUE_COMPUTE_BIT ){
-                queuesIndices->transferFamily =  i;
-            }
-        }else if(queuesIndices->presentFamily == UINT32_MAX){
-            VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
-            assert(result == VK_SUCCESS);
-            if(presentSupport){
-                currentLessOptimalPresentSupportQueueIndice = i;
-                presentSupport = SDL_FALSE;
-            }
-        }else if(queuesIndices->transferFamily != UINT32_MAX && queuesIndices->graphicsFamily != UINT32_MAX && queuesIndices->presentFamily != UINT32_MAX){
-            return;
-        }
-    }
-
-    // If not optimal selection for queues were found, select the options available
-    if(queuesIndices->graphicsFamily == UINT32_MAX && queuesIndices->presentFamily == UINT32_MAX){
-        queuesIndices->presentFamily = currentLessOptimalPresentSupportQueueIndice;
-        queuesIndices->graphicsFamily = currentLessOptimalGraphicQueueIndice;
-    }
-    if(queuesIndices->transferFamily == UINT32_MAX)
-        queuesIndices->transferFamily = currentLessOptimalTransferQueueIndice;
-
-    // Panic if no queues selected
-    assert(queuesIndices->presentFamily != UINT32_MAX && queuesIndices->transferFamily != UINT32_MAX && queuesIndices->graphicsFamily != UINT32_MAX);
-}
-
 void initVulkan(SDL_Window* window);
 void destroyVulkanSurface(const VkInstance* instance, VkSurfaceKHR* surface);
 void destroyVulkanInstance(const VkInstance* instance);
@@ -240,5 +194,3 @@ void createGraphicsPipeline();
 void createRenderPass();
 void drawFrame();
 void cleanup();
-
-#endif

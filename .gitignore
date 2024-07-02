@@ -55,3 +55,4 @@ modules/
 .editorconfig
 makefile
 .vscode/
+build/

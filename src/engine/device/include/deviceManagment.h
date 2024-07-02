@@ -1,10 +1,5 @@
-#ifndef _TRVZXS_DEVICE_MANAGMENT_H_
-#define _TRVZXS_DEVICE_MANAGMENT_H_
-#include <vulkanHut.h>
-
-#define GPU_INDEX uint32_t
-#define DEVICE_DEFAULT_INDEX uint32_t
-
+#pragma once
+#include "../../include/vulkanHut.h"
 typedef struct {
     uint32_t graphicsFamily;
     uint32_t presentFamily;
@@ -26,8 +21,6 @@ typedef struct {
     uint32_t deviceDefaultIndex;
 } PhysicalDeviceMemoryManager;
 
-void storePhysicalDevices(VkInstance *instance, PhysicalDeviceMemoryManager *pdmm);
+void storePhysicalDevices();
 uint32_t findMemoryType(PhysicalDeviceMemoryManager *pdmm, uint32_t typeFilter, VkMemoryPropertyFlags properties) ;
-
 void getMatchingQueueIndices(const VkQueueFamilyProperties* properties, int numProperties, QueueFamilyIndices *queuesIndices);
-#endif
