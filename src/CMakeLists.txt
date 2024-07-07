@@ -1,6 +1,11 @@
-target_include_directories(${PROJECT_NAME} PUBLIC "include/")
+target_include_directories(${PROJECT_NAME} PUBLIC
+"include/"
+"utils/"
+"engine/"
+"shaders/"
+)
 # Define a library for module2
-add_subdirectory("engine/")
 add_subdirectory("include/")
 add_subdirectory("utils/")
+add_subdirectory("engine/")
 add_subdirectory("shaders/")

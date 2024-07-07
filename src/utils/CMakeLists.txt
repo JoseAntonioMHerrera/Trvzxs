@@ -10,6 +10,8 @@ file(GLOB_RECURSE UTILS_HEADERS
     "include/*.h"
 )
 
+target_sources(${PROJECT_NAME} PUBLIC ${UTILS_HEADERS})
+
 # Create library target
 add_library(utils_mod STATIC ${UTILS_SOURCES} ${UTILS_HEADERS})
 
