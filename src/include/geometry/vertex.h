@@ -1,7 +1,5 @@
+#pragma once
 #include <stdint.h>
-
-#ifndef _GEOM_VERTEX_H_
-#define _GEOM_VERTEX_H_
 
 struct GEOM_VERTEX_POSITION {
     float x;
@@ -32,4 +30,3 @@ typedef struct GEOM_OBJECT GEOM_OBJECT;
 typedef struct GEOM_VERTEX GEOM_VERTEX;
 typedef struct GEOM_VERTEX_COLOR_RGBA GEOM_VERTEX_COLOR_RGBA;
 typedef struct GEOM_VERTEX_POSITION GEOM_VERTEX_POSITION;
-#endif

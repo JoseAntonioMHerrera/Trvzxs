@@ -64,5 +64,5 @@ target_link_libraries(${PROJECT_NAME}
 # Link rendererLib to the executable
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-    rendererLib
+    engine_mod
 )

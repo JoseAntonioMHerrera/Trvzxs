@@ -14,12 +14,12 @@
 #include "src/utils/include/strictDebug.h"
 #include "main_vulkan.h"
 #include "include/cglm/cglm.h"
-
+#include "src/engine/pipelines/include/graphicsPipeline.h"
 #include "src/engine/device/deviceManagment.c"
 #include "src/engine/include/vulkanHut.h"
 
 GEOM_OBJECT objects;
-void createDescriptorSetLayout(){
+/*void createDescriptorSetLayout(){
     VkDescriptorSetLayoutBinding uboLayoutBinding ={
         .binding = 0,
         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -38,9 +38,9 @@ void createDescriptorSetLayout(){
         exit(1);
     }
 
-}
+}*/
 
-
+/*
 void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
     VkCommandBufferAllocateInfo allocInfo;
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -76,8 +76,8 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
     vkQueueWaitIdle(transferQueue);
 
     vkFreeCommandBuffers(device, transferCommandPool, 1, &transferCommandBuffer);
-}
-
+}*/
+/*
 void createVkBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkMemoryPropertyFlags properties,
                     VkBuffer *buffer, VkDeviceMemory *bufferMemory) {
 
@@ -109,50 +109,8 @@ void createVkBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode s
 
     vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 }
-void createIndiceBuffer(GEOM_OBJECT *objects) {
-    uint32_t bufferSize = sizeof(uint32_t) * objects->indicesLen;
+*/
 
-    VkBuffer stagingIndicesBuffer;
-    VkDeviceMemory stagingIndicesBufferMemory;
-    createVkBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
-    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingIndicesBuffer,
-    &stagingIndicesBufferMemory);
-
-    void* data;
-    vkMapMemory(device, stagingIndicesBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, objects->indices, (size_t) bufferSize);
-    vkUnmapMemory(device, stagingIndicesBufferMemory);
-
-    createVkBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &indexBuffer, &indexBufferMemory);
-
-    copyBuffer(stagingIndicesBuffer, indexBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingIndicesBuffer, NULL);
-    vkFreeMemory(device, stagingIndicesBufferMemory, NULL);
-
-}
-void createGeometryBuffer(GEOM_OBJECT *objects){
-    uint32_t geometryBufferSize = sizeof(*(objects->data))*objects->dataLen;
-
-    createVkBuffer(geometryBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
-    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
-
-    void* memoryMappedData; //Dst memory to copy from buffer data to gpu memory
-    vkMapMemory(device, stagingBufferMemory, 0, geometryBufferSize, 0, &memoryMappedData);
-    memcpy(memoryMappedData, objects->data, (size_t) geometryBufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-    printf("HOLEHOLAHOALSDJAPOSD\n");
-    createVkBuffer(geometryBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &geometryBuffer, &geometryBufferMemory);
-
-    copyBuffer(stagingBuffer, geometryBuffer, geometryBufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, NULL);
-    vkFreeMemory(device, stagingBufferMemory, NULL);
-
-
-}
 
 
 
@@ -620,74 +578,35 @@ void createGraphicsPipeline() {
         exit(1);
     }
 
-}
-
-// Seleccionamos de entre los formatos de superficie extraidos de las propiedades de la gpu, y seleccionamos
-// el formato que soporte colores con canal alfa y componentes de 8 bits y el espacio de color SRGB
-VkSurfaceFormatKHR chooseSwapSurfaceFormat(VkSurfaceFormatKHR* availableFormats, uint8_t availableFormatsCount) {
-    for (uint8_t i=0; i < availableFormatsCount; i++) {
-        if (availableFormats[i].format == VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT && availableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-            return availableFormats[i];
-        }
-    }
-
-    return availableFormats[0];
-}
-
-VkPresentModeKHR chooseSwapPresentMode(VkPresentModeKHR** availablePresentModes, uint8_t availableModesCount) {
-    for (uint8_t i=0; i < availableModesCount; i++) {
-        if (*availablePresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
-            return *availablePresentModes[i];
-        }
-    }
-
-    return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR* capabilities, SDL_Window* window) {
-/*    if (capabilities->currentExtent.width != UINT32_MAX) {
-        //TODO add logs to all the process of setting up the vulkan instance for use
-        return capabilities->currentExtent;
-    } else {*/
-        int width, height;
-        SDL_Vulkan_GetDrawableSize(window,&width, &height);
-        actualExtent.width = width;
-        actualExtent.height = height;
-
-        actualExtent.width = CLAMP(actualExtent.width, capabilities->minImageExtent.width, capabilities->maxImageExtent.width);
-        actualExtent.height = CLAMP(actualExtent.height, capabilities->minImageExtent.height, capabilities->maxImageExtent.height);
-
-        return actualExtent;
-    //}
-}
-
-void createSwapChain(SDL_Window* window){
+}*/
+/*
+void createSwapChain(SDL_Window* window, DeviceManager* pdmm){
     SwapChainSupportDetails swapChainSupportDetails;
 
-    VkResult queryPhysicalDeviceSurfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &swapChainSupportDetails.capabilities);
+    VkResult queryPhysicalDeviceSurfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pdmm->gpu[pdmm->gpuDefaultIndex], surface, &swapChainSupportDetails.capabilities);
     assert(queryPhysicalDeviceSurfaceCapabilitiesResult == VK_SUCCESS);
 
     // Query de los formatos de presentacion en superficie que ofrece la gpu (physicalDevice)
     uint32_t formatCount;
-    VkResult queryPhysicalDeviceSurfaceFormatsCountResult = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, NULL);
+    VkResult queryPhysicalDeviceSurfaceFormatsCountResult = vkGetPhysicalDeviceSurfaceFormatsKHR(pdmm->gpu[pdmm->gpuDefaultIndex], surface, &formatCount, NULL);
     assert(formatCount > 0 && queryPhysicalDeviceSurfaceFormatsCountResult == VK_SUCCESS);
 
 
     if (formatCount > 0) {
         swapChainSupportDetails.formats = malloc(sizeof(VkSurfaceFormatKHR)* formatCount);
-        VkResult queryPhysicalDeviceSurfaceFormatsResult = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, swapChainSupportDetails.formats);
+        VkResult queryPhysicalDeviceSurfaceFormatsResult = vkGetPhysicalDeviceSurfaceFormatsKHR(pdmm->gpu[pdmm->gpuDefaultIndex], surface, &formatCount, swapChainSupportDetails.formats);
         assert(queryPhysicalDeviceSurfaceFormatsResult == VK_SUCCESS);
     }
 
 
     uint32_t presentModeCount  = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, NULL);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(pdmm->gpu[pdmm->gpuDefaultIndex], surface, &presentModeCount, NULL);
 
     // Query de
     if (presentModeCount != 0) {
         swapChainSupportDetails.presentModes = malloc(sizeof(VkSurfaceFormatKHR)* formatCount);
 
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, swapChainSupportDetails.presentModes);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(pdmm->gpu[pdmm->gpuDefaultIndex], surface, &presentModeCount, swapChainSupportDetails.presentModes);
     }
 
 
@@ -746,6 +665,7 @@ void createSwapChain(SDL_Window* window){
     }
 
 }
+*/
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void * pUserData){
 
@@ -815,13 +735,12 @@ VkDebugUtilsMessengerEXT* createDebugCallbackForVulkan(const VkInstance* instanc
 
 
 
-
-void createCommandPool() {
+void createCommandPool(DeviceManager* pdmm) {
 
     VkCommandPoolCreateInfo poolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = queuesIndices.graphicsFamily,
+        .queueFamilyIndex = pdmm->queueFamilyIndices[pdmm->gpuDefaultIndex].graphicsFamily,
     };
 
     if (vkCreateCommandPool(device, &poolInfo, NULL, &graphicsCommandPool) != VK_SUCCESS) {
@@ -834,7 +753,7 @@ void createTransferQueueCommandPool() {
     VkCommandPoolCreateInfo transferPoolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = queuesIndices.transferFamily,
+        .queueFamilyIndex = pdmm->queueFamilyIndices[pdmm->gpuDefaultIndex].transferFamily,
     };
 
     if (vkCreateCommandPool(device, &transferPoolInfo, NULL, &transferCommandPool) != VK_SUCCESS) {
@@ -885,18 +804,18 @@ void cleanup() {
     vkDestroyInstance(instance, NULL);
 }
 
-
-void recreateSwapChain() {
-    vkDeviceWaitIdle(device);
+/*
+void recreateSwapChain(EngineHut const *eh) {
+    vkDeviceWaitIdle(eh->dm->device[eh->dm->deviceDefaultIndex]);
     cleanupSwapChain();
-    createSwapChain(sdlWindow);
+    createSwapChain(eh->window, eh->dm);
     createImageViews();
     createFrameBuffers();
 
-}
+}*/
 
-void drawFrame() {
-    vkWaitForFences(device, 1, &inFlightFence[currentFrame], VK_TRUE, UINT64_MAX);
+void drawFrame(VkDevice device, uint8_t currentFrame, ) {
+    vkWaitForFences(device, 1, currentFrame, VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
     VkResult nextImageResult = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -1029,7 +948,6 @@ void createInstance(VkInstance* instance, SDL_Window* window) {
                                   &surface);
     assert(result_surface_creation == SDL_TRUE);
 
-    PhysicalDeviceMemoryManager* pdmm = initDeviceManager();
     /*uint32_t supported_gpu_count = 0;
     vkEnumeratePhysicalDevices(*instance, &supported_gpu_count, NULL);
     assert(supported_gpu_count == 1);
@@ -1055,7 +973,7 @@ void createInstance(VkInstance* instance, SDL_Window* window) {
 
     // Llamamos a la funcion que selecciona las colas que vamos a usar
 
-    getMatchingQueueIndices(pdmm, queueFamilyCount, &queuesIndices);
+    //getMatchingQueueIndices(pdmm, queueFamilyCount, &queuesIndices);
     //vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, presentSupportQueueIndex, surface, &presentSupport);
     //assert(presentSupport != VK_FALSE);
 
@@ -1075,7 +993,7 @@ void createInstance(VkInstance* instance, SDL_Window* window) {
     // Creamos la cola por defecto TODO: sacar todo el tema de inicializaciond de las colas fuera, aplicar selecciones
     // basadas en algunas features y extensiones disponibles
 
-    float_t queuePriority = 1.0f;
+    /*float_t queuePriority = 1.0f;
     //Creacion de cola para operaciones graficas
     VkDeviceQueueCreateInfo queueCreateInfoGraphics = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -1131,7 +1049,7 @@ void createInstance(VkInstance* instance, SDL_Window* window) {
     vkGetDeviceQueue(device, queuesIndices.presentFamily, 0, &presentQueue);
     vkGetDeviceQueue(device, queuesIndices.transferFamily, 0, &transferQueue);
 
-
+*/
 
 }
 
@@ -1168,21 +1086,24 @@ void fillGeometryData(){
 }
 
 void initVulkan(SDL_Window* window){
-    sdlWindow = window;
+
+    engineHut = malloc(sizeof(engineHut)); // Init for the general state object of the render
+    createInstance(engineHut->instance, window);
+    initDeviceManager(engineHut->instance, &(engineHut->dm));
+    initDevice(engineHut->dm);
     exit(1);
-    fillGeometryData();
-    createInstance(&instance, window);
+    /*fillGeometryData();
     createSwapChain(window);
     createImageViews();
     createGraphicsPipeline();
     createFrameBuffers();
     createCommandPool();
     createTransferQueueCommandPool();
-    createCommandBuffer();
-    createSyncObjects();
-    createGeometryBuffer(&objects);
-    createIndiceBuffer(&objects);
-    logCallback = createDebugCallbackForVulkan(&instance);
+    createCommandBuffer();*/
+    //createSyncObjects();
+    //createGeometryBuffer(&objects);
+    //createIndiceBuffer(pdmm, dbm,&objects);
+    engineHut->logCallback = createDebugCallbackForVulkan(engineHut->instance);
     printf("Init vulkan ended.\n");
 
 }
