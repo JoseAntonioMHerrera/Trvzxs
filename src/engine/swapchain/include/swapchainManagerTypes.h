@@ -5,8 +5,8 @@ typedef struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
     VkSurfaceFormatKHR* formats;
     VkPresentModeKHR* presentModes;
-    size_t presentModeLen;
-    size_t surfaceFormatsLen;
+    uint32_t presentModeLen;
+    uint32_t surfaceFormatsLen;
 } SwapChainSupportDetails;
 
 
@@ -19,7 +19,7 @@ typedef struct DisplaySwapchainManager {
     VkFramebuffer *p_framebuffers;
     size_t framebuffersLen;
 
-    size_t scImagesLen; //size_t TODO
+    uint32_t scImagesLen; //size_t TODO
     VkImage* p_scImages;
 
 

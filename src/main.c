@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     DeviceManager *dm = initTRVZXSEngine(window);
     DisplayManager *dispM = dm->lDevice[dm->deviceIndex]->displayManager;
-    LogicalDevice *ld = &dm->lDevice[dm->deviceIndex];
+    LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
     PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
     GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
     DisplaySwapchainManager *dsm = dispM->swapChainM;

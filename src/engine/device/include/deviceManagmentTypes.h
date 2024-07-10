@@ -43,10 +43,12 @@ typedef struct DisplayManager {
 
 
 typedef struct PhysicalDevice {
-    VkPhysicalDevice gpu;
-    VkPhysicalDeviceMemoryProperties memProperties;
+    VkPhysicalDevice *gpu;
+    VkPhysicalDeviceMemoryProperties *memProperties;
+
     VkQueueFamilyProperties *queueFamilyProperties;
     uint32_t queueFamilyCount;
+
     QueueFamilyIndices queueFamilyIndices;
 } PhysicalDevice;
 

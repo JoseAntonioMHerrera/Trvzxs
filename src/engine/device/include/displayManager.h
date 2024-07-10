@@ -82,3 +82,14 @@ TRVZXS_inline void cleanupSyncObjects(VkDevice device, GeometryDisplayPipelineMa
     }
 
 }
+
+TRVZXS_inline void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* window){
+    SDL_bool result_surface_creation = SDL_Vulkan_CreateSurface(window,
+                                  *instance,
+                                  &dm->surface);
+    printf("CREATE INSTANCE FLAG 5\n");
+    assert(dm->surface);
+    assert(*instance);
+
+    assert(result_surface_creation == SDL_TRUE);
+}

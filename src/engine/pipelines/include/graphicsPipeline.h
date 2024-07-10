@@ -12,7 +12,8 @@
 #include <stdio.h>
 #include <stddef.h>
 
-
+#define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
+#define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
 
 
 TRVZXS_inline void createSyncObjects(GeometryDisplayPipelineManager *gd, VkDevice *device){
@@ -24,7 +25,7 @@ TRVZXS_inline void createSyncObjects(GeometryDisplayPipelineManager *gd, VkDevic
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
-    assert(gd->commandBuffer >= 2);
+    assert(gd->commandLen >= 2);
     gd->imgViewSemaphore = malloc(sizeof(VkSemaphore) * gd->commandLen);
     gd->renderEndFlag = malloc(sizeof(VkSemaphore) * gd->commandLen);
     gd->inFlightFence = malloc(sizeof(VkFence) * gd->commandLen);
@@ -34,9 +35,9 @@ TRVZXS_inline void createSyncObjects(GeometryDisplayPipelineManager *gd, VkDevic
     assert(gd->imgViewSemaphore);
 
     for(uint32_t i = 0; i < gd->commandLen; i++) {
-        if (vkCreateSemaphore(device, &semaphoreInfo, NULL, &gd->imgViewSemaphore[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(device, &semaphoreInfo, NULL, &gd->renderEndFlag[i]) != VK_SUCCESS ||
-        vkCreateFence(device, &fenceInfo, NULL, &gd->inFlightFence[i]) != VK_SUCCESS) {
+        if (vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->imgViewSemaphore[i]) != VK_SUCCESS ||
+        vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->renderEndFlag[i]) != VK_SUCCESS ||
+        vkCreateFence(*device, &fenceInfo, NULL, &gd->inFlightFence[i]) != VK_SUCCESS) {
             printf("failed to create semaphores!");
         }
     }
@@ -46,7 +47,7 @@ TRVZXS_inline void createSyncObjects(GeometryDisplayPipelineManager *gd, VkDevic
 TRVZXS_inline void startRenderPass(GeometryDisplayPipelineManager *gdp, DisplayManager *dm, VkFramebuffer swapchainFramebuffer){
     VkRenderPassBeginInfo renderPassInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .renderPass = gdp->renderPass,
+        .renderPass = *gdp->renderPass,
         .framebuffer = swapchainFramebuffer,
         .renderArea.offset = {0, 0},
         .renderArea.extent = dm->swapChainM->currentExtent2D,
@@ -58,7 +59,7 @@ TRVZXS_inline void startRenderPass(GeometryDisplayPipelineManager *gdp, DisplayM
 
     vkCmdBeginRenderPass(gdp->commandBuffer[dm->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, gdp->pipeline);
+    vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipeline);
 
     VkViewport viewport = {
         viewport.x = 0.0f,
@@ -89,39 +90,42 @@ TRVZXS_inline void recordCommandBuffer(GeometryDisplayPipelineManager *gdp, Disp
         .pInheritanceInfo = NULL, // Optional
     };
 
-    if (vkBeginCommandBuffer(gdp->commandBuffer, &beginInfo) != VK_SUCCESS) {
+    if (vkBeginCommandBuffer(gdp->commandBuffer[imageIndex], &beginInfo) != VK_SUCCESS) {
         printf("Error al iniciar el commandbuffer");
     }
 
-    VkBuffer vertexBuffers[] = {gdp->geometry};
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(gdp->commandBuffer[imageIndex], 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(gdp->commandBuffer[imageIndex], gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    const VkBuffer localBuffer[] = {*gdp->deviceBuffer->buffer};
+    vkCmdBindVertexBuffers(gdp->commandBuffer[imageIndex], 0, 1, localBuffer, offsets);
+    vkCmdBindIndexBuffer(gdp->commandBuffer[imageIndex], *gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 
     startRenderPass(gdp, dm, dm->swapChainM->p_framebuffers[imageIndex]);
 
 }
 
-TRVZXS_inline VkShaderModule createShaderModule(VkDevice device, char** code, size_t codeSize) {
+TRVZXS_inline VkShaderModule* createShaderModule(VkDevice device, char** code, size_t codeSize) {
     VkShaderModuleCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .codeSize = codeSize,
         .pCode = (uint32_t*) *code,
     };
-    VkShaderModule shaderModule;
-    if (vkCreateShaderModule(device, &createInfo, VK_NULL_HANDLE, &shaderModule) != VK_SUCCESS) {
+
+    VkShaderModule *shaderModule = malloc(sizeof(VkShaderModule));
+
+    if (vkCreateShaderModule(device, &createInfo, VK_NULL_HANDLE, shaderModule) != VK_SUCCESS) {
         printf("failed to create shader module!");
         exit(0);
     }
     return shaderModule;
 }
 
-TRVZXS_inline void fillObjectBindingDescriptions(VkVertexInputBindingDescription *objectIBD){
-
-    objectIBD->binding = 0;
-    objectIBD->stride = sizeof(GEOM_VERTEX);
-    objectIBD->inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+TRVZXS_inline void fillObjectBindingDescriptions(VkVertexInputBindingDescription **objectIBD){
+    *objectIBD = malloc(sizeof(VkVertexInputBindingDescription));
+    (*objectIBD)->binding = 0;
+    (*objectIBD)->stride = sizeof(GEOM_VERTEX);
+    (*objectIBD)->inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        printf("BINDING DESCRIPTIONS\n");
 }
 
 TRVZXS_inline void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD) {
@@ -133,7 +137,7 @@ TRVZXS_inline void fillObjectInputAttributeDescription(VkVertexInputAttributeDes
     (*objectsIAD)[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     (*objectsIAD)[0].offset = offsetof(GEOM_VERTEX, point);
 
-
+        printf("OBJECT INPUT\n");
     // GEOM_OBJECT colors
     (*objectsIAD)[1].binding = 0;
     (*objectsIAD)[1].location = 1;
@@ -152,6 +156,7 @@ TRVZXS_inline void createRenderPass(DisplaySwapchainManager *dsm, VkDevice devic
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
     };
+        printf("CREATERENDERPASS FLAG 0\n");
 
 
     VkAttachmentReference colorAttachmentRef = {
@@ -164,6 +169,11 @@ TRVZXS_inline void createRenderPass(DisplaySwapchainManager *dsm, VkDevice devic
         .colorAttachmentCount = 1,
         .pColorAttachments = &colorAttachmentRef,
     };
+        printf("CREATERENDERPASS FLAG 1\n");
+
+    // TODO MANAGE SUBPASS TREE
+
+    dsm->subpassDependency = malloc(sizeof(VkSubpassDependency));
     dsm->subpassDependency->srcSubpass = VK_SUBPASS_EXTERNAL;
     dsm->subpassDependency->dstSubpass = 0;
     dsm->subpassDependency->srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -178,42 +188,50 @@ TRVZXS_inline void createRenderPass(DisplaySwapchainManager *dsm, VkDevice devic
         .subpassCount = 1,
         .pSubpasses = &subpass,
         .dependencyCount = 1,
-        .pDependencies = &dsm->subpassDependency,
+        .pDependencies = dsm->subpassDependency,
     };
-
-    if (vkCreateRenderPass(device, &renderPassInfo, NULL, &gdp->renderPass) != VK_SUCCESS) {
+        printf("CREATERENDERPASS FLAG 2\n");
+    gdp->renderPass = malloc(sizeof(*gdp->renderPass));
+    if (vkCreateRenderPass(device, &renderPassInfo, NULL, gdp->renderPass) != VK_SUCCESS) {
         printf("Error creating the render pass!");
         exit(0);
     }
+        printf("CREATERENDERPASS FLAG 3\n");
 
 }
 
 TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, DisplayManager *dm, VkDevice* device) {
     char** triangleVert = (char**) malloc(sizeof(char*));
     char** triangleFrag = (char**) malloc(sizeof(char*));
+
     size_t triangleVertSize = 0;
     size_t triangleFragSize = 0;
-
-    assert(readSPVBinaryFile("shaders/bin/triangleVert.spv\0", triangleVert, &triangleVertSize) == 0);
-    assert(readSPVBinaryFile("shaders/bin/triangleFrag.spv\0", triangleFrag, &triangleFragSize) == 0);
+    printf("CREATEGRAPHICSPIPE FLAG 1\n");
+    assert(readSPVBinaryFile(TRIANGLE_VERT_SHADER, triangleVert, &triangleVertSize) == 0);
+    assert(readSPVBinaryFile(TRIANGLE_FRAG_SHADER, triangleFrag, &triangleFragSize) == 0);
     // TODOcrear struct para spv, guarde datos y un hilo los lea y escriba en background
+    printf("CREATEGRAPHICSPIPE FLAG 2\n");
 
-    gdp->vertShader = createShaderModule(device, triangleVert, triangleVertSize);
-    gdp->vertShader = createShaderModule(device, triangleFrag, triangleFragSize);
+    gdp->vertShader = createShaderModule(*device, triangleVert, triangleVertSize);
+    gdp->fragShader = createShaderModule(*device, triangleFrag, triangleFragSize);
+    printf("CREATEGRAPHICSPIPE FLAG 3\n");
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = gdp->vertShader,
+        .module = (*gdp->vertShader),
         .pName = "main",
+        .pNext = VK_NULL_HANDLE,
     };
 
     VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = gdp->fragShader,
+        .module = (*gdp->fragShader),
         .pName = "main",
+        .pNext = VK_NULL_HANDLE,
     };
+    printf("CREATEGRAPHICSPIPE FLAG 4\n");
 
     VkPipelineShaderStageCreateInfo shaderStages[2];
     shaderStages[0] = fragShaderStageInfo;
@@ -223,32 +241,45 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
+    printf("CREATEGRAPHICSPIPE FLAG 5\n");
 
     uint32_t dynamicStateSize = 2;
 
-    VkPipelineDynamicStateCreateInfo dynamicState;
-    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = dynamicStateSize;
-    dynamicState.pDynamicStates = dynamicStates;
+    VkPipelineDynamicStateCreateInfo dynamicState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = dynamicStateSize,
+        .pDynamicStates = dynamicStates,
+        .pNext = VK_NULL_HANDLE,
+    };
+
+    printf("CREATEGRAPHICSPIPE FLAG 6\n");
 
 
     // VERTEX INPUT
+    gdp->objectIADLen = 2;
+    fillObjectInputAttributeDescription(&gdp->objectIAD);
+    gdp->objectIBDLen = 1;
+    fillObjectBindingDescriptions(&gdp->objectIBD);
+    printf("CREATEGRAPHICSPIPE FLAG 7\n");
 
-    fillObjectInputAttributeDescription(gdp->objectIAD);
-    fillObjectBindingDescriptions(gdp->objectIBD);
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = gdp->objectIBDLen,
+        .pVertexBindingDescriptions = gdp->objectIBD,
+        .vertexAttributeDescriptionCount = gdp->objectIADLen,
+        .pVertexAttributeDescriptions = gdp->objectIAD,
+        .pNext = VK_NULL_HANDLE,
+    };
 
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo;
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = gdp->objectIBDLen;
-    vertexInputInfo.pVertexBindingDescriptions = gdp->objectIBD;
-    vertexInputInfo.vertexAttributeDescriptionCount = gdp->objectIADLen;
-    vertexInputInfo.pVertexAttributeDescriptions = gdp->objectIAD;
 
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly;
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+        .pNext = VK_NULL_HANDLE,
+    };
 
+    printf("CREATEGRAPHICSPIPE FLAG 8\n");
     VkViewport viewport = {
         .x = 0.0f,
         .y = 0.0f,
@@ -263,54 +294,67 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .extent = dm->swapChainM->currentExtent2D,
     };
 
-    VkPipelineViewportStateCreateInfo viewportState;
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
+    VkPipelineViewportStateCreateInfo viewportState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor,
+        .pNext = VK_NULL_HANDLE,
+    };
 
-    VkPipelineRasterizationStateCreateInfo rasterizer;
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
-    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
-    rasterizer.depthBiasClamp = 0.0f; // Optional
-    rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
 
-    VkPipelineMultisampleStateCreateInfo multisampling;
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.minSampleShading = 1.0f; // Optional
-    multisampling.pSampleMask = NULL; // Optional
-    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
-    multisampling.alphaToOneEnable = VK_FALSE; // Optional
+    VkPipelineRasterizationStateCreateInfo rasterizer = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .lineWidth = 1.0f,
+        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .depthBiasConstantFactor = 0.0f, // Optional
+        .depthBiasClamp = 0.0f, // Optional
+        .depthBiasSlopeFactor = 0.0f, // Optional
+        .pNext = VK_NULL_HANDLE,
+    };
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachment;
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
+    printf("CREATEGRAPHICSPIPE FLAG 9\n");
+    VkPipelineMultisampleStateCreateInfo multisampling = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .sampleShadingEnable = VK_FALSE,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .minSampleShading = 1.0f, // Optional
+        .pSampleMask = NULL, // Optional
+        .alphaToCoverageEnable = VK_FALSE, // Optional
+        .alphaToOneEnable = VK_FALSE, // Optional
+        .pNext = VK_NULL_HANDLE,
+    };
 
-    VkPipelineColorBlendStateCreateInfo colorBlending;
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.3f; // Optional
-    colorBlending.blendConstants[1] = 0.4f; // Optional
-    colorBlending.blendConstants[2] = 0.5f; // Optional
-    colorBlending.blendConstants[3] = 0.0f; // Optional
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+        .blendEnable = VK_FALSE,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE, // Optional
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO, // Optional
+        .colorBlendOp = VK_BLEND_OP_ADD, // Optional
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE, // Optional
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO, // Optional
+        .alphaBlendOp = VK_BLEND_OP_ADD, // Optional
+    };
+
+    VkPipelineColorBlendStateCreateInfo colorBlending = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY, // Optional
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment,
+        .blendConstants[0] = 0.3f, // Optional
+        .blendConstants[1] = 0.4f, // Optional
+        .blendConstants[2] = 0.5f, // Optional
+        .blendConstants[3] = 0.0f, // Optional
+        .pNext = VK_NULL_HANDLE,
+    };
+
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -318,16 +362,17 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .pSetLayouts = NULL, // Optional
         .pushConstantRangeCount = 0, // Optional
         .pPushConstantRanges = NULL, // Optional
+        .pNext = VK_NULL_HANDLE,
     };
 
-
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, NULL, gdp->pipelineLayout) != VK_SUCCESS) {
+    printf("CREATEGRAPHICSPIPE FLAG 10\n");
+    if (vkCreatePipelineLayout(*device, &pipelineLayoutInfo, NULL, &gdp->pipelineLayout) != VK_SUCCESS) {
         printf("failed to create pipeline layout!");
         exit(1);
     }
-
-    createRenderPass(dm->swapChainM,device,gdp);
-
+    printf("CREATEGRAPHICSPIPE FLAG 14\n");
+    createRenderPass(dm->swapChainM,*device,gdp);
+    printf("CREATEGRAPHICSPIPE FLAG 27\n");
     VkGraphicsPipelineCreateInfo pipelineInfo = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = 2,
@@ -341,15 +386,17 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .pColorBlendState = &colorBlending,
         .pDynamicState = &dynamicState,
         .layout = gdp->pipelineLayout,
-        .renderPass = gdp->renderPass,
+        .renderPass = *gdp->renderPass,
         .subpass = 0,
         .basePipelineHandle = VK_NULL_HANDLE, // Optional
         .basePipelineIndex = -1, // Optional
+        .pNext = VK_NULL_HANDLE,
     };
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, gdp->pipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, gdp->pipeline) != VK_SUCCESS) {
         printf("Error al crear el pipeline grafico");
         exit(1);
     }
+    printf("HOLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
 
 }
