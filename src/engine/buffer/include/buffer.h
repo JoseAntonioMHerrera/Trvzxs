@@ -64,7 +64,7 @@ TRVZXS_inline void createIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, Dev
     copyBuffer(ld, *dbm->stagingBuffer, *dbm->indexBuffer, bufferSize, ld->displayManager->commandPools->transferCommandPool);
 
     vkDestroyBuffer(ld->device, *dbm->stagingBuffer, VK_NULL_HANDLE);
-    vkFreeMemory(ld->device, *dbm->stagingBuffer, VK_NULL_HANDLE);
+    vkFreeMemory(ld->device, *dbm->stagingBufferMemory, VK_NULL_HANDLE);
 
 }
 

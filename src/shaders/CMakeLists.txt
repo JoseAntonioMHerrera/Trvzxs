@@ -1,37 +1,54 @@
-# CMakeLists.txt
+cmake_minimum_required(VERSION 3.12)
 
-cmake_minimum_required(VERSION 3.14)
-project(src-shaders C)
+# Set the path to glslc compiler
+find_program(GLSLC glslc HINTS ${Vulkan_INCLUDE_DIRS}/../bin)
 
-# Find Vulkan package
-find_package(Vulkan REQUIRED)
+if(NOT GLSLC)
+    message(FATAL_ERROR "glslc not found")
+else()
+    message(STATUS "Found glslc: ${GLSLC}")
+endif()
 
-# Directory containing shaders
-set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-
-# Output directory for compiled shaders (SPIR-V)
-set(SHADER_OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
-
-# Create output directory if it doesn't exist
-file(MAKE_DIRECTORY ${SHADER_OUTPUT_DIR})
-
-# List of shaders to compile
+# Set the shaders
 set(SHADERS
-    ${SHADER_DIR}/vertex.vert
-    ${SHADER_DIR}/fragment.frag
+    "${CMAKE_CURRENT_SOURCE_DIR}/triangle.frag"
+    "${CMAKE_CURRENT_SOURCE_DIR}/triangle.vert"
+    # Add more shaders as needed
 )
 
-# Compile shaders using glslc
+# Ensure the output directory for SPIR-V binaries exists
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/build/shaders/bin)
+
+# List to hold SPIR-V binary paths
+set(SPIRV_BINARIES "")
+
+# Create custom target for shader compilation
+add_custom_target(shaders_mod ALL)
+
+# Compile each shader
 foreach(SHADER ${SHADERS})
     get_filename_component(SHADER_NAME ${SHADER} NAME)
-    set(SPIRV_OUTPUT ${SHADER_OUTPUT_DIR}/${SHADER_NAME}.spv)
+    set(SPIRV "${CMAKE_SOURCE_DIR}/build/shaders/bin/${SHADER_NAME}.spv")
+
     add_custom_command(
-        OUTPUT ${SPIRV_OUTPUT}
-        COMMAND ${Vulkan_glslc_EXECUTABLE} -o ${SPIRV_OUTPUT} ${SHADER}
+        OUTPUT ${SPIRV}
+        COMMAND ${GLSLC} -o ${SPIRV} ${SHADER}
         DEPENDS ${SHADER}
+        COMMENT "Compiling shader ${SHADER_NAME}"
     )
-    list(APPEND SPIRV_BINARY_FILES ${SPIRV_OUTPUT})
+
+    # Append the generated SPIR-V binary to the list
+    list(APPEND SPIRV_BINARIES ${SPIRV})
+
+    # Print the list of SPIR-V binaries (for debugging purposes)
+    message(STATUS "SPIR-V binaries: ${SPIRV_BINARIES}")
 endforeach()
 
-# Create a custom target for shaders compilation
-add_custom_target(shaders DEPENDS ${SPIRV_BINARY_FILES})
+# Add dependencies to the custom target
+add_custom_target(
+    Shaders ALL
+    DEPENDS ${SPIRV_BINARIES}
+)
+
+# Ensure shaders are built before your executable
+add_dependencies(${PROJECT_NAME} shaders_mod)

@@ -57,7 +57,7 @@ TRVZXS_inline void createCommandBuffer(GeometryDisplayPipelineManager *ggp, VkDe
         .commandBufferCount = ggp->maxFrames,
     };
 
-    if (vkAllocateCommandBuffers(device, &allocInfo, ggp->commandBuffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(*device, &allocInfo, ggp->commandBuffer) != VK_SUCCESS) {
         printf("Error al crear el command buffer");
         exit(0);
     }

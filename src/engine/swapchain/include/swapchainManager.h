@@ -27,7 +27,7 @@ TRVZXS_inline void createImageViews(DisplaySwapchainManager *dsm, VkDevice *d){
         .subresourceRange.layerCount = 1,
         };
 
-        if (vkCreateImageView(d, &createInfo, NULL, &dsm->p_scImageView[i]) != VK_SUCCESS) {
+        if (vkCreateImageView(*d, &createInfo, NULL, &dsm->p_scImageView[i]) != VK_SUCCESS) {
             printf("failed to create image views!");
         }
     }
@@ -76,7 +76,7 @@ TRVZXS_inline void createGraphicsRenderPass(DisplaySwapchainManager *dsm, VkDevi
         .pDependencies = dsm->subpassDependency,
     };
 
-    if (vkCreateRenderPass(d, &renderPassInfo, NULL, renderPass) != VK_SUCCESS) {
+    if (vkCreateRenderPass(*d, &renderPassInfo, NULL, renderPass) != VK_SUCCESS) {
         printf("Error creating the render pass!");
         exit(0);
     }
@@ -89,12 +89,12 @@ TRVZXS_inline void createFrameBuffers(DisplaySwapchainManager *swapManager, VkRe
 
     for (uint32_t i = 0; i < swapManager->scImagesLen; i++) {
         VkImageView attachments[] = {
-            swapManager->p_scImages[i]
+            swapManager->p_scImageView[i]
         };
 
         VkFramebufferCreateInfo framebufferInfo = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-            .renderPass = renderPass,
+            .renderPass = *renderPass,
             .attachmentCount = 1,
             .pAttachments = attachments,
             .width = swapManager->currentExtent2D.width,
@@ -103,7 +103,7 @@ TRVZXS_inline void createFrameBuffers(DisplaySwapchainManager *swapManager, VkRe
         };
 
 
-        if (vkCreateFramebuffer(device, &framebufferInfo, NULL, &swapManager->p_framebuffers[i]) != VK_SUCCESS) {
+        if (vkCreateFramebuffer(*device, &framebufferInfo, NULL, &swapManager->p_framebuffers[i]) != VK_SUCCESS) {
             printf("Error en la creación del framebuffer con la ImageView [%d]", i);
         }
     }
@@ -148,42 +148,45 @@ TRVZXS_inline VkPresentModeKHR chooseSwapPresentMode(VkPresentModeKHR* available
 
 TRVZXS_inline void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *displayM, DisplaySwapchainManager * displaySwapCh, SDL_Window* window){
     SwapChainSupportDetails *swapChainSupportDetails = (SwapChainSupportDetails*) malloc(sizeof(SwapChainSupportDetails));
-
-    VkResult queryPhysicalDeviceSurfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pd->gpu,
+    displaySwapCh->swapChainSupportDetails = swapChainSupportDetails;
+    VkResult queryPhysicalDeviceSurfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR((*pd->gpu),
                                                                                         displayM->surface,
                                                                                         &swapChainSupportDetails->capabilities);
     assert(queryPhysicalDeviceSurfaceCapabilitiesResult == VK_SUCCESS);
-
+    printf("CREATESWAPCHAIN FLAG 0\n");
     // Query de los formatos de presentacion en superficie que ofrece la gpu (physicalDevice)
     swapChainSupportDetails->surfaceFormatsLen =  0;
-    VkResult queryPhysicalDeviceSurfaceFormatsCountResult = vkGetPhysicalDeviceSurfaceFormatsKHR(pd->gpu, displayM->surface, &swapChainSupportDetails->surfaceFormatsLen, NULL);
+    VkResult queryPhysicalDeviceSurfaceFormatsCountResult = vkGetPhysicalDeviceSurfaceFormatsKHR(*pd->gpu, displayM->surface,
+                                                                            &swapChainSupportDetails->surfaceFormatsLen, NULL);
     assert(swapChainSupportDetails->surfaceFormatsLen > 0 && queryPhysicalDeviceSurfaceFormatsCountResult == VK_SUCCESS);
-
+    printf("CREATESWAPCHAIN FLAG 1\n");
 
     if (swapChainSupportDetails->surfaceFormatsLen > 0) {
         swapChainSupportDetails->formats = (VkSurfaceFormatKHR*) malloc(sizeof(VkSurfaceFormatKHR)* swapChainSupportDetails->surfaceFormatsLen);
-        VkResult queryPhysicalDeviceSurfaceFormatsResult = vkGetPhysicalDeviceSurfaceFormatsKHR(pd->gpu, displayM->surface, &swapChainSupportDetails->surfaceFormatsLen, swapChainSupportDetails->formats);
+        VkResult queryPhysicalDeviceSurfaceFormatsResult = vkGetPhysicalDeviceSurfaceFormatsKHR(*pd->gpu, displayM->surface, &swapChainSupportDetails->surfaceFormatsLen, swapChainSupportDetails->formats);
         assert(queryPhysicalDeviceSurfaceFormatsResult == VK_SUCCESS);
+        printf("CREATESWAPCHAIN FLAG 2\n");
     }
-
-
+    printf("CREATESWAPCHAIN FLAG 3\n");
     swapChainSupportDetails->presentModeLen  = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(pd->gpu, displayM->surface, &swapChainSupportDetails->presentModeLen, NULL);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(*pd->gpu, displayM->surface, &swapChainSupportDetails->presentModeLen, NULL);
+    printf("CREATESWAPCHAIN FLAG 4\n");
     // Query present modes
     if (swapChainSupportDetails->presentModeLen != 0) {
         swapChainSupportDetails->presentModes = (VkPresentModeKHR*) malloc(sizeof(VkPresentModeKHR)* swapChainSupportDetails->presentModeLen);
 
-        vkGetPhysicalDeviceSurfacePresentModesKHR(pd->gpu, displayM->surface, &swapChainSupportDetails->presentModeLen, swapChainSupportDetails->presentModes);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(*pd->gpu, displayM->surface, &swapChainSupportDetails->presentModeLen, swapChainSupportDetails->presentModes);
+    printf("CREATESWAPCHAIN FLAG 5\n");
     }
 
 
     // Seleccionamos el formatos de superficie entre los disponibles que ofrece la gpu
     displaySwapCh->currentSurfaceFormat = chooseSwapSurfaceFormat(swapChainSupportDetails->formats, swapChainSupportDetails->surfaceFormatsLen);
-
+printf("CREATESWAPCHAIN FLAG 6\n");
     //Seleccionamos el modo de presentación para las imagenes a renderizar por la gpu
 
     VkPresentModeKHR selectedPresentationMode =  chooseSwapPresentMode(swapChainSupportDetails->presentModes, swapChainSupportDetails->presentModeLen, VK_PRESENT_MODE_MAILBOX_KHR);
-
+printf("CREATESWAPCHAIN FLAG 7\n");
     //Procesamos la resolución soportada por nuestra ventana y la del framebuffer de swapchain
     chooseSwapExtent2D(&displaySwapCh->currentExtent2D, &swapChainSupportDetails->capabilities, window);
 
@@ -197,6 +200,7 @@ TRVZXS_inline void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, Displa
     }
 
     // Finally, we build the SwapChain info struct
+    uint32_t familyIndices[] = {pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.transferFamily};
     const
     VkSwapchainCreateInfoKHR creationSwapChainInfo= {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -208,15 +212,15 @@ TRVZXS_inline void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, Displa
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, // Para renderizar directamente la imagen
         .imageSharingMode = VK_SHARING_MODE_CONCURRENT,
-        .queueFamilyIndexCount = 3,
-        .pQueueFamilyIndices = &(pd->queueFamilyIndices.graphicsFamily),
+        .queueFamilyIndexCount = 2,
+        .pQueueFamilyIndices = familyIndices,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = selectedPresentationMode,
         .clipped = VK_TRUE,
         .oldSwapchain = VK_NULL_HANDLE,
         .preTransform = swapChainSupportDetails->capabilities.currentTransform,
     };
-
+    printf("swapchain %d: %x\n", 0,ld);
     //TODO fix procesamiento de seleccion de colas, se deja hardcodeado que vamos a usar dos colas distintas 0 presentacion 1 drawing
     VkResult createSwapchainResult = vkCreateSwapchainKHR(ld->device, &creationSwapChainInfo, NULL, &displaySwapCh->swapchain);
     if (createSwapchainResult != VK_SUCCESS) {
@@ -251,7 +255,7 @@ TRVZXS_inline void recreateSwapChain(PhysicalDevice *pd, LogicalDevice* ld, SDL_
     vkDeviceWaitIdle(ld->device);
     cleanupSwapChain(ld, ld->displayManager, ld->displayManager->swapChainM);
     createSwapChain(pd, ld, ld->displayManager, ld->displayManager->swapChainM, window);
-    createImageViews(ld->displayManager->swapChainM, ld->device);
-    createFrameBuffers(ld->displayManager->swapChainM, ld->displayManager->geomPipeline->renderPass, ld->device);
+    createImageViews(ld->displayManager->swapChainM, &ld->device);
+    createFrameBuffers(ld->displayManager->swapChainM, ld->displayManager->geomPipeline->renderPass, &ld->device);
 
 }
