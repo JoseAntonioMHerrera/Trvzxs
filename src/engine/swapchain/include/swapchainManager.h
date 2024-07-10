@@ -1,11 +1,114 @@
 #pragma once
 #include <SDL_vulkan.h>
 #include <vulkan/vulkan_core.h>
-#include "../../device/include/deviceManagment.h"
 #include "../../../utils/include/comparation_helper_macros.h"
-#include "../../../include/langDefinitions/compilerMacros.h"
+#include "compilerMacros.h"
 #include "swapchainManagerTypes.h"
 #include <stddef.h>
+
+
+TRVZXS_inline void createImageViews(DisplaySwapchainManager *dsm, VkDevice *d){
+    dsm->scImageViewLen = dsm-> scImagesLen;
+    dsm->p_scImageView = malloc(sizeof(VkImageView) * dsm->scImageViewLen);
+    for (size_t i = 0; i < dsm->scImageViewLen; i++) {
+        VkImageViewCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = dsm->p_scImages[i],
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = dsm->currentSurfaceFormat->format,
+        .components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .subresourceRange.baseMipLevel = 0,
+        .subresourceRange.levelCount = 1,
+        .subresourceRange.baseArrayLayer = 0,
+        .subresourceRange.layerCount = 1,
+        };
+
+        if (vkCreateImageView(d, &createInfo, NULL, &dsm->p_scImageView[i]) != VK_SUCCESS) {
+            printf("failed to create image views!");
+        }
+    }
+}
+
+TRVZXS_inline void createGraphicsRenderPass(DisplaySwapchainManager *dsm, VkDevice *d, VkRenderPass *renderPass) {
+
+    VkAttachmentDescription colorAttachment = {
+        .format = dsm->currentSurfaceFormat->format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    };
+
+
+    VkAttachmentReference colorAttachmentRef = {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    VkSubpassDescription subpass = {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachmentRef,
+    };
+
+    dsm->subpassDependency = (VkSubpassDependency*) malloc(sizeof(dsm->subpassDependency));
+    dsm->subpassDependency->srcSubpass = VK_SUBPASS_EXTERNAL;
+    dsm->subpassDependency->dstSubpass = 0;
+    dsm->subpassDependency->srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dsm->subpassDependency->srcAccessMask = 0;
+    dsm->subpassDependency->dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dsm->subpassDependency->dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dsm->subpassDependency->dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    VkRenderPassCreateInfo renderPassInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &colorAttachment,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 1,
+        .pDependencies = dsm->subpassDependency,
+    };
+
+    if (vkCreateRenderPass(d, &renderPassInfo, NULL, renderPass) != VK_SUCCESS) {
+        printf("Error creating the render pass!");
+        exit(0);
+    }
+
+}
+
+TRVZXS_inline void createFrameBuffers(DisplaySwapchainManager *swapManager, VkRenderPass *renderPass, VkDevice* device){
+    swapManager->framebuffersLen = swapManager->scImagesLen;
+    swapManager->p_framebuffers = malloc(sizeof(VkFramebuffer) * swapManager->scImagesLen);
+
+    for (uint32_t i = 0; i < swapManager->scImagesLen; i++) {
+        VkImageView attachments[] = {
+            swapManager->p_scImages[i]
+        };
+
+        VkFramebufferCreateInfo framebufferInfo = {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = renderPass,
+            .attachmentCount = 1,
+            .pAttachments = attachments,
+            .width = swapManager->currentExtent2D.width,
+            .height = swapManager->currentExtent2D.height,
+            .layers = 1,
+        };
+
+
+        if (vkCreateFramebuffer(device, &framebufferInfo, NULL, &swapManager->p_framebuffers[i]) != VK_SUCCESS) {
+            printf("Error en la creación del framebuffer con la ImageView [%d]", i);
+        }
+    }
+
+}
 
 TRVZXS_inline VkExtent2D chooseSwapExtent2D(VkExtent2D *extent, VkSurfaceCapabilitiesKHR* capabilities, SDL_Window* window) {
 /*    if (capabilities->currentExtent.width != UINT32_MAX) {
@@ -128,5 +231,27 @@ TRVZXS_inline void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, Displa
         printf("failed to retrieve images from the swap chain!\n");
         exit(1);
     }
+}
+
+TRVZXS_inline void cleanupSwapChain(LogicalDevice *ld, DisplayManager *dm, DisplaySwapchainManager *dsm) {
+    /*vkDestroyShaderModule(device, vertShaderModule, NULL);
+    vkDestroyShaderModule(device, fragShaderModule, NULL);*/
+    for (size_t i = 0; i < dsm->framebuffersLen; i++) {
+        vkDestroyFramebuffer(ld->device, dsm->p_framebuffers[i], NULL);
+    }
+
+    for (size_t i = 0; i < dsm->scImageViewLen; i++) {
+        vkDestroyImageView(ld->device, dsm->p_scImageView[i], NULL);
+    }
+
+    vkDestroySwapchainKHR(ld->device, dsm->swapchain, VK_NULL_HANDLE);
+}
+
+TRVZXS_inline void recreateSwapChain(PhysicalDevice *pd, LogicalDevice* ld, SDL_Window *window) {
+    vkDeviceWaitIdle(ld->device);
+    cleanupSwapChain(ld, ld->displayManager, ld->displayManager->swapChainM);
+    createSwapChain(pd, ld, ld->displayManager, ld->displayManager->swapChainM, window);
+    createImageViews(ld->displayManager->swapChainM, ld->device);
+    createFrameBuffers(ld->displayManager->swapChainM, ld->displayManager->geomPipeline->renderPass, ld->device);
 
 }

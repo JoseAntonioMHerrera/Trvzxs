@@ -15,8 +15,17 @@ typedef struct DisplaySwapchainManager {
     VkExtent2D currentExtent2D;
     VkExtent3D currentExtent3D;
     VkSwapchainKHR swapchain;
+
+    VkFramebuffer *p_framebuffers;
+    size_t framebuffersLen;
+
     size_t scImagesLen; //size_t TODO
     VkImage* p_scImages;
+
+
+    size_t scImageViewLen;
+    VkImageView * p_scImageView;
     VkSurfaceFormatKHR *currentSurfaceFormat;
     SwapChainSupportDetails *swapChainSupportDetails;
+    VkSubpassDependency *subpassDependency;
 } DisplaySwapchainManager;

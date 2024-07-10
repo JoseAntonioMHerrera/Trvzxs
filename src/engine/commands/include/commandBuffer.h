@@ -2,12 +2,13 @@
 #include <vulkan/vulkan.h>
 #include <stddef.h>
 #include <stdio.h>
-#include "../../../include/geometry/transformations.h"
-#include "../../../include/geometry/vertex.h"
-#include "../../../include/langDefinitions/compilerMacros.h"
-#include "../../../include/langDefinitions/numberTypes.h"
-#include "../../../include/langDefinitions/miscTypes.h"
-#include "../../device/include/deviceManagment.h"
+#include "transformations.h"
+#include "vertex.h"
+#include "compilerMacros.h"
+#include "numberTypes.h"
+#include "miscTypes.h"
+#include "deviceManagment.h"
+#include "geometryPipelineTypes.h"
 #include <string.h> //TODO revisar memcpy de aqui
 
 TRVZXS_inline void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool *transferCommandPool) {
@@ -45,4 +46,19 @@ TRVZXS_inline void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer ds
     vkQueueWaitIdle(ld->queueManager.transferQueue);
 
     vkFreeCommandBuffers(ld->device, *transferCommandPool, 1, &transferCommandBuffer);
+}
+
+TRVZXS_inline void createCommandBuffer(GeometryDisplayPipelineManager *ggp, VkDevice *device){
+    ggp->commandBuffer = malloc(sizeof(VkCommandBuffer)* ggp->commandLen);
+    VkCommandBufferAllocateInfo allocInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = ggp->graphicsCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = ggp->maxFrames,
+    };
+
+    if (vkAllocateCommandBuffers(device, &allocInfo, ggp->commandBuffer) != VK_SUCCESS) {
+        printf("Error al crear el command buffer");
+        exit(0);
+    }
 }

@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 project(renderer C)
 
-# Set the C standard
-set(CMAKE_C_STANDARD 17)
-
 # FetchContent for SDL2
 include(FetchContent)
 FetchContent_Declare(
@@ -16,19 +13,19 @@ set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(SDL2)
 
+# Set the C standard
+set(CMAKE_C_STANDARD 17)
 
 # Gather all source files
 file(GLOB_RECURSE ROOT_SOURCES
-    "${CMAKE_SOURCE_DIR}/main_vulkan.c"
-    "${CMAKE_SOURCE_DIR}/main.c"
+    "${CMAKE_SOURCE_DIR}/src/main_vulkan.c"
+    "${CMAKE_SOURCE_DIR}/src/main.c"
 )
 
 # Gather all header files
 file(GLOB_RECURSE ROOT_HEADERS
-    "${CMAKE_SOURCE_DIR}/main_vulkan.h"
-    "${CMAKE_SOURCE_DIR}/langexceptions.h"
+    "${CMAKE_SOURCE_DIR}src/main_vulkan.h"
 )
-
 # Define the executable target
 add_executable(${PROJECT_NAME})
 
@@ -48,7 +45,7 @@ target_sources(${PROJECT_NAME}
 # Add include directories to the target
 target_include_directories(${PROJECT_NAME}
     PUBLIC
-    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/cglm/
     ${SDL2_INCLUDE_DIRS}
 )
 
@@ -65,4 +62,5 @@ target_link_libraries(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
     engine_mod
+    utils_mod
 )

@@ -1,5 +1,4 @@
-
-#include "./include/deviceManagment.h"
+#include "deviceManagment.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <SDL.h>
@@ -112,24 +111,28 @@ uint32_t findMemoryType(PhysicalDevice *pd, uint32_t typeFilter, VkMemoryPropert
 #define FOR(var, start, end, step) \
 for (int var = (start); var < (end); var += (step))
 
-void initDeviceManager(const VkInstance instance, DeviceManager **dm){
-
+void initDeviceManager(VkInstance *instance, DeviceManager *dm){
+        printf(stderr, "FLAG INITDEVICEMANAGER\n");
     uint32_t supportedGpuLen = 0;
-    VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(instance, &supportedGpuLen, NULL);
+    VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, NULL);
+            printf(stderr, "FLAG INITDEVICEMANAGER 2\n");
+        //fflush(stdout);
     assert(supportedGpuLen >= 1);
 
-    *dm = malloc(sizeof(DeviceManager));
-    assert(*dm);
-
-    (*dm)->deviceIndex = 0;
-    (*dm)->phyDeviceLen = supportedGpuLen;
-    (*dm)->pDevice = malloc(sizeof((*dm)->pDevice) * supportedGpuLen);
-    (*dm)->lDevice = malloc(sizeof((*dm)->lDevice) * supportedGpuLen);
+    dm->deviceIndex = 0;
+    dm->gpuIndex = 0;
+    dm->phyDeviceLen = supportedGpuLen;
+    dm->deviceLen = supportedGpuLen;
+    dm->pDevice = malloc(sizeof(dm->pDevice) * supportedGpuLen);
+    dm->lDevice = malloc(sizeof(dm->lDevice) * supportedGpuLen);
 
     FOR(i, 0, supportedGpuLen, 1) {
-        initPhysicalDeviceQueues(&(*dm)->pDevice[i], supportedGpuLen);
+        printf(stderr, "FLAG INITDEVICEMANAGER 3\n");
+        //fflush(stdout);
+        initPhysicalDeviceQueues(&dm->pDevice[i], supportedGpuLen);
     }
 }
+
 void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
 
     ld->displayManager = malloc(sizeof(ld->displayManager));
