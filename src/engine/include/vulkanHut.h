@@ -5,7 +5,6 @@
 #include "../../include/langDefinitions/numberTypes.h"
 #include "../../include/geometry/vertex.h"
 #include "../device/include/deviceManagment.h"
-const int MAX_FRAMES_IN_FLIGHT = 2;
 
 // Queues for operations
 /*
@@ -89,8 +88,8 @@ typedef struct EngineHut {
     uint32_t deviceBufferLen;
 
     VkInstance* instance;
-    VkDebugUtilsMessengerEXT* logCallback;
-    SDL_Window *window; //TODO: move to an agonstic library window manager for the engine.
+
+    SDL_Window *window; //TODO: move to an agnostic library window manager for the engine.
 } EngineHut;
 
 struct EngineHut *engineHut;
@@ -102,5 +101,4 @@ void destroyVulkanInstance(const VkInstance* instance);
 void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEXT* callback_messenger);
 void createGraphicsPipeline();
 void createRenderPass();
-void drawFrame();
 void cleanup();

@@ -2,8 +2,8 @@
 #include <vulkan/vulkan.h>
 #include <stddef.h>
 #include <stdio.h>
-#include "../../../include/geometry/transformations.h"
-#include "../../../include/geometry/vertex.h"
+#include "transformations.h"
+#include "vertex.h"
 #include "../../../include/langDefinitions/compilerMacros.h"
 #include "../../../include/langDefinitions/numberTypes.h"
 #include "../../../include/langDefinitions/miscTypes.h"
@@ -11,17 +11,9 @@
 #include "../../commands/include/commandBuffer.h"
 #include "buffer.h"
 #include <string.h> //TODO revisar memcpy de aqui
+#include "bufferTypes.h"
 
-typedef struct UniformBuffersManager {
-    VkBuffer *uniformBuffers;
-    uint32_t uniformBuffersLen;
-    VkDeviceMemory *uniformBuffersMemory;
-    void* uniformBuffersMapped;
-    void* uniformBufferType;
-    VkDescriptorSetLayout *dsl;
-} UniformBuffersManager
-;
-TRVZXS_inline void createDescriptorSetLayout(LogicalDevice *ld, UniformBuffersManager* ubos){
+TRVZXS_inline void createDescriptorSetLayout(LogicalDevice *ld, UniformBufferManager* ubos){
     VkDescriptorSetLayoutBinding uboLayoutBinding ={
         .binding = 0,
         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -42,7 +34,7 @@ TRVZXS_inline void createDescriptorSetLayout(LogicalDevice *ld, UniformBuffersMa
 
 }
 
-TRVZXS_inline int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t len, UniformBuffersManager *ubos, char* error) {
+TRVZXS_inline int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t len, UniformBufferManager *ubos, char* error) {
 
     assert(ubos);
 

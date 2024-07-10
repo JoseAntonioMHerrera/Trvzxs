@@ -1,13 +1,13 @@
 #include <SDL.h>
-#include "main_vulkan.h"
-#include "src/utils/fileFunctions/include/file_functions.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <assert.h>
-
 #include <X11/Xlib.h>
 #include <unistd.h>
+#include "main_vulkan.h"
+#include "file_functions.h"
+
 
 
 // Tamaño de la ventana
@@ -31,8 +31,12 @@ int main(int argc, char* argv[]) {
     }
 
 
-    initVulkan(window);
-
+    DeviceManager *dm = initTRVZXSEngine(window);
+    DisplayManager *dispM = dm->lDevice[dm->deviceIndex]->displayManager;
+    LogicalDevice *ld = &dm->lDevice[dm->deviceIndex];
+    PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
+    GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
+    DisplaySwapchainManager *dsm = dispM->swapChainM;
    // Crear renderizador para la ventana
     /*SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == NULL) {
@@ -41,8 +45,8 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return -1;
     }*/
-    bool running = true;
-    bool resizing = false;
+    bool running = 1;
+    bool resizing = 0;
     SDL_Event event;
     int initialMouseX, initialMouseY;
     int initialWidth, initialHeight;
@@ -52,7 +56,7 @@ int main(int argc, char* argv[]) {
         while (SDL_PollEvent(&event)) {
  switch (event.type) {
                 case SDL_QUIT:
-                    running = false;
+                    running = 0;
                     break;
                 case SDL_MOUSEBUTTONDOWN:
                     if (event.button.button == SDL_BUTTON_LEFT) {
@@ -62,7 +66,7 @@ int main(int argc, char* argv[]) {
                         SDL_GetWindowSize(window, &winWidth, &winHeight);
 
                         if (mouseX >= winWidth - MARGIN && mouseY >= winHeight - MARGIN) {
-                            resizing = true;
+                            resizing = 1;
                             initialMouseX = mouseX;
                             initialMouseY = mouseY;
                             initialWidth = winWidth;
@@ -72,7 +76,7 @@ int main(int argc, char* argv[]) {
                     break;
                 case SDL_MOUSEBUTTONUP:
                     if (event.button.button == SDL_BUTTON_LEFT) {
-                        resizing = false;
+                        resizing = 0;
                     }
                     break;
                 case SDL_MOUSEMOTION:
@@ -91,7 +95,7 @@ int main(int argc, char* argv[]) {
 
         // Llamada a la función drawFrame
             if(!resizing) {
-                drawFrame();
+                drawFrame(pd, ld, dispM, gdp, ld->device, window);
             }
 
         // Aquí puedes añadir tus comandos de dibujo
@@ -100,7 +104,7 @@ int main(int argc, char* argv[]) {
     // Liberar recursos
 
 
-    cleanup();
+    cleanup(dm, ld, dispM, gdp,dm->logCallback);
   //  SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
