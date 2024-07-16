@@ -18,6 +18,7 @@
 #include "commandPool.h"
 #include "displayManager.h"
 #include "swapchainManager.h"
+#include "uniformBuffer.h"
 
 void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEXT* callback_messenger){
     PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
@@ -105,8 +106,8 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, Geomet
     vkFreeMemory(ld->device, gdp->deviceBuffer->bufferMemory, NULL);
     vkFreeMemory(ld->device, gdp->deviceBuffer->indexBufferMemory, NULL);
     vkDestroyRenderPass(ld->device, gdp->renderPass, NULL);
-    vkDestroyCommandPool(ld->device, gdp->graphicsCommandPool, NULL);
-    vkDestroyCommandPool(ld->device, gdp->transferCommandPool, NULL);
+    vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
+    vkDestroyCommandPool(ld->device, gdp->commandPool->transferCommandPool, NULL);
     vkDestroyPipeline(ld->device, gdp->pipeline, NULL);
     vkDestroyDescriptorSetLayout(ld->device, gdp->deviceBuffer->ubo->dsl, NULL);
     vkDestroyPipelineLayout(ld->device, gdp->pipelineLayout, NULL);
@@ -138,7 +139,7 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
         .apiVersion = VK_API_VERSION_1_0,
     };
 
-    char* extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0", "VK_KHR_surface\0"};
+    char* extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0", "VK_KHR_surface\0", "VK_KHR_dynamic_rendering"};
 
     uint32_t available_instance_layers_count = 0;
     VkLayerProperties* vulkan_instance_layer_properties;
@@ -249,7 +250,12 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     dispM->swapChainM = malloc(sizeof(*dispM->swapChainM));
     dispM->geomPipeline = malloc(sizeof(*dispM->geomPipeline));
     DisplaySwapchainManager *dsm = dispM->swapChainM;
+
     GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
+    DeviceBufferManager *devicebm;
+    gdp->commandPool = malloc(sizeof(*gdp->commandPool));
+    gdp->maxFrames = MAX_FRAMES_IN_FLIGHT;
+    dsm->scImagesLen = gdp->maxFrames;
     createSDLSurface(dispM, dm->instance, window);
     printf("RETORNO CREATESURFACE\n\0");
 
@@ -267,21 +273,45 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
         exit(1);
     }
     createSwapChain(pd, ld, dispM, dsm, window);
+    gdp->maxFrames = dsm->scImagesLen;
     printf("RETORNO CREATESWAPCHAIN\n\0");
+    createRenderPass(dispM->swapChainM,ld->device,gdp);
+        printf("RETORNO RENDERPASS\n\0");
     createImageViews(dsm, &ld->device);
-        printf("RETORNO IMAGEVIEWS\n\0");
-    createGraphicsPipeline(gdp, dispM, &ld->device);
-    printf("RETORNO GRPAHICSPIPLINE\n\0");
+    printf("RETORNO IMAGEVIEWS\n\0");
     createFrameBuffers(dsm,gdp->renderPass, &ld->device);
     printf("RETORNO FRAMEBUFFERS\n\0");
-    createCommandPool(pd,ld->device,gdp);
+    gdp->deviceBuffer = malloc(sizeof(*gdp->deviceBuffer));
+    devicebm = gdp->deviceBuffer;
+
+    devicebm->ubo = malloc(sizeof(*(gdp->deviceBuffer->ubo)));
+    createUniformBuffers(pd,ld, gdp->maxFrames, gdp->deviceBuffer->ubo);
+    printf("RETORNO UNIFORMBUFFERS\n\0");
+    printf("!!!!!! %d", gdp->maxFrames);
+    createDescriptorSetLayout(ld, gdp->deviceBuffer->ubo, gdp->maxFrames);
+        printf("RETORNO SETLAYOUT\n\0");
+    createDescriptorPool(gdp->maxFrames, ld->device, gdp->deviceBuffer->ubo);
+        printf("RETORNO DESCRIPTOR POOL\n\0");
+    createDescriptorSet(gdp->maxFrames, ld->device, gdp->deviceBuffer->ubo);
+    printf("RETORNO SETLAYOUT\n\0");
+    createGraphicsPipeline(gdp, dispM, &ld->device);
+    printf("RETORNO GRPAHICSPIPLINE\n\0");
+
+    createGraphicsCommandPool(pd,ld->device,gdp);
     printf("RETORNO COMMANDPOOLD\n\0");
     createTransferQueueCommandPool(pd,ld->device,gdp);
-    createCommandBuffer(gdp, &ld->device);
+        printf("RETORNO TRANSFERPOOL\n\0");
+    createCommandBuffer(gdp, &ld->device, gdp->maxFrames);
+     printf("RETORNO COMMANDBUFFER\n\0");
     createSyncObjects(gdp, &ld->device);
-    createGeometryBuffer(pd,ld,gdp->deviceBuffer,gdp->geometry);
-    createIndiceBuffer(pd, ld,gdp->deviceBuffer,gdp->geometry);
+         printf("RETORNO SYNC\n\0");
+    createGeometryBuffer(pd,ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
+         printf("RETORNO GEOMETRYBUFFER\n\0");
+    createIndiceBuffer(pd, ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
+         printf("RETORNO INDICE\n\0");
+
     dm->logCallback = createDebugCallbackForVulkan(dm->instance);
+    dispM->currentFrame = 0;
     printf("Init vulkan ended.\n");
     return dm;
 

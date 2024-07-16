@@ -23,7 +23,7 @@ typedef struct DisplaySwapchainManager {
     VkImage* p_scImages;
 
 
-    size_t scImageViewLen;
+    uint32_t scImageViewLen;
     VkImageView * p_scImageView;
     VkSurfaceFormatKHR *currentSurfaceFormat;
     SwapChainSupportDetails *swapChainSupportDetails;

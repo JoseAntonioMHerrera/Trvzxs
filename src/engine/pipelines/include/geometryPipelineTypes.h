@@ -2,6 +2,12 @@
 #include <vulkan/vulkan.h>
 #include "vertex.h"
 #include "bufferTypes.h"
+
+typedef struct CommandPools {
+    VkCommandPool* transferCommandPool;
+    VkCommandPool* graphicsCommandPool;
+    // Add other command pools as needed
+} CommandPools;
 typedef struct DeviceBufferManager {
     VkBuffer *buffer;
     VkDeviceMemory *bufferMemory;
@@ -17,7 +23,7 @@ typedef struct DeviceBufferManager {
 } DeviceBufferManager;
 
 typedef struct GeometryDisplayPipelineManager {
-    size_t maxFrames;
+    uint32_t maxFrames;
 
     size_t commandLen;
     VkRenderPass* renderPass;
@@ -27,10 +33,9 @@ typedef struct GeometryDisplayPipelineManager {
     VkPipeline *pipeline;
 
     // LAYOUT //
-    VkPipelineLayout pipelineLayout;
+    VkPipelineLayout *pipelineLayout;
     // COMMANDS //
-    VkCommandPool transferCommandPool;
-    VkCommandPool graphicsCommandPool;
+    CommandPools *commandPool;
     VkCommandBuffer *commandBuffer;
 
     // ATTACHTMENTS

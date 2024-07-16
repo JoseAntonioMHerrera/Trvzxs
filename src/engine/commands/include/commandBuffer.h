@@ -12,25 +12,35 @@
 #include <string.h> //TODO revisar memcpy de aqui
 
 TRVZXS_inline void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool *transferCommandPool) {
+        printf("COPYBUFFER FLAG 1\n");
+
     VkCommandBufferAllocateInfo allocInfo;
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandPool = *transferCommandPool;
     allocInfo.commandBufferCount = 1;
     allocInfo.pNext = VK_NULL_HANDLE;
-
+    printf("COPYBUFFER FLAG 1\n");
     VkCommandBuffer transferCommandBuffer;
     vkAllocateCommandBuffers(ld->device, &allocInfo, &transferCommandBuffer);
-    VkCommandBufferBeginInfo beginInfo;
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Command only executed once
+        printf("COPYBUFFER FLAG 2\n");
+
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, // Command only executed once
+    };
+
 
     vkBeginCommandBuffer(transferCommandBuffer, &beginInfo);
+    printf("COPYBUFFER FLAG 3\n");
 
-    VkBufferCopy copyRegion;
-    copyRegion.srcOffset = 0; // Optional
-    copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = size;
+    VkBufferCopy copyRegion = {
+        .srcOffset = 0, // Optional
+        .dstOffset = 0, // Optional
+        .size = size,
+    };
+
+    printf("COPYBUFFER FLAG 4\n");
 
     vkCmdCopyBuffer(transferCommandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
     vkEndCommandBuffer(transferCommandBuffer);
@@ -42,22 +52,24 @@ TRVZXS_inline void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer ds
     };
 
 
-    vkQueueSubmit(ld->queueManager.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(ld->queueManager.transferQueue);
-
+    vkQueueSubmit(*ld->queueManager.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(*ld->queueManager.transferQueue);
+    printf("COPYBUFFER FLAG 4\n");
     vkFreeCommandBuffers(ld->device, *transferCommandPool, 1, &transferCommandBuffer);
 }
 
-TRVZXS_inline void createCommandBuffer(GeometryDisplayPipelineManager *ggp, VkDevice *device){
-    ggp->commandBuffer = malloc(sizeof(VkCommandBuffer)* ggp->commandLen);
+TRVZXS_inline void createCommandBuffer(GeometryDisplayPipelineManager *gdp, VkDevice *device, size_t framesInFlight){
+    gdp->commandLen = framesInFlight;
+    gdp->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
     VkCommandBufferAllocateInfo allocInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = ggp->graphicsCommandPool,
+        .commandPool = *gdp->commandPool->graphicsCommandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = ggp->maxFrames,
+        .commandBufferCount = gdp->maxFrames,
+        .pNext = VK_NULL_HANDLE,
     };
-
-    if (vkAllocateCommandBuffers(*device, &allocInfo, ggp->commandBuffer) != VK_SUCCESS) {
+    printf("HOLA ESTAMOS EN CREATECOMMANDBUFFER\n");
+    if (vkAllocateCommandBuffers(*device, &allocInfo, gdp->commandBuffer) != VK_SUCCESS) {
         printf("Error al crear el command buffer");
         exit(0);
     }

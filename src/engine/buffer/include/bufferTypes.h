@@ -5,8 +5,9 @@ typedef struct UniformBufferManager {
     VkBuffer *uniformBuffers;
     uint32_t uniformBuffersLen;
     VkDeviceMemory *uniformBuffersMemory;
-    void* uniformBuffersMapped;
-    void* uniformBufferType;
+    void** uniformBuffersMapped;
     VkDescriptorSetLayout *dsl;
+    VkDescriptorPool *descriptorPool;
+    VkDescriptorSet *descriptorSet;
 } UniformBufferManager
 ;

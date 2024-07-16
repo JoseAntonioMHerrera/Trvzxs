@@ -11,7 +11,7 @@
 #include "geometryPipelineTypes.h"
 #include <string.h> //TODO revisar memcpy de aqui
 
-TRVZXS_inline void createCommandPool(PhysicalDevice* pd, VkDevice device, GeometryDisplayPipelineManager *gdp) {
+TRVZXS_inline void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GeometryDisplayPipelineManager *gdp) {
 
     VkCommandPoolCreateInfo poolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -19,7 +19,9 @@ TRVZXS_inline void createCommandPool(PhysicalDevice* pd, VkDevice device, Geomet
         .queueFamilyIndex = pd->queueFamilyIndices.graphicsFamily,
     };
 
-    if (vkCreateCommandPool(device, &poolInfo, VK_NULL_HANDLE, &gdp->graphicsCommandPool) != VK_SUCCESS) {
+    gdp->commandPool->graphicsCommandPool = malloc(sizeof(*gdp->commandPool->graphicsCommandPool));
+
+    if (vkCreateCommandPool(device, &poolInfo, VK_NULL_HANDLE, gdp->commandPool->graphicsCommandPool) != VK_SUCCESS) {
         printf("Error al crear el command pool");
         exit(0);
     }
@@ -32,7 +34,8 @@ TRVZXS_inline void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice d
         .queueFamilyIndex = pd->queueFamilyIndices.transferFamily,
     };
 
-    if (vkCreateCommandPool(device, &transferPoolInfo, VK_NULL_HANDLE, &gdp->transferCommandPool) != VK_SUCCESS) {
+    gdp->commandPool->transferCommandPool = malloc(sizeof(*gdp->commandPool->transferCommandPool));
+    if (vkCreateCommandPool(device, &transferPoolInfo, VK_NULL_HANDLE, gdp->commandPool->transferCommandPool) != VK_SUCCESS) {
         printf("Error al crear el command pool");
         exit(0);
     }
