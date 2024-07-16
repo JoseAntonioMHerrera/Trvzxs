@@ -15,7 +15,6 @@
 #define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
 
-
 TRVZXS_inline void createSyncObjects(GeometryDisplayPipelineManager *gd, VkDevice *device){
     VkSemaphoreCreateInfo semaphoreInfo = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -53,14 +52,15 @@ TRVZXS_inline void startRenderPass(GeometryDisplayPipelineManager *gdp, DisplayM
         .renderArea.extent = dm->swapChainM->currentExtent2D,
 
     };
+    printf("START RENDER FLAG FLAG 1\n");
     VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(gdp->commandBuffer[dm->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
+printf("START RENDER FLAG FLAG 2\n");
     vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipeline);
-
+printf("START RENDER FLAG FLAG 3\n");
     VkViewport viewport = {
         viewport.x = 0.0f,
         viewport.y = 0.0f,
@@ -69,18 +69,22 @@ TRVZXS_inline void startRenderPass(GeometryDisplayPipelineManager *gdp, DisplayM
         viewport.minDepth = 0.0f,
         viewport.maxDepth = 1.0f,
     };
-
+printf("START RENDER FLAG FLAG 4\n");
     vkCmdSetViewport(gdp->commandBuffer[dm->currentFrame], 0, 1, &viewport);
-
+printf("START RENDER FLAG FLAG 5\n");
     VkRect2D scissor = {
         .offset = {0, 0},
         .extent = dm->swapChainM->currentExtent2D,
     };
-
+printf("START RENDER FLAG FLAGs 6\n");
     vkCmdSetScissor(gdp->commandBuffer[dm->currentFrame], 0, 1, &scissor);
     //vkCmdDraw(commandBuffers[currentFrame], objects.dataLen, 1, 0, 0);
+    vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
+                            0, 1, &gdp->deviceBuffer->ubo->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
+    // vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->indicesLen, 1, 0, 0, 0);
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
+    printf("START RENDER FLAG FLAG 10\n");
 }
 
 TRVZXS_inline void recordCommandBuffer(GeometryDisplayPipelineManager *gdp, DisplayManager* dm, uint32_t imageIndex) {
@@ -89,7 +93,8 @@ TRVZXS_inline void recordCommandBuffer(GeometryDisplayPipelineManager *gdp, Disp
         .flags = 0, // Optional
         .pInheritanceInfo = NULL, // Optional
     };
-
+    printf("RECORD COMMAND BUFFER\n");
+    printf("IMAGE INDEX %u\n", imageIndex);
     if (vkBeginCommandBuffer(gdp->commandBuffer[imageIndex], &beginInfo) != VK_SUCCESS) {
         printf("Error al iniciar el commandbuffer");
     }
@@ -121,23 +126,25 @@ TRVZXS_inline VkShaderModule* createShaderModule(VkDevice device, char** code, s
 }
 
 TRVZXS_inline void fillObjectBindingDescriptions(VkVertexInputBindingDescription **objectIBD){
+    printf("INFO ABOUT THE SIZE OF A SINGLE ELEMENT OF THE DATA TO ITERATE THROUGTH: \n");
     *objectIBD = malloc(sizeof(VkVertexInputBindingDescription));
     (*objectIBD)->binding = 0;
     (*objectIBD)->stride = sizeof(GEOM_VERTEX);
     (*objectIBD)->inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        printf("BINDING DESCRIPTIONS\n");
+
+    printf("BINDING DESCRIPTIONS\n");
 }
 
 TRVZXS_inline void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD) {
-
     *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription)*2);
     // GEOM_OBJECT coordinates
+    printf("POSITION INPUT TO THE VERTEX SHADER IN LOCATION 0: \n");
     (*objectsIAD)[0].binding = 0;
     (*objectsIAD)[0].location = 0;
     (*objectsIAD)[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     (*objectsIAD)[0].offset = offsetof(GEOM_VERTEX, point);
 
-        printf("OBJECT INPUT\n");
+    printf("COLOR INPUT TO THE VERTEX SHADER IN LOCATION 1: \n");
     // GEOM_OBJECT colors
     (*objectsIAD)[1].binding = 0;
     (*objectsIAD)[1].location = 1;
@@ -310,7 +317,7 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .polygonMode = VK_POLYGON_MODE_FILL,
         .lineWidth = 1.0f,
         .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .depthBiasEnable = VK_FALSE,
         .depthBiasConstantFactor = 0.0f, // Optional
         .depthBiasClamp = 0.0f, // Optional
@@ -354,25 +361,25 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .blendConstants[3] = 0.0f, // Optional
         .pNext = VK_NULL_HANDLE,
     };
-
-
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 0, // Optional
-        .pSetLayouts = NULL, // Optional
+        .setLayoutCount = gdp->maxFrames, // Optional
+        .pSetLayouts = gdp->deviceBuffer->ubo->dsl, // Optional
         .pushConstantRangeCount = 0, // Optional
         .pPushConstantRanges = NULL, // Optional
         .pNext = VK_NULL_HANDLE,
     };
 
     printf("CREATEGRAPHICSPIPE FLAG 10\n");
-    if (vkCreatePipelineLayout(*device, &pipelineLayoutInfo, NULL, &gdp->pipelineLayout) != VK_SUCCESS) {
+    gdp->pipelineLayout = malloc(sizeof(*gdp->pipelineLayout));
+    if (vkCreatePipelineLayout(*device, &pipelineLayoutInfo, NULL, gdp->pipelineLayout) != VK_SUCCESS) {
         printf("failed to create pipeline layout!");
         exit(1);
     }
     printf("CREATEGRAPHICSPIPE FLAG 14\n");
-    createRenderPass(dm->swapChainM,*device,gdp);
-    printf("CREATEGRAPHICSPIPE FLAG 27\n");
+    //createRenderPass(dm->swapChainM,*device,gdp);
+    //printf("CREATEGRAPHICSPIPE FLAG 27\n");
+
     VkGraphicsPipelineCreateInfo pipelineInfo = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = 2,
@@ -385,14 +392,14 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .pDepthStencilState = NULL, // Optional
         .pColorBlendState = &colorBlending,
         .pDynamicState = &dynamicState,
-        .layout = gdp->pipelineLayout,
+        .layout = *gdp->pipelineLayout,
         .renderPass = *gdp->renderPass,
         .subpass = 0,
         .basePipelineHandle = VK_NULL_HANDLE, // Optional
         .basePipelineIndex = -1, // Optional
         .pNext = VK_NULL_HANDLE,
     };
-
+    gdp->pipeline = malloc(sizeof(*gdp->pipeline));
     if (vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, gdp->pipeline) != VK_SUCCESS) {
         printf("Error al crear el pipeline grafico");
         exit(1);

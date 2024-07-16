@@ -11,15 +11,12 @@
 TRVZXS_inline void* fget(void* self, size_t offset ) {
     return (char*)self + offset; // char*, bytewise
 }
-typedef struct CommandPools {
-    VkCommandPool* transferCommandPool;
-    // Add other command pools as needed
-} CommandPools;
+
 
 typedef struct QueueManager {
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
-    VkQueue transferQueue;
+    VkQueue *graphicsQueue;
+    VkQueue *presentQueue;
+    VkQueue *transferQueue;
 } QueueManager;
 
 typedef struct {
@@ -31,14 +28,13 @@ typedef struct {
 typedef struct DisplayManager {
     VkSurfaceKHR surface;
     VkFence inFlightFence;
-    uint8_t alignas(alignof(uint8_t)) currentFrame;
+    uint32_t currentFrame;
     DisplaySwapchainManager *swapChainM;
-    CommandPools *commandPools;
     GeometryDisplayPipelineManager *geomPipeline;
     void* (*createGeometryPipeline)();
 
-    void* getField;
-    void* (*drawFrame)(uint8_t currentFrame);
+    //void* getField;
+    //void* (*drawFrame)(uint8_t currentFrame);
 } DisplayManager;
 
 

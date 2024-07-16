@@ -12,7 +12,7 @@ uint32_t createMemoryTypeCache(DeviceManager* pdmm){
 
 void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
 
-    ld->displayManager = malloc(sizeof(ld->displayManager));
+    //ld->displayManager = malloc(sizeof(ld->displayManager));
 
     float queuePriority = 1.0;
 
@@ -63,10 +63,12 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         printf("faile to create logical device!");
         exit(1);
     }
-
-    vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.graphicsFamily, 0, &ld->queueManager.graphicsQueue);
-    vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.graphicsFamily, 0, &ld->queueManager.presentQueue);
-    vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.graphicsFamily, 0, &ld->queueManager.transferQueue);
+    ld->queueManager.graphicsQueue = malloc(sizeof(*ld->queueManager.graphicsQueue));
+    ld->queueManager.transferQueue = malloc(sizeof(*ld->queueManager.transferQueue));
+    ld->queueManager.presentQueue = malloc(sizeof(*ld->queueManager.presentQueue));
+    vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.graphicsFamily, 0, ld->queueManager.graphicsQueue);
+    vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.presentFamily, 0, ld->queueManager.presentQueue);
+    vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.transferFamily, 0, ld->queueManager.transferQueue);
 
 }
 

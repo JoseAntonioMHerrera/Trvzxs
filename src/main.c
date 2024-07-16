@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "main_vulkan.h"
 #include "file_functions.h"
+#include "displayManager.h"
 
 
 
@@ -32,11 +33,13 @@ int main(int argc, char* argv[]) {
 
 
     DeviceManager *dm = initTRVZXSEngine(window);
+    printf("INIT DISPLAY MANAGER MAIN CONTEXT 1\n");
     DisplayManager *dispM = dm->lDevice[dm->deviceIndex]->displayManager;
     LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
     PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
     GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
     DisplaySwapchainManager *dsm = dispM->swapChainM;
+        printf("INIT DISPLAY MANAGER MAIN CONTEXT 2\n");
    // Crear renderizador para la ventana
     /*SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == NULL) {
@@ -45,7 +48,7 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return -1;
     }*/
-    bool running = 1;
+    uint32_t running = 1;
     bool resizing = 0;
     SDL_Event event;
     int initialMouseX, initialMouseY;
@@ -54,8 +57,21 @@ int main(int argc, char* argv[]) {
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
- switch (event.type) {
+            printf("EN EL EVENT POOL DE SDL\n");
+            switch (event.type) {
                 case SDL_QUIT:
+                    printf("ENTRAMOS SDL QUIT  \n");
+                    printf("Aaaaaaaaaaaaaaaa\n");
+                                        printf("Aaaaaaaaaaaaaaaa\n");
+                    printf("Aaaaaaaaaaaaaaaa\n");
+
+                    printf("Aaaaaaaaaaaaaaaa\n");
+
+                    printf("Aaaaaaaaaaaaaaaa\n");
+                                        printf("Aaaaaaaaaaaaaaaa\n");
+
+                    printf("Aaaaaaaaaaaaaaaa\n");
+
                     running = 0;
                     break;
                 case SDL_MOUSEBUTTONDOWN:
@@ -92,17 +108,23 @@ int main(int argc, char* argv[]) {
                     break;
             }
         }
-
+        printf("RESIZING %d\n", resizing);
         // Llamada a la función drawFrame
-            if(!resizing) {
-                drawFrame(pd, ld, dispM, gdp, ld->device, window);
-            }
+        if(!resizing) {
+            printf("CALLING TO DRAWFRAME...\n");
+            drawFrame(pd, ld, dispM, gdp, ld->device, window);
+            printf("DESPUES DE DRAW FRAME....\n");
+        }
+
+        printf("RUNNING VALE %d\n", running);
 
         // Aquí puedes añadir tus comandos de dibujo
 //        SDL_RenderPresent(renderer);
     }
     // Liberar recursos
+            printf("RUNNING VALE %d (FUERA)\n", running);
 
+    printf("ESTAMOS FUERA????????? \n\n\n\n\n\n\n");
 
     cleanup(dm, ld, dispM, gdp,dm->logCallback);
   //  SDL_DestroyRenderer(renderer);

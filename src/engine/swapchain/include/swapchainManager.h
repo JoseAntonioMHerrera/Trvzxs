@@ -8,7 +8,7 @@
 
 
 TRVZXS_inline void createImageViews(DisplaySwapchainManager *dsm, VkDevice *d){
-    dsm->scImageViewLen = dsm-> scImagesLen;
+    dsm->scImageViewLen = dsm->scImagesLen;
     dsm->p_scImageView = malloc(sizeof(VkImageView) * dsm->scImageViewLen);
     for (size_t i = 0; i < dsm->scImageViewLen; i++) {
         VkImageViewCreateInfo createInfo = {
@@ -33,7 +33,7 @@ TRVZXS_inline void createImageViews(DisplaySwapchainManager *dsm, VkDevice *d){
     }
 }
 
-TRVZXS_inline void createGraphicsRenderPass(DisplaySwapchainManager *dsm, VkDevice *d, VkRenderPass *renderPass) {
+/*TRVZXS_inline void createGraphicsRenderPass(DisplaySwapchainManager *dsm, VkDevice *d, VkRenderPass *renderPass) {
 
     VkAttachmentDescription colorAttachment = {
         .format = dsm->currentSurfaceFormat->format,
@@ -81,9 +81,12 @@ TRVZXS_inline void createGraphicsRenderPass(DisplaySwapchainManager *dsm, VkDevi
         exit(0);
     }
 
-}
+}*/
 
 TRVZXS_inline void createFrameBuffers(DisplaySwapchainManager *swapManager, VkRenderPass *renderPass, VkDevice* device){
+    printf("CREAMOS FRAMEBUFFERS \n");
+    printf("FRAMEBUFFERS %d\n", swapManager->scImagesLen);
+
     swapManager->framebuffersLen = swapManager->scImagesLen;
     swapManager->p_framebuffers = malloc(sizeof(VkFramebuffer) * swapManager->scImagesLen);
 
@@ -110,12 +113,11 @@ TRVZXS_inline void createFrameBuffers(DisplaySwapchainManager *swapManager, VkRe
 
 }
 
-TRVZXS_inline VkExtent2D chooseSwapExtent2D(VkExtent2D *extent, VkSurfaceCapabilitiesKHR* capabilities, SDL_Window* window) {
+TRVZXS_inline void chooseSwapExtent2D(VkExtent2D *extent, VkSurfaceCapabilitiesKHR* capabilities, SDL_Window* window) {
 /*    if (capabilities->currentExtent.width != UINT32_MAX) {
         //TODO add logs to all the process of setting up the vulkan instance for use
         return capabilities->currentExtent;
     } else {*/
-
         int width, height;
         SDL_Vulkan_GetDrawableSize(window,&width, &height);
         extent->width =CLAMP(width, capabilities->minImageExtent.width, capabilities->maxImageExtent.width);
@@ -220,7 +222,7 @@ printf("CREATESWAPCHAIN FLAG 7\n");
         .oldSwapchain = VK_NULL_HANDLE,
         .preTransform = swapChainSupportDetails->capabilities.currentTransform,
     };
-    printf("swapchain %d: %x\n", 0,ld);
+    //printf("swapchain %d: %x\n", 0,ld);
     //TODO fix procesamiento de seleccion de colas, se deja hardcodeado que vamos a usar dos colas distintas 0 presentacion 1 drawing
     VkResult createSwapchainResult = vkCreateSwapchainKHR(ld->device, &creationSwapChainInfo, NULL, &displaySwapCh->swapchain);
     if (createSwapchainResult != VK_SUCCESS) {
@@ -231,6 +233,8 @@ printf("CREATESWAPCHAIN FLAG 7\n");
 
     vkGetSwapchainImagesKHR(ld->device, displaySwapCh->swapchain, &displaySwapCh->scImagesLen, NULL);
     displaySwapCh->p_scImages = (VkImage*) malloc(sizeof(VkImage)* displaySwapCh->scImagesLen);
+    printf("SC IMGES LEN NOS DA %d\n", displaySwapCh->scImagesLen);
+
     if(vkGetSwapchainImagesKHR(ld->device, displaySwapCh->swapchain, &displaySwapCh->scImagesLen, displaySwapCh->p_scImages) != VK_SUCCESS){
         printf("failed to retrieve images from the swap chain!\n");
         exit(1);
