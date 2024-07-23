@@ -80,7 +80,7 @@ printf("START RENDER FLAG FLAGs 6\n");
     vkCmdSetScissor(gdp->commandBuffer[dm->currentFrame], 0, 1, &scissor);
     //vkCmdDraw(commandBuffers[currentFrame], objects.dataLen, 1, 0, 0);
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
-                            0, 1, &gdp->deviceBuffer->ubo->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
+                            0, 1, &gdp->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
     // vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->indicesLen, 1, 0, 0, 0);
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
@@ -136,7 +136,7 @@ TRVZXS_inline void fillObjectBindingDescriptions(VkVertexInputBindingDescription
 }
 
 TRVZXS_inline void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD) {
-    *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription)*2);
+    *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription)*3);
     // GEOM_OBJECT coordinates
     printf("POSITION INPUT TO THE VERTEX SHADER IN LOCATION 0: \n");
     (*objectsIAD)[0].binding = 0;
@@ -150,6 +150,13 @@ TRVZXS_inline void fillObjectInputAttributeDescription(VkVertexInputAttributeDes
     (*objectsIAD)[1].location = 1;
     (*objectsIAD)[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     (*objectsIAD)[1].offset = offsetof(GEOM_VERTEX, color);
+
+    printf("TEXTURE INPUT TO THE VERTEX SHADER IN LOCATION 1: \n");
+    // GEOM_OBJECT colors
+    (*objectsIAD)[2].binding = 0;
+    (*objectsIAD)[2].location = 2;
+    (*objectsIAD)[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+    (*objectsIAD)[2].offset = offsetof(GEOM_VERTEX, textCoords);
 }
 
 TRVZXS_inline void createRenderPass(DisplaySwapchainManager *dsm, VkDevice device, GeometryDisplayPipelineManager *gdp) {
@@ -263,7 +270,7 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
 
 
     // VERTEX INPUT
-    gdp->objectIADLen = 2;
+    gdp->objectIADLen = 3;
     fillObjectInputAttributeDescription(&gdp->objectIAD);
     gdp->objectIBDLen = 1;
     fillObjectBindingDescriptions(&gdp->objectIBD);
@@ -340,7 +347,7 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {
         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-        .blendEnable = VK_FALSE,
+        .blendEnable = VK_TRUE,
         .srcColorBlendFactor = VK_BLEND_FACTOR_ONE, // Optional
         .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO, // Optional
         .colorBlendOp = VK_BLEND_OP_ADD, // Optional
@@ -364,7 +371,7 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = gdp->maxFrames, // Optional
-        .pSetLayouts = gdp->deviceBuffer->ubo->dsl, // Optional
+        .pSetLayouts = &gdp->dsl, // Optional
         .pushConstantRangeCount = 0, // Optional
         .pPushConstantRanges = NULL, // Optional
         .pNext = VK_NULL_HANDLE,

@@ -20,11 +20,11 @@ typedef struct DisplaySwapchainManager {
     size_t framebuffersLen;
 
     uint32_t scImagesLen; //size_t TODO
-    VkImage* p_scImages;
+    VkImage p_scImages[4];
 
 
     uint32_t scImageViewLen;
-    VkImageView * p_scImageView;
+    VkImageView p_scImageView[4];
     VkSurfaceFormatKHR *currentSurfaceFormat;
     SwapChainSupportDetails *swapChainSupportDetails;
     VkSubpassDependency *subpassDependency;

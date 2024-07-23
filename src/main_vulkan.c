@@ -19,6 +19,8 @@
 #include "displayManager.h"
 #include "swapchainManager.h"
 #include "uniformBuffer.h"
+#include "descriptor.h"
+#include "textureManager.h"
 
 void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEXT* callback_messenger){
     PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
@@ -109,7 +111,7 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, Geomet
     vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->transferCommandPool, NULL);
     vkDestroyPipeline(ld->device, gdp->pipeline, NULL);
-    vkDestroyDescriptorSetLayout(ld->device, gdp->deviceBuffer->ubo->dsl, NULL);
+    vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL);
     vkDestroyPipelineLayout(ld->device, gdp->pipelineLayout, NULL);
     cleanupSyncObjects(ld->device,gdp);
 
@@ -223,6 +225,18 @@ void fillGeometryData(GEOM_OBJECT **geometry){
             (*geometry)->data[i].point = positionDat[i];
     }
 
+    GEOM_VERTEX_TEXT_COORD textCoords[4] = {
+        {0.0f, 0.0f},
+        {1.0f, 0.0f},
+        {1.0f, 1.0f},
+        {0.0f, 1.0f},
+    };
+
+    (*geometry)->data[0].textCoords = textCoords[0];
+    (*geometry)->data[1].textCoords = textCoords[1];
+    (*geometry)->data[2].textCoords = textCoords[2];
+    (*geometry)->data[3].textCoords = textCoords[3];
+
     (*geometry)->indices = malloc(sizeof(uint32_t) * (*geometry)->indicesLen);
     (*geometry)->indices[0] = 0;
     (*geometry)->indices[1] = 1;
@@ -254,6 +268,8 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
     DeviceBufferManager *devicebm;
     gdp->commandPool = malloc(sizeof(*gdp->commandPool));
+    gdp->texture =
+    // setting the max number of images according to config frames in flight
     gdp->maxFrames = MAX_FRAMES_IN_FLIGHT;
     dsm->scImagesLen = gdp->maxFrames;
     createSDLSurface(dispM, dm->instance, window);
@@ -273,35 +289,51 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
         exit(1);
     }
     createSwapChain(pd, ld, dispM, dsm, window);
+    //WE UPDATE MAXFRAMES WITH THE SWAPCHAIN RETURNED MAX IMAGE VIEWS allowed
     gdp->maxFrames = dsm->scImagesLen;
     printf("RETORNO CREATESWAPCHAIN\n\0");
     createRenderPass(dispM->swapChainM,ld->device,gdp);
         printf("RETORNO RENDERPASS\n\0");
-    createImageViews(dsm, &ld->device);
+    dsm->scImageViewLen = dsm->scImagesLen;
+    // dsm->p_scImageView = malloc(sizeof(VkImageView) * dsm->scImageViewLen);
+    // createImageView(dsm, &ld->device, dsm->currentSurfaceFormat->format);
+    for(uint32_t i=0; i < ld->displayManager->swapChainM->scImagesLen; i++){
+        ld->displayManager->swapChainM->p_scImageView[i] =
+                    createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapChainM->p_scImages[i]);
+    }
     printf("RETORNO IMAGEVIEWS\n\0");
     createFrameBuffers(dsm,gdp->renderPass, &ld->device);
     printf("RETORNO FRAMEBUFFERS\n\0");
     gdp->deviceBuffer = malloc(sizeof(*gdp->deviceBuffer));
     devicebm = gdp->deviceBuffer;
 
-    devicebm->ubo = malloc(sizeof(*(gdp->deviceBuffer->ubo)));
-    createUniformBuffers(pd,ld, gdp->maxFrames, gdp->deviceBuffer->ubo);
-    printf("RETORNO UNIFORMBUFFERS\n\0");
-    printf("!!!!!! %d", gdp->maxFrames);
-    createDescriptorSetLayout(ld, gdp->deviceBuffer->ubo, gdp->maxFrames);
-        printf("RETORNO SETLAYOUT\n\0");
-    createDescriptorPool(gdp->maxFrames, ld->device, gdp->deviceBuffer->ubo);
-        printf("RETORNO DESCRIPTOR POOL\n\0");
-    createDescriptorSet(gdp->maxFrames, ld->device, gdp->deviceBuffer->ubo);
-    printf("RETORNO SETLAYOUT\n\0");
-    createGraphicsPipeline(gdp, dispM, &ld->device);
-    printf("RETORNO GRPAHICSPIPLINE\n\0");
 
     createGraphicsCommandPool(pd,ld->device,gdp);
     printf("RETORNO COMMANDPOOLD\n\0");
     createTransferQueueCommandPool(pd,ld->device,gdp);
         printf("RETORNO TRANSFERPOOL\n\0");
     createCommandBuffer(gdp, &ld->device, gdp->maxFrames);
+    VkDeviceSize textureSize;
+    stbi_uc *pixels;
+    uint32_t width;
+    uint32_t height;
+    createTextureImage( pd,  ld, gdp, &gdp->texture);
+        printf("RETORNO createTextureImage\n\0");
+    createTextureImageView(dispM->swapChainM, ld->device, gdp->texture);
+        printf("RETORNO createTextureImageView\n\0");
+    devicebm->ubo = malloc(sizeof(*(gdp->deviceBuffer->ubo)));
+    createUniformBuffers(pd,ld, gdp->maxFrames, gdp->deviceBuffer->ubo);
+    printf("RETORNO UNIFORMBUFFERS\n\0");
+    printf("!!!!!! %d", gdp->maxFrames);
+        createDescriptorPool(gdp->maxFrames, ld->device, gdp);
+    createDescriptorSetLayout(ld, gdp, gdp->maxFrames);
+        printf("RETORNO SETLAYOUT\n\0");
+        printf("RETORNO DESCRIPTOR POOL\n\0");
+    createDescriptorSet(gdp->maxFrames, ld->device, gdp, gdp->texture);
+    printf("RETORNO SETLAYOUT\n\0");
+    createGraphicsPipeline(gdp, dispM, &ld->device);
+    printf("RETORNO GRPAHICSPIPLINE\n\0");
+//55555555555555//
      printf("RETORNO COMMANDBUFFER\n\0");
     createSyncObjects(gdp, &ld->device);
          printf("RETORNO SYNC\n\0");

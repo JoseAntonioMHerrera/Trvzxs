@@ -7,15 +7,37 @@
 #include <stddef.h>
 
 
-TRVZXS_inline void createImageViews(DisplaySwapchainManager *dsm, VkDevice *d){
-    dsm->scImageViewLen = dsm->scImagesLen;
-    dsm->p_scImageView = malloc(sizeof(VkImageView) * dsm->scImageViewLen);
-    for (size_t i = 0; i < dsm->scImageViewLen; i++) {
+TRVZXS_inline VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFormat format, VkImage image){
+    printf("CREATE IMAGE VIEW FLAG 1\n");
+    VkImageViewCreateInfo viewInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = format,
+        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .subresourceRange.baseMipLevel = 0,
+        .subresourceRange.levelCount = 1,
+        .subresourceRange.baseArrayLayer = 0,
+        .subresourceRange.layerCount = 1,
+    };
+    printf("CREATE IMAGE VIEW FLAG 1\n");
+
+    VkImageView imageView;
+        printf("IMAGE VIEW A CREAR: %p\n", &imageView);
+    if (vkCreateImageView(device, &viewInfo, VK_NULL_HANDLE, &imageView) != VK_SUCCESS) {
+        printf("failed to create texture image view!\n");
+    }
+    printf("IMAGE VIEW CREADA %p", &imageView);
+    printf("CREATE IMAGE VIEW FLAG 1\n");
+
+    return imageView;
+
+    /*for (size_t i = 0; i < dsm->scImageViewLen; i++) {
         VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = dsm->p_scImages[i],
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = dsm->currentSurfaceFormat->format,
+        .format = format,
         .components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
         .components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
         .components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -30,7 +52,7 @@ TRVZXS_inline void createImageViews(DisplaySwapchainManager *dsm, VkDevice *d){
         if (vkCreateImageView(*d, &createInfo, NULL, &dsm->p_scImageView[i]) != VK_SUCCESS) {
             printf("failed to create image views!");
         }
-    }
+    }*/
 }
 
 /*TRVZXS_inline void createGraphicsRenderPass(DisplaySwapchainManager *dsm, VkDevice *d, VkRenderPass *renderPass) {
@@ -232,8 +254,8 @@ printf("CREATESWAPCHAIN FLAG 7\n");
     }
 
     vkGetSwapchainImagesKHR(ld->device, displaySwapCh->swapchain, &displaySwapCh->scImagesLen, NULL);
-    displaySwapCh->p_scImages = (VkImage*) malloc(sizeof(VkImage)* displaySwapCh->scImagesLen);
-    printf("SC IMGES LEN NOS DA %d\n", displaySwapCh->scImagesLen);
+    //displaySwapCh->p_scImages = (VkImage*) malloc(sizeof(VkImage)* displaySwapCh->scImagesLen);
+    printf("SC IMAGES LEN FROM SWAPCHAIN GIVES %d\n", displaySwapCh->scImagesLen);
 
     if(vkGetSwapchainImagesKHR(ld->device, displaySwapCh->swapchain, &displaySwapCh->scImagesLen, displaySwapCh->p_scImages) != VK_SUCCESS){
         printf("failed to retrieve images from the swap chain!\n");
@@ -259,7 +281,12 @@ TRVZXS_inline void recreateSwapChain(PhysicalDevice *pd, LogicalDevice* ld, SDL_
     vkDeviceWaitIdle(ld->device);
     cleanupSwapChain(ld, ld->displayManager, ld->displayManager->swapChainM);
     createSwapChain(pd, ld, ld->displayManager, ld->displayManager->swapChainM, window);
-    createImageViews(ld->displayManager->swapChainM, &ld->device);
+
+    for(uint32_t i=0; i < ld->displayManager->swapChainM->scImagesLen; i++){
+        ld->displayManager->swapChainM->p_scImageView[i] = createImageView(ld->displayManager->swapChainM, ld->device,
+                                                            ld->displayManager->swapChainM->currentSurfaceFormat->format,
+                                                            ld->displayManager->swapChainM->p_scImages[i]);
+    }
     createFrameBuffers(ld->displayManager->swapChainM, ld->displayManager->geomPipeline->renderPass, &ld->device);
 
 }

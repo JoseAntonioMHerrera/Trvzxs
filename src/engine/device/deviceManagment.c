@@ -9,6 +9,7 @@ uint32_t checkMemoryTypeCache(DeviceManager* pdmm){
 uint32_t createMemoryTypeCache(DeviceManager* pdmm){
 
 }
+// TODO ADD IS DEVICE SUITABLE
 
 void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
 
@@ -45,7 +46,9 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
     queuesCreateInfo[0] = queueCreateInfoGraphics;
     queuesCreateInfo[1] = queueCreateInfoTransfer;
 
-    VkPhysicalDeviceFeatures deviceFeatures = {VK_FALSE};
+    VkPhysicalDeviceFeatures deviceFeatures = {
+        .samplerAnisotropy = VK_TRUE,
+    };
     // TODO: moverlo a una funcion o fichero para configuracion de dispositivo y dispositivo logico
     const char* logicalDeviceExtensionNames = "VK_KHR_swapchain\0"; //TODO: mover las extensiones del device a otro lado
     //Logical device

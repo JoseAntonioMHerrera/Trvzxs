@@ -56,3 +56,4 @@ modules/
 makefile
 .vscode/
 build/
+*.gfxr
