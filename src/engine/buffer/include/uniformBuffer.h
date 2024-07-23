@@ -18,69 +18,6 @@
 //#include "displayTimer.h"
 #include <time.h>
 
-TRVZXS_inline void createDescriptorPool(uint32_t maxFrames, VkDevice device, UniformBufferManager* ubo){
-    VkDescriptorPoolSize poolSize = {
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = maxFrames,
-    };
-
-    VkDescriptorPoolCreateInfo poolInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolSize,
-        .flags = 0,
-        .pNext = VK_NULL_HANDLE,
-    };
-
-    poolInfo.maxSets = maxFrames;
-
-    ubo->descriptorPool = malloc(sizeof(*ubo->descriptorPool));
-    if (vkCreateDescriptorPool(device, &poolInfo, VK_NULL_HANDLE, ubo->descriptorPool) != VK_SUCCESS) {
-        printf("failed to create descriptor pool!\n");
-    }
-
-}
-
-TRVZXS_inline void createDescriptorSet(uint32_t maxFrames, VkDevice device, UniformBufferManager *ubo){
-    assert(ubo->dsl);
-
-    ubo->descriptorSet = malloc(sizeof(ubo->descriptorSet) * maxFrames);
-
-    VkDescriptorSetAllocateInfo allocInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = *ubo->descriptorPool,
-        .descriptorSetCount = maxFrames,
-        .pSetLayouts = ubo->dsl,
-    };
-
-    if (vkAllocateDescriptorSets(device, &allocInfo, ubo->descriptorSet) != VK_SUCCESS) {
-        printf("failed to allocate descriptors sets!");
-    }
-
-    for (size_t i = 0; i < maxFrames; i++) {
-        VkDescriptorBufferInfo bufferInfo = {
-            bufferInfo.buffer = ubo->uniformBuffers[i],
-            bufferInfo.offset = 0,
-            bufferInfo.range = sizeof(MODEL_VIEW_PROJECTION),
-        };
-        VkWriteDescriptorSet descriptorWrite = {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = ubo->descriptorSet[i],
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-            .pBufferInfo = &bufferInfo,
-            .pImageInfo = VK_NULL_HANDLE, // Optional
-            .pTexelBufferView = VK_NULL_HANDLE, // Optional
-        };
-
-        vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, VK_NULL_HANDLE);
-        printf("ACTUALIZAMOS DESCRIPTORSETS\n");
-    }
-
-}
-
 TRVZXS_inline MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
 
     static struct timespec startTime;
@@ -98,8 +35,8 @@ TRVZXS_inline MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager
     glm_rotate(ubo.model, time * glm_rad(90.0f), (vec3){0.0f, 0.0f, 1.0f});
 
     // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
-    vec3 eye = {3.0f, 3.0f, 3.0f};
-    vec3 center = {1.0f, 2.0f, 2.0f};
+    vec3 eye = {2.0f, 2.0f, 2.0f};
+    vec3 center = {0.0f, 0.0f, 0.0f};
     vec3 up = {0.0f, 0.0f, 1.0f};
     glm_lookat(eye, center, up, ubo.view);
 
@@ -111,38 +48,6 @@ TRVZXS_inline MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager
     ubo.proj[1][1] *= -1;
 
     return ubo;
-}
-TRVZXS_inline void createDescriptorSetLayout(LogicalDevice *ld, UniformBufferManager* ubos, size_t maxFrames){
-
-    ubos->dsl = malloc(sizeof(*(ubos->dsl))*maxFrames);
-
-    assert(ubos->dsl);
-
-    VkDescriptorSetLayoutBinding uboLayoutBinding ={
-        .binding = 0,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1,
-        .pImmutableSamplers = VK_NULL_HANDLE,
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-    };
-    printf("DESCRIPTORSETLAYOUTF LAG 1\n");
-    VkDescriptorSetLayoutCreateInfo layoutInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &uboLayoutBinding,
-        .pNext = VK_NULL_HANDLE,
-    };
-    printf("DESCRIPTORSETLAYOUTF LAG 2\n");
-
-    if (vkCreateDescriptorSetLayout(ld->device, &layoutInfo, VK_NULL_HANDLE, ubos->dsl) != VK_SUCCESS) {
-        printf("failed to create descriptor set layout!\n");
-        exit(1);
-    }
-
-
-    for(uint32_t i = 1; i < maxFrames; i++)
-        ubos->dsl[i] = ubos->dsl[0];
-
 }
 
 TRVZXS_inline int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos) {

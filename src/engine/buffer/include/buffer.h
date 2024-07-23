@@ -14,7 +14,7 @@
 
 TRVZXS_inline void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkMemoryPropertyFlags properties,
                     VkBuffer* buffer, VkDeviceMemory* bufferMemory) {
-
+    printf("CREATEVKBUFFER FLAG 0\n");
     VkBufferCreateInfo bufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = size,
@@ -70,7 +70,7 @@ TRVZXS_inline void createIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, Dev
     createVkBuffer(pd, ld->device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dbm->indexBuffer, dbm->indexBufferMemory);
 
-    copyBuffer(ld, *dbm->stagingBuffer, *dbm->indexBuffer, bufferSize, commandPool->transferCommandPool);
+    copyBuffer(ld, *dbm->stagingBuffer, *dbm->indexBuffer, bufferSize, commandPool->transferCommandPool, *(ld->queueManager.transferQueue));
 
     vkDestroyBuffer(ld->device, *dbm->stagingBuffer, VK_NULL_HANDLE);
     vkFreeMemory(ld->device, *dbm->stagingBufferMemory, VK_NULL_HANDLE);
@@ -101,7 +101,7 @@ TRVZXS_inline void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, D
     createVkBuffer(pd, ld->device, geometryBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dbm->buffer, dbm->bufferMemory);
     printf("CREATEGEOMETRYBYFFER FKAG 23\n");
-    copyBuffer(ld, *dbm->stagingBuffer, *dbm->buffer, geometryBufferSize, commandPool->transferCommandPool);
+    copyBuffer(ld, *dbm->stagingBuffer, *dbm->buffer, geometryBufferSize, commandPool->transferCommandPool, *(ld->queueManager.transferQueue));
     printf("CREATEGEOMETRYBYFFER FKAG 2\n");
 
     vkDestroyBuffer(ld->device, *dbm->stagingBuffer, VK_NULL_HANDLE);

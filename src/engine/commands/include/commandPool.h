@@ -19,9 +19,9 @@ TRVZXS_inline void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device
         .queueFamilyIndex = pd->queueFamilyIndices.graphicsFamily,
     };
 
-    gdp->commandPool->graphicsCommandPool = malloc(sizeof(*gdp->commandPool->graphicsCommandPool));
+    //gdp->commandPool->graphicsCommandPool = malloc(sizeof(*gdp->commandPool->graphicsCommandPool));
 
-    if (vkCreateCommandPool(device, &poolInfo, VK_NULL_HANDLE, gdp->commandPool->graphicsCommandPool) != VK_SUCCESS) {
+    if (vkCreateCommandPool(device, &poolInfo, VK_NULL_HANDLE, &(gdp->commandPool->graphicsCommandPool)) != VK_SUCCESS) {
         printf("Error al crear el command pool");
         exit(0);
     }
@@ -34,8 +34,8 @@ TRVZXS_inline void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice d
         .queueFamilyIndex = pd->queueFamilyIndices.transferFamily,
     };
 
-    gdp->commandPool->transferCommandPool = malloc(sizeof(*gdp->commandPool->transferCommandPool));
-    if (vkCreateCommandPool(device, &transferPoolInfo, VK_NULL_HANDLE, gdp->commandPool->transferCommandPool) != VK_SUCCESS) {
+    //gdp->commandPool->transferCommandPool = malloc(sizeof(*gdp->commandPool->transferCommandPool));
+    if (vkCreateCommandPool(device, &transferPoolInfo, VK_NULL_HANDLE, &(gdp->commandPool->transferCommandPool)) != VK_SUCCESS) {
         printf("Error al crear el command pool");
         exit(0);
     }
