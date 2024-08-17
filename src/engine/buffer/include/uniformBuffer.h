@@ -1,4 +1,5 @@
 #pragma once
+#include <time.h>
 #include <vulkan/vulkan.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -16,7 +17,7 @@
 #include "mat4.h"
 #include "affine.h"
 //#include "displayTimer.h"
-#include <time.h>
+
 
 TRVZXS_inline MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
 
@@ -32,18 +33,28 @@ TRVZXS_inline MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager
 
     // Model matrix: rotate around Z-axis
     glm_mat4_identity(ubo.model);
-    glm_rotate(ubo.model, time * glm_rad(90.0f), (vec3){0.0f, 0.0f, 1.0f});
+    glm_rotate(ubo.model, time * glm_rad(45.0f), (vec3){0.0f, 0.0f, 1.0f});
 
     // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
     vec3 eye = {2.0f, 2.0f, 2.0f};
     vec3 center = {0.0f, 0.0f, 0.0f};
+    //TODO CAMERA MOVEMENT HERE
+    vec3 cameraDirection;
+    glm_vec3_sub(center, eye, cameraDirection);
+    glm_vec3_normalize(cameraDirection);
+    vec3 eyeTranslated;
+    vec3 cameraDirectionScaled;
+    const float distance = 15.0f;
+    glm_vec3_scale(cameraDirection, distance, cameraDirectionScaled);
+    glm_vec3_add(eye, cameraDirectionScaled, eyeTranslated);
     vec3 up = {0.0f, 0.0f, 1.0f};
+
     glm_lookat(eye, center, up, ubo.view);
 
     // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
 
     glm_perspective(glm_rad(45.0f), dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height, 0.1f, 10.0f, ubo.proj);
-    printf("WHAT Is happening HERE \n");
+    //printf("WHAT Is happening HERE \n");
     // Adjust for Vulkan's coordinate system
     ubo.proj[1][1] *= -1;
 

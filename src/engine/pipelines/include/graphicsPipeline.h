@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include "pushConstants.h"
+#include <assert.h>
 
 #define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
@@ -82,7 +84,7 @@ printf("START RENDER FLAG FLAGs 6\n");
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
                             0, 1, &gdp->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
     // vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-    vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->indicesLen, 1, 0, 0, 0);
+    vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->totalIndicesLen, 1, 0, 0, 0);
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
     printf("START RENDER FLAG FLAG 10\n");
 }
@@ -101,6 +103,7 @@ TRVZXS_inline void recordCommandBuffer(GeometryDisplayPipelineManager *gdp, Disp
 
     VkDeviceSize offsets[] = {0};
     const VkBuffer localBuffer[] = {*gdp->deviceBuffer->buffer};
+    updatePushConstants(gdp->commandBuffer[imageIndex], gdp->pipelineLayout);
     vkCmdBindVertexBuffers(gdp->commandBuffer[imageIndex], 0, 1, localBuffer, offsets);
     vkCmdBindIndexBuffer(gdp->commandBuffer[imageIndex], *gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -135,7 +138,7 @@ TRVZXS_inline void fillObjectBindingDescriptions(VkVertexInputBindingDescription
     printf("BINDING DESCRIPTIONS\n");
 }
 
-TRVZXS_inline void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD) {
+TRVZXS_inline void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD) { // MOVE  object input attribute description to each primitive
     *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription)*3);
     // GEOM_OBJECT coordinates
     printf("POSITION INPUT TO THE VERTEX SHADER IN LOCATION 0: \n");
@@ -221,10 +224,15 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
     size_t triangleVertSize = 0;
     size_t triangleFragSize = 0;
     printf("CREATEGRAPHICSPIPE FLAG 1\n");
-    assert(readSPVBinaryFile(TRIANGLE_VERT_SHADER, triangleVert, &triangleVertSize) == 0);
-    assert(readSPVBinaryFile(TRIANGLE_FRAG_SHADER, triangleFrag, &triangleFragSize) == 0);
+    #ifdef NDEBUG
+    #undef NDEBUG
+    #endif
+    readSPVBinaryFile(TRIANGLE_VERT_SHADER, triangleVert, &triangleVertSize);
+    readSPVBinaryFile(TRIANGLE_FRAG_SHADER, triangleFrag, &triangleFragSize);
     // TODOcrear struct para spv, guarde datos y un hilo los lea y escriba en background
-    printf("CREATEGRAPHICSPIPE FLAG 2\n");
+    assert(triangleFragSize > 0);
+    assert(triangleVertSize > 0);
+    printf("CREATEGRAPHICSPIPE FLAG 0 VALUE %llu\n", triangleFragSize);
 
     gdp->vertShader = createShaderModule(*device, triangleVert, triangleVertSize);
     gdp->fragShader = createShaderModule(*device, triangleFrag, triangleFragSize);
@@ -317,7 +325,6 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .pNext = VK_NULL_HANDLE,
     };
 
-
     VkPipelineRasterizationStateCreateInfo rasterizer = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .depthClampEnable = VK_FALSE,
@@ -344,7 +351,6 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .pNext = VK_NULL_HANDLE,
     };
 
-
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {
         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
         .blendEnable = VK_TRUE,
@@ -368,12 +374,19 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
         .blendConstants[3] = 0.0f, // Optional
         .pNext = VK_NULL_HANDLE,
     };
+
+    VkPushConstantRange pushConstantRange = {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .offset = 0,
+        .size = sizeof(PushConstantDisplayTimer)
+    };
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = gdp->maxFrames, // Optional
-        .pSetLayouts = &gdp->dsl, // Optional
-        .pushConstantRangeCount = 0, // Optional
-        .pPushConstantRanges = NULL, // Optional
+        .pSetLayouts = (VkDescriptorSetLayout[]){gdp->dsl, gdp->dsl, gdp->dsl},
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &pushConstantRange, // Optional
         .pNext = VK_NULL_HANDLE,
     };
 

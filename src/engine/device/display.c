@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "displayManager.h"
 
 void drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GeometryDisplayPipelineManager *gdp,

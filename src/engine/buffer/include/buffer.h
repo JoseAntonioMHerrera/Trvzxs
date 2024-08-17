@@ -53,7 +53,7 @@ TRVZXS_inline void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize s
 
 TRVZXS_inline void createIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager *dbm, GEOM_OBJECT *objects,
                                       CommandPools* commandPool) {
-    uint32_t bufferSize = sizeof(uint32_t) * objects->indicesLen;
+    uint32_t bufferSize = sizeof(uint32_t) *objects->indicesLen;
 
     dbm->stagingBuffer = malloc(sizeof(*dbm->stagingBuffer));
     dbm->stagingBufferMemory = malloc(sizeof(*dbm->stagingBufferMemory));

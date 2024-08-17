@@ -1,6 +1,6 @@
 
 #include "descriptor.h"
-
+#include <assert.h>
 void createDescriptorPool(uint32_t maxFrames, VkDevice device, GeometryDisplayPipelineManager* gdp){
     VkDescriptorPoolSize poolSizes[] = {
         {
@@ -29,7 +29,7 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GeometryDisplayPi
     }
 
 }
-
+//TODO must receive n textures that will be rendered in screen
 void createDescriptorSet(uint32_t maxFrames, VkDevice device, GeometryDisplayPipelineManager* gdp, Texture2D* texture){
     assert(gdp->dsl);
 

@@ -30,9 +30,6 @@ struct GEOM_VERTEX {
 struct GEOM_OBJECT {
 
     struct GEOM_VERTEX *data;
-    vec3* normal;
-    vec2* textCoord;
-
     uint32_t dataLen;
 
     TRVZXS_SIZE *indices;
