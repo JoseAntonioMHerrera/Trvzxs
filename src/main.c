@@ -15,7 +15,8 @@
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
 const int MARGIN = 20;
-int main(int argc, char* argv[]) {
+//int main(int argc, char* argv[]) {
+int engineEntryPoint(){
     // Inicializar SDL
     SDL_Window* window = NULL;
     window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);

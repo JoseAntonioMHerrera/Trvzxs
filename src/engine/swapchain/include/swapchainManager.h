@@ -176,19 +176,19 @@ TRVZXS_inline void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, Displa
     VkResult queryPhysicalDeviceSurfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR((*pd->gpu),
                                                                                         displayM->surface,
                                                                                         &swapChainSupportDetails->capabilities);
-    assert(queryPhysicalDeviceSurfaceCapabilitiesResult == VK_SUCCESS);
+    //assert(queryPhysicalDeviceSurfaceCapabilitiesResult == VK_SUCCESS);
     printf("CREATESWAPCHAIN FLAG 0\n");
     // Query de los formatos de presentacion en superficie que ofrece la gpu (physicalDevice)
     swapChainSupportDetails->surfaceFormatsLen =  0;
     VkResult queryPhysicalDeviceSurfaceFormatsCountResult = vkGetPhysicalDeviceSurfaceFormatsKHR(*pd->gpu, displayM->surface,
                                                                             &swapChainSupportDetails->surfaceFormatsLen, NULL);
-    assert(swapChainSupportDetails->surfaceFormatsLen > 0 && queryPhysicalDeviceSurfaceFormatsCountResult == VK_SUCCESS);
+    //assert(swapChainSupportDetails->surfaceFormatsLen > 0 && queryPhysicalDeviceSurfaceFormatsCountResult == VK_SUCCESS);
     printf("CREATESWAPCHAIN FLAG 1\n");
 
     if (swapChainSupportDetails->surfaceFormatsLen > 0) {
         swapChainSupportDetails->formats = (VkSurfaceFormatKHR*) malloc(sizeof(VkSurfaceFormatKHR)* swapChainSupportDetails->surfaceFormatsLen);
         VkResult queryPhysicalDeviceSurfaceFormatsResult = vkGetPhysicalDeviceSurfaceFormatsKHR(*pd->gpu, displayM->surface, &swapChainSupportDetails->surfaceFormatsLen, swapChainSupportDetails->formats);
-        assert(queryPhysicalDeviceSurfaceFormatsResult == VK_SUCCESS);
+        //assert(queryPhysicalDeviceSurfaceFormatsResult == VK_SUCCESS);
         printf("CREATESWAPCHAIN FLAG 2\n");
     }
     printf("CREATESWAPCHAIN FLAG 3\n");

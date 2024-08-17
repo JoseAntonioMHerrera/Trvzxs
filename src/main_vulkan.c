@@ -21,6 +21,8 @@
 #include "uniformBuffer.h"
 #include "descriptor.h"
 #include "textureManager.h"
+#include "primitives.h"
+#include "scene.h"
 
 void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEXT* callback_messenger){
     PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
@@ -198,7 +200,7 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
     assert(instance != NULL);
 
 }
-
+/*
 void fillGeometryData(GEOM_OBJECT **geometry){
     //printf("GEOM OBJECTS FLAG 0 \n");
     (*geometry) = (GEOM_OBJECT*) malloc(sizeof(GEOM_OBJECT));
@@ -244,6 +246,25 @@ void fillGeometryData(GEOM_OBJECT **geometry){
     (*geometry)->indices[3] = 2;
     (*geometry)->indices[4] = 3;
     (*geometry)->indices[5] = 0;
+}*/
+
+void getScene(SCENE **scene, size_t objectsLen, float size) {
+    *scene = malloc(sizeof(SCENE*));
+    (*scene)->pScene = malloc(sizeof(GEOM_OBJECT)* objectsLen);
+
+    SCENE* derrefScene = *scene;
+    for(int objIndex = 0; objIndex < objectsLen; objIndex++){
+        derrefScene->pScene[objIndex] = *create_cube(size);
+    }
+
+    derrefScene->totalIndicesLen = getIndicesLenFromScene(derrefScene);
+
+    printf("FINALIZAMOS CREACION ESCENA!\n");
+    printf("INDICESLEN : %d", derrefScene->sceneLen);
+}
+
+void getGrid(GEOM_OBJECT **geometry, int points, int padding) {
+    *geometry = create_grid(geometry, points, padding);
 }
 
 DeviceManager* initTRVZXSEngine(SDL_Window* window){
@@ -281,7 +302,10 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
 
     PhysicalDevice* pd = &dm->pDevice[dm->gpuIndex];
     LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
-    fillGeometryData(&gdp->geometry);
+
+    // GET THE SCENE MODELS
+    getScene(&gdp->geometry, 2,  2.0f);
+
     printf("RETORNO FILLGEOMETRYDATA\n\0");
     physicalDeviceTest(pd->gpu);
     if(VK_FALSE == isDeviceValid(ld->device)){
@@ -291,6 +315,7 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     createSwapChain(pd, ld, dispM, dsm, window);
     //WE UPDATE MAXFRAMES WITH THE SWAPCHAIN RETURNED MAX IMAGE VIEWS allowed
     gdp->maxFrames = dsm->scImagesLen;
+    printf("NUMERO DE FRAMES %d\n", gdp->maxFrames);
     printf("RETORNO CREATESWAPCHAIN\n\0");
     createRenderPass(dispM->swapChainM,ld->device,gdp);
         printf("RETORNO RENDERPASS\n\0");
@@ -337,14 +362,18 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
      printf("RETORNO COMMANDBUFFER\n\0");
     createSyncObjects(gdp, &ld->device);
          printf("RETORNO SYNC\n\0");
-    createGeometryBuffer(pd,ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
+
+    createGeometryBuffer(pd,ld,gdp->deviceBuffer,&gdp->geometry->pScene[0], gdp->commandPool);
          printf("RETORNO GEOMETRYBUFFER\n\0");
-    createIndiceBuffer(pd, ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
+
+    assert(&gdp->geometry->pScene[0]);
+    createIndiceBuffer(pd, ld,gdp->deviceBuffer,&gdp->geometry->pScene[0], gdp->commandPool);
          printf("RETORNO INDICE\n\0");
 
     dm->logCallback = createDebugCallbackForVulkan(dm->instance);
     dispM->currentFrame = 0;
     printf("Init vulkan ended.\n");
+
     return dm;
 
 }

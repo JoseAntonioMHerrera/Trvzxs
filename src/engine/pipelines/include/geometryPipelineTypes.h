@@ -3,7 +3,7 @@
 #include "vertex.h"
 #include "bufferTypes.h"
 #include "textureManagerTypes.h"
-
+#include "scene.h"
 typedef struct CommandPools {
     VkCommandPool transferCommandPool;
     VkCommandPool graphicsCommandPool;
@@ -34,7 +34,7 @@ typedef struct GeometryDisplayPipelineManager {
 
     size_t commandLen;
     VkRenderPass* renderPass;
-    GEOM_OBJECT* geometry;
+    SCENE* geometry;
     Texture2D* texture;
     DeviceBufferManager *deviceBuffer;
 
