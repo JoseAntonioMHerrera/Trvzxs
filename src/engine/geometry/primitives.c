@@ -2,14 +2,22 @@
 #include <math.h>
 #include "vertex.h"
 // Helper function to create a vertex
-GEOM_VERTEX create_vertex(float x, float y, float z, float r, float g, float b, float u, float v) {
-    GEOM_VERTEX vertex = {
-        .point = {x, y, z},
-        .color = {r, g, b, 1.0f},
-        .textCoords = {u, v, 0.0f}
-    };
+GEOM_VERTEX* create_vertex(float x, float y, float z, float r, float g, float b, float u, float v) {
+    GEOM_VERTEX *vertex = malloc(sizeof(GEOM_VERTEX));
+    vertex->point.x = x;
+    vertex->point.y = y;
+    vertex->point.z = z;
+    vertex->color.a = 1.0f;
+    vertex->color.g = 1.0f;
+    vertex->color.r = 1.0f;
+    vertex->color.b = 1.0f;
+    vertex->textCoords.u = u;
+    vertex->textCoords.v = v;
+    vertex->textCoords.w = 0.0f;
+
     return vertex;
 }
+/*
 GEOM_OBJECT* create_grid(int numPoints, float padding) {
     GEOM_OBJECT* grid = malloc(sizeof(GEOM_OBJECT));
     int numVertices = numPoints * numPoints;
@@ -75,54 +83,54 @@ GEOM_OBJECT* create_grid(int numPoints, float padding) {
     }
 
     return grid;
-}
+}*/
 
 
 // Cube
-GEOM_OBJECT* create_cube(float size) {
+GEOM_OBJECT* create_cube(float size, uint32_t offset) {
     GEOM_OBJECT* cube = malloc(sizeof(GEOM_OBJECT));
     cube->dataLen = 24; // 6 faces * 4 vertices each
     cube->data = malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
     cube->indicesLen = 36; // 6 faces * 2 triangles * 3 vertices each
-    cube->indices = malloc(sizeof(TRVZXS_SIZE) * cube->indicesLen);
+    cube->indices = malloc(sizeof(uint32_t) * cube->indicesLen);
 
     float s = size / 2;
 
     // Front face
-    cube->data[0] = create_vertex(-s, -s,  s, 1, 0, 0, 0, 0);
-    cube->data[1] = create_vertex( s, -s,  s, 1, 0, 0, 1, 0);
-    cube->data[2] = create_vertex( s,  s,  s, 1, 0, 0, 1, 1);
-    cube->data[3] = create_vertex(-s,  s,  s, 1, 0, 0, 0, 1);
+    cube->data[0] = *create_vertex(-s + offset, -s + offset,  s + offset, 1, 0, 0, 0, 0);
+    cube->data[1] = *create_vertex( s + offset, -s + offset,  s + offset, 1, 0, 0, 1, 0);
+    cube->data[2] = *create_vertex( s + offset,  s + offset,  s + offset, 1, 0, 0, 1, 1);
+    cube->data[3] = *create_vertex(-s + offset,  s + offset,  s + offset, 1, 0, 0, 0, 1);
 
     // Back face
-    cube->data[4] = create_vertex(-s, -s, -s, 0, 1, 0, 0, 0);
-    cube->data[5] = create_vertex(-s,  s, -s, 0, 1, 0, 1, 0);
-    cube->data[6] = create_vertex( s,  s, -s, 0, 1, 0, 1, 1);
-    cube->data[7] = create_vertex( s, -s, -s, 0, 1, 0, 0, 1);
+    cube->data[4] = *create_vertex(-s + offset, -s + offset, -s + offset, 0, 1, 0, 0, 0);
+    cube->data[5] = *create_vertex(-s + offset,  s + offset, -s + offset, 0, 1, 0, 1, 0);
+    cube->data[6] = *create_vertex( s + offset,  s + offset, -s + offset, 0, 1, 0, 1, 1);
+    cube->data[7] = *create_vertex( s + offset, -s + offset, -s + offset, 0, 1, 0, 0, 1);
 
     // Top face
-    cube->data[8]  = create_vertex(-s,  s, -s, 0, 0, 1, 0, 0);
-    cube->data[9]  = create_vertex(-s,  s,  s, 0, 0, 1, 1, 0);
-    cube->data[10] = create_vertex( s,  s,  s, 0, 0, 1, 1, 1);
-    cube->data[11] = create_vertex( s,  s, -s, 0, 0, 1, 0, 1);
+    cube->data[8]  = *create_vertex(-s + offset,  s + offset, -s + offset, 0, 0, 1, 0, 0);
+    cube->data[9]  = *create_vertex(-s + offset,  s + offset,  s + offset, 0, 0, 1, 1, 0);
+    cube->data[10] = *create_vertex( s + offset,  s + offset,  s + offset, 0, 0, 1, 1, 1);
+    cube->data[11] = *create_vertex( s + offset,  s + offset, -s + offset, 0, 0, 1, 0, 1);
 
     // Bottom face
-    cube->data[12] = create_vertex(-s, -s, -s, 1, 1, 0, 0, 0);
-    cube->data[13] = create_vertex( s, -s, -s, 1, 1, 0, 1, 0);
-    cube->data[14] = create_vertex( s, -s,  s, 1, 1, 0, 1, 1);
-    cube->data[15] = create_vertex(-s, -s,  s, 1, 1, 0, 0, 1);
+    cube->data[12] = *create_vertex(-s + offset, -s + offset, -s + offset, 1, 1, 0, 0, 0);
+    cube->data[13] = *create_vertex( s + offset, -s + offset, -s + offset, 1, 1, 0, 1, 0);
+    cube->data[14] = *create_vertex( s + offset, -s + offset,  s + offset, 1, 1, 0, 1, 1);
+    cube->data[15] = *create_vertex(-s + offset, -s + offset,  s + offset, 1, 1, 0, 0, 1);
 
     // Right face
-    cube->data[16] = create_vertex( s, -s, -s, 1, 0, 1, 0, 0);
-    cube->data[17] = create_vertex( s,  s, -s, 1, 0, 1, 1, 0);
-    cube->data[18] = create_vertex( s,  s,  s, 1, 0, 1, 1, 1);
-    cube->data[19] = create_vertex( s, -s,  s, 1, 0, 1, 0, 1);
+    cube->data[16] = *create_vertex( s + offset, -s + offset, -s + offset, 1, 0, 1, 0, 0);
+    cube->data[17] = *create_vertex( s + offset,  s + offset, -s + offset, 1, 0, 1, 1, 0);
+    cube->data[18] = *create_vertex( s + offset,  s + offset,  s + offset, 1, 0, 1, 1, 1);
+    cube->data[19] = *create_vertex( s + offset, -s + offset,  s + offset, 1, 0, 1, 0, 1);
 
     // Left face
-    cube->data[20] = create_vertex(-s, -s, -s, 0, 1, 1, 0, 0);
-    cube->data[21] = create_vertex(-s, -s,  s, 0, 1, 1, 1, 0);
-    cube->data[22] = create_vertex(-s,  s,  s, 0, 1, 1, 1, 1);
-    cube->data[23] = create_vertex(-s,  s, -s, 0, 1, 1, 0, 1);
+    cube->data[20] = *create_vertex(-s + offset, -s + offset, -s + offset, 0, 1, 1, 0, 0);
+    cube->data[21] = *create_vertex(-s + offset, -s + offset,  s + offset, 0, 1, 1, 1, 0);
+    cube->data[22] = *create_vertex(-s + offset,  s + offset,  s + offset, 0, 1, 1, 1, 1);
+    cube->data[23] = *create_vertex(-s + offset,  s + offset, -s + offset, 0, 1, 1, 0, 1);
 
     // Indices for all 6 faces
     TRVZXS_SIZE indices[] = {
@@ -140,7 +148,7 @@ GEOM_OBJECT* create_cube(float size) {
 
     return cube;
 }
-
+/*
 // Pyramid
 GEOM_OBJECT* create_pyramid(float base_size, float height) {
     GEOM_OBJECT* pyramid = malloc(sizeof(GEOM_OBJECT));
@@ -210,4 +218,4 @@ GEOM_OBJECT* create_rhomboid(float width, float height, float depth, float skew)
     }
 
     return rhomboid;
-}
+}*/
