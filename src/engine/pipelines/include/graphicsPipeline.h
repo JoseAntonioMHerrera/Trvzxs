@@ -84,7 +84,7 @@ printf("START RENDER FLAG FLAGs 6\n");
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
                             0, 1, &gdp->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
     // vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-    vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->totalIndicesLen, 1, 0, 0, 0);
+    vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->pScene[0].indicesLen, 1, 0, 0, 0); //TODO numero de indices a dibujar
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
     printf("START RENDER FLAG FLAG 10\n");
 }
@@ -224,9 +224,6 @@ TRVZXS_inline void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, D
     size_t triangleVertSize = 0;
     size_t triangleFragSize = 0;
     printf("CREATEGRAPHICSPIPE FLAG 1\n");
-    #ifdef NDEBUG
-    #undef NDEBUG
-    #endif
     readSPVBinaryFile(TRIANGLE_VERT_SHADER, triangleVert, &triangleVertSize);
     readSPVBinaryFile(TRIANGLE_FRAG_SHADER, triangleFrag, &triangleFragSize);
     // TODOcrear struct para spv, guarde datos y un hilo los lea y escriba en background

@@ -51,9 +51,10 @@ TRVZXS_inline void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize s
     printf("CREATEVKBUFFER FLAG 10\n");
 }
 
-TRVZXS_inline void createIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager *dbm, GEOM_OBJECT *objects,
+TRVZXS_inline void createIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager *dbm, SCENE *objects,
                                       CommandPools* commandPool) {
-    uint32_t bufferSize = sizeof(uint32_t) *objects->indicesLen;
+
+    uint32_t bufferSize = sizeof(uint32_t) *objects->totalIndicesLen;
 
     dbm->stagingBuffer = malloc(sizeof(*dbm->stagingBuffer));
     dbm->stagingBufferMemory = malloc(sizeof(*dbm->stagingBufferMemory));
@@ -63,7 +64,7 @@ TRVZXS_inline void createIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, Dev
 
     void* data;
     vkMapMemory(ld->device, *dbm->stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, objects->indices, (size_t) bufferSize);
+    memcpy(data, objects->sceneIndices, (size_t) bufferSize);
     vkUnmapMemory(ld->device, *dbm->stagingBufferMemory);
     dbm->indexBuffer = malloc(sizeof(*dbm->buffer));
     dbm->indexBufferMemory = malloc(sizeof(*dbm->buffer));
@@ -77,10 +78,10 @@ TRVZXS_inline void createIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, Dev
 
 }
 
-TRVZXS_inline void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, DeviceBufferManager *dbm, GEOM_OBJECT *objects,
+TRVZXS_inline void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, DeviceBufferManager *dbm, SCENE *objects,
                                         CommandPools* commandPool){
 
-    VkDeviceSize geometryBufferSize = sizeof(*(objects->data))*objects->dataLen;
+    VkDeviceSize geometryBufferSize = sizeof(*(objects->sceneVertex)) * objects->sceneVertexLen;
 
     dbm->stagingBuffer = malloc(sizeof(*dbm->stagingBuffer));
     dbm->stagingBufferMemory = malloc(sizeof(*dbm->stagingBufferMemory));
@@ -91,7 +92,8 @@ TRVZXS_inline void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, D
         printf("CREATEGEOMETRYBYFFER FKAG 1\n");
     vkMapMemory(ld->device, *dbm->stagingBufferMemory, 0, geometryBufferSize, 0, &memoryMappedData);
         printf("CREATEGEOMETRYBYFFER FKAG 1\n");
-    memcpy(memoryMappedData, objects->data, (size_t) geometryBufferSize);
+    memcpy(memoryMappedData, objects->sceneVertex, (size_t) geometryBufferSize);
+    assert(objects->sceneVertexLen == 24);
         printf("CREATEGEOMETRYBYFFER FKAG 1\n");
     vkUnmapMemory(ld->device, *dbm->stagingBufferMemory);
     printf("CREATEGEOMETRYBYFFER FKAG 1\n");
@@ -107,6 +109,5 @@ TRVZXS_inline void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, D
     vkDestroyBuffer(ld->device, *dbm->stagingBuffer, VK_NULL_HANDLE);
     vkFreeMemory(ld->device, *dbm->stagingBufferMemory, VK_NULL_HANDLE);
     printf("CREATEGEOMETRYBYFFER FKAG 3\n");
-
 
 }

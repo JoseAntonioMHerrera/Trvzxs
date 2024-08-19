@@ -249,23 +249,30 @@ void fillGeometryData(GEOM_OBJECT **geometry){
 }*/
 
 void getScene(SCENE **scene, size_t objectsLen, float size) {
-    *scene = malloc(sizeof(SCENE*));
+    *scene = malloc(sizeof(SCENE));
+    (*scene)->sceneLen = objectsLen;
     (*scene)->pScene = malloc(sizeof(GEOM_OBJECT)* objectsLen);
 
     SCENE* derrefScene = *scene;
+    uint32_t offset = 0;
     for(int objIndex = 0; objIndex < objectsLen; objIndex++){
-        derrefScene->pScene[objIndex] = *create_cube(size);
+        derrefScene->pScene[objIndex] = *(create_cube(size, offset));
+        printf("INDICES DEL CUBO: %d\n", derrefScene->pScene[objIndex].indicesLen);
+        offset+=2;
     }
 
-    derrefScene->totalIndicesLen = getIndicesLenFromScene(derrefScene);
+    derrefScene->sceneVertexLen =  getVertexLenFromScene(derrefScene);
+    derrefScene->sceneVertex =  getVertexFromScene(derrefScene);
 
+    derrefScene->totalIndicesLen = getIndicesLenFromScene(derrefScene);
+    derrefScene->sceneIndices = getIndicesFromScene(derrefScene);
     printf("FINALIZAMOS CREACION ESCENA!\n");
     printf("INDICESLEN : %d", derrefScene->sceneLen);
 }
-
+/*
 void getGrid(GEOM_OBJECT **geometry, int points, int padding) {
     *geometry = create_grid(geometry, points, padding);
-}
+}*/
 
 DeviceManager* initTRVZXSEngine(SDL_Window* window){
 
@@ -304,7 +311,7 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
 
     // GET THE SCENE MODELS
-    getScene(&gdp->geometry, 2,  2.0f);
+    getScene(&gdp->geometry, 1,  2.0f);
 
     printf("RETORNO FILLGEOMETRYDATA\n\0");
     physicalDeviceTest(pd->gpu);
@@ -363,12 +370,12 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     createSyncObjects(gdp, &ld->device);
          printf("RETORNO SYNC\n\0");
 
-    createGeometryBuffer(pd,ld,gdp->deviceBuffer,&gdp->geometry->pScene[0], gdp->commandPool);
+    createGeometryBuffer(pd,ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
          printf("RETORNO GEOMETRYBUFFER\n\0");
 
     assert(&gdp->geometry->pScene[0]);
-    createIndiceBuffer(pd, ld,gdp->deviceBuffer,&gdp->geometry->pScene[0], gdp->commandPool);
-         printf("RETORNO INDICE\n\0");
+    createIndiceBuffer(pd, ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
+         printf("RETORNOs INDICE\n\0");
 
     dm->logCallback = createDebugCallbackForVulkan(dm->instance);
     dispM->currentFrame = 0;
