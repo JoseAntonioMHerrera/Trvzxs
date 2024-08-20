@@ -247,6 +247,11 @@ void fillGeometryData(GEOM_OBJECT **geometry){
     (*geometry)->indices[4] = 3;
     (*geometry)->indices[5] = 0;
 }*/
+void apply_offset_to_indices(TRVZXS_SIZE* indices, size_t num_indices, TRVZXS_SIZE offset) {
+    for (size_t i = 0; i < num_indices; i++) {
+        indices[i] += offset;
+    }
+}
 
 void getScene(SCENE **scene, size_t objectsLen, float size) {
     *scene = malloc(sizeof(SCENE));
@@ -254,11 +259,17 @@ void getScene(SCENE **scene, size_t objectsLen, float size) {
     (*scene)->pScene = malloc(sizeof(GEOM_OBJECT)* objectsLen);
 
     SCENE* derrefScene = *scene;
-    uint32_t offset = 0;
+    uint32_t spaceOffsetForModel = 0;
+    uint32_t indexOffsetForModelIndices = 0;
     for(int objIndex = 0; objIndex < objectsLen; objIndex++){
-        derrefScene->pScene[objIndex] = *(create_cube(size, offset));
+        derrefScene->pScene[objIndex] = *(create_cube(size, spaceOffsetForModel));
+        GEOM_OBJECT* cube = &derrefScene->pScene[objIndex];
+
+        apply_offset_to_indices(cube->indices, cube->indicesLen, indexOffsetForModelIndices);
+        indexOffsetForModelIndices += cube->vertexOffset;
+
         printf("INDICES DEL CUBO: %d\n", derrefScene->pScene[objIndex].indicesLen);
-        offset+=2;
+        spaceOffsetForModel+=5;
     }
 
     derrefScene->sceneVertexLen =  getVertexLenFromScene(derrefScene);
@@ -267,7 +278,8 @@ void getScene(SCENE **scene, size_t objectsLen, float size) {
     derrefScene->totalIndicesLen = getIndicesLenFromScene(derrefScene);
     derrefScene->sceneIndices = getIndicesFromScene(derrefScene);
     printf("FINALIZAMOS CREACION ESCENA!\n");
-    printf("INDICESLEN : %d", derrefScene->sceneLen);
+    printf("SCENELEN : %d", derrefScene->sceneLen);
+        printf("INDICESLEN : %d", derrefScene->totalIndicesLen);
 }
 /*
 void getGrid(GEOM_OBJECT **geometry, int points, int padding) {
@@ -311,8 +323,8 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
 
     // GET THE SCENE MODELS
-    getScene(&gdp->geometry, 1,  2.0f);
-
+    getScene(&gdp->geometry, 2,  2.0f);
+    // exit(0);
     printf("RETORNO FILLGEOMETRYDATA\n\0");
     physicalDeviceTest(pd->gpu);
     if(VK_FALSE == isDeviceValid(ld->device)){

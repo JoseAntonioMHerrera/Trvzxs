@@ -89,57 +89,35 @@ GEOM_OBJECT* create_grid(int numPoints, float padding) {
 // Cube
 GEOM_OBJECT* create_cube(float size, uint32_t offset) {
     GEOM_OBJECT* cube = malloc(sizeof(GEOM_OBJECT));
-    cube->dataLen = 24; // 6 faces * 4 vertices each
+    cube->dataLen = 8; // 8 vertices for a cube
     cube->data = malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
     cube->indicesLen = 36; // 6 faces * 2 triangles * 3 vertices each
     cube->indices = malloc(sizeof(uint32_t) * cube->indicesLen);
+    cube->vertexOffset = 8;
 
     float s = size / 2;
 
-    // Front face
-    cube->data[0] = *create_vertex(-s + offset, -s + offset,  s + offset, 1, 0, 0, 0, 0);
-    cube->data[1] = *create_vertex( s + offset, -s + offset,  s + offset, 1, 0, 0, 1, 0);
-    cube->data[2] = *create_vertex( s + offset,  s + offset,  s + offset, 1, 0, 0, 1, 1);
-    cube->data[3] = *create_vertex(-s + offset,  s + offset,  s + offset, 1, 0, 0, 0, 1);
+    //Front face
+    cube->data[4] = *create_vertex(-s + offset, -s + offset,  s + offset, 0, 0, 1, 0, 0);
+    cube->data[5] = *create_vertex( s + offset, -s + offset,  s + offset, 1, 0, 1, 2, 0);
+    cube->data[6] = *create_vertex( s + offset,  s + offset,  s + offset, 1, 1, 1, 2, 2);
+    cube->data[7] = *create_vertex(-s + offset,  s + offset,  s + offset, 0, 1, 1, 0, 2);
 
-    // Back face
-    cube->data[4] = *create_vertex(-s + offset, -s + offset, -s + offset, 0, 1, 0, 0, 0);
-    cube->data[5] = *create_vertex(-s + offset,  s + offset, -s + offset, 0, 1, 0, 1, 0);
-    cube->data[6] = *create_vertex( s + offset,  s + offset, -s + offset, 0, 1, 0, 1, 1);
-    cube->data[7] = *create_vertex( s + offset, -s + offset, -s + offset, 0, 1, 0, 0, 1);
+    cube->data[0] = *create_vertex(-s + offset, -s + offset, -s + offset, 0, 0, 0, 0, 0);
+    cube->data[1] = *create_vertex( s + offset, -s + offset, -s + offset, 1, 0, 0, 2, 0);
+    cube->data[2] = *create_vertex( s + offset,  s + offset, -s + offset, 1, 1, 0, 2, 2);
+    cube->data[3] = *create_vertex(-s + offset,  s + offset, -s + offset, 0, 1, 0, 0, 2);
 
-    // Top face
-    cube->data[8]  = *create_vertex(-s + offset,  s + offset, -s + offset, 0, 0, 1, 0, 0);
-    cube->data[9]  = *create_vertex(-s + offset,  s + offset,  s + offset, 0, 0, 1, 1, 0);
-    cube->data[10] = *create_vertex( s + offset,  s + offset,  s + offset, 0, 0, 1, 1, 1);
-    cube->data[11] = *create_vertex( s + offset,  s + offset, -s + offset, 0, 0, 1, 0, 1);
 
-    // Bottom face
-    cube->data[12] = *create_vertex(-s + offset, -s + offset, -s + offset, 1, 1, 0, 0, 0);
-    cube->data[13] = *create_vertex( s + offset, -s + offset, -s + offset, 1, 1, 0, 1, 0);
-    cube->data[14] = *create_vertex( s + offset, -s + offset,  s + offset, 1, 1, 0, 1, 1);
-    cube->data[15] = *create_vertex(-s + offset, -s + offset,  s + offset, 1, 1, 0, 0, 1);
 
-    // Right face
-    cube->data[16] = *create_vertex( s + offset, -s + offset, -s + offset, 1, 0, 1, 0, 0);
-    cube->data[17] = *create_vertex( s + offset,  s + offset, -s + offset, 1, 0, 1, 1, 0);
-    cube->data[18] = *create_vertex( s + offset,  s + offset,  s + offset, 1, 0, 1, 1, 1);
-    cube->data[19] = *create_vertex( s + offset, -s + offset,  s + offset, 1, 0, 1, 0, 1);
-
-    // Left face
-    cube->data[20] = *create_vertex(-s + offset, -s + offset, -s + offset, 0, 1, 1, 0, 0);
-    cube->data[21] = *create_vertex(-s + offset, -s + offset,  s + offset, 0, 1, 1, 1, 0);
-    cube->data[22] = *create_vertex(-s + offset,  s + offset,  s + offset, 0, 1, 1, 1, 1);
-    cube->data[23] = *create_vertex(-s + offset,  s + offset, -s + offset, 0, 1, 1, 0, 1);
-
-    // Indices for all 6 faces
-    TRVZXS_SIZE indices[] = {
-        0, 1, 2, 2, 3, 0,       // Front face
-        4, 5, 6, 6, 7, 4,       // Back face
-        8, 9, 10, 10, 11, 8,    // Top face
-        12, 13, 14, 14, 15, 12, // Bottom face
-        16, 17, 18, 18, 19, 16, // Right face
-        20, 21, 22, 22, 23, 20  // Left face
+    // Define indices for all 6 faces
+    uint32_t indices[] = {
+        4, 5, 6, 6, 7, 4, // Front face
+        0, 3, 2, 2, 1, 0, // Back face
+        3, 7, 6, 6, 2, 3, // Top face
+        0, 1, 5, 5, 4, 0, // Bottom face
+        1, 2, 6, 6, 5, 1, // Right face
+        0, 4, 7, 7, 3, 0  // Left face
     };
 
     for (int i = 0; i < cube->indicesLen; i++) {

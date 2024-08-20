@@ -3,7 +3,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 "engine/"
 "shaders/"
 )
+
 # Define a library for module2
 add_subdirectory("utils/")
 add_subdirectory("engine/")
 add_subdirectory("shaders/")
+add_subdirectory("engine_wrapper/")
