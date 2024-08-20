@@ -35,6 +35,8 @@ struct GEOM_OBJECT {
     TRVZXS_SIZE *indices;
     uint32_t indicesLen;
 
+    TRVZXS_SIZE vertexOffset;
+
 };
 
 typedef struct GEOM_OBJECT GEOM_OBJECT;

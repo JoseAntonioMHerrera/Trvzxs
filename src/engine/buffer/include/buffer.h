@@ -93,7 +93,7 @@ TRVZXS_inline void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, D
     vkMapMemory(ld->device, *dbm->stagingBufferMemory, 0, geometryBufferSize, 0, &memoryMappedData);
         printf("CREATEGEOMETRYBYFFER FKAG 1\n");
     memcpy(memoryMappedData, objects->sceneVertex, (size_t) geometryBufferSize);
-    assert(objects->sceneVertexLen == 24);
+    // assert(objects->sceneVertexLen == 24);
         printf("CREATEGEOMETRYBYFFER FKAG 1\n");
     vkUnmapMemory(ld->device, *dbm->stagingBufferMemory);
     printf("CREATEGEOMETRYBYFFER FKAG 1\n");

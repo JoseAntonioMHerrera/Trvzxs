@@ -84,7 +84,9 @@ printf("START RENDER FLAG FLAGs 6\n");
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
                             0, 1, &gdp->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
     // vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-    vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->pScene[0].indicesLen, 1, 0, 0, 0); //TODO numero de indices a dibujar
+    printf("ANTES DE DIBUJAR TOTAL INDICES LEN %d", gdp->geometry->totalIndicesLen);
+
+    vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->totalIndicesLen, 1, 0, 0, 0); //TODO numero de indices a dibujar
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
     printf("START RENDER FLAG FLAG 10\n");
 }

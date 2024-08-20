@@ -3,6 +3,7 @@
 #include "cglm.h"
 #include "numberTypes.h"
 #include "vertex.h"
+#include "assert.h"
 
 typedef struct SCENE {
     GEOM_OBJECT* pScene;
@@ -20,7 +21,7 @@ typedef struct SCENE {
 } SCENE;
 
 
-uint32_t getIndicesLenFromScene(const SCENE const *scene);
-uint32_t* getIndicesFromScene(const SCENE const *scene);
-uint32_t getVertexLenFromScene(const SCENE const *scene);
-GEOM_VERTEX* getVertexFromScene(const SCENE const *scene);
+uint32_t getIndicesLenFromScene(const SCENE * const scene);
+uint32_t* getIndicesFromScene(const SCENE * const scene);
+uint32_t getVertexLenFromScene(const SCENE * const scene);
+GEOM_VERTEX* getVertexFromScene(const SCENE * const scene);

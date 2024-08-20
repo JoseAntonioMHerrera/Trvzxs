@@ -16,11 +16,6 @@ FetchContent_MakeAvailable(SDL2)
 # Set the C standard
 set(CMAKE_C_STANDARD 17)
 
-# Gather all source files
-file(GLOB_RECURSE ROOT_SOURCES
-    "${CMAKE_SOURCE_DIR}/src/main.cpp"
-)
-
 # Find Vulkan package
 find_package(Vulkan REQUIRED)
 
@@ -28,45 +23,6 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(${PROJECT_NAME})
-
-
-
 # iterate CMakeLists
 add_subdirectory(src)
 add_subdirectory(include)
-
-
-
-
-# Add include directories to the target
-target_include_directories(${PROJECT_NAME}
-    PUBLIC
-    ${CMAKE_SOURCE_DIR}/include/cglm/
-    ${SDL2_INCLUDE_DIRS}
-    ${SDL}
-    ${CMAKE_SOURCE_DIR}/src/
-)
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG")
-# Link libraries to the executable target
-target_compile_definitions(${PROJECT_NAME}
-  PRIVATE
-  $<$<CONFIG:Debug>:DEBUG>
-  $<$<CONFIG:Release>:NDEBUG>
-)
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
-    SDL2::SDL2
-    Vulkan::Vulkan
-    m  # Math library
-    X11  # X11 library
-    engine_mod
-    utils_mod
-)
-
-
-target_sources(${PROJECT_NAME}
-    PRIVATE
-    ${ROOT_SOURCES}
-    ${ROOT_HEADERS}
-)

@@ -80,11 +80,11 @@ void createTextureSampler(PhysicalDevice* pd, LogicalDevice *ld, Texture2D *text
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .magFilter = VK_FILTER_LINEAR,
         .minFilter = VK_FILTER_LINEAR,
-        .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    .addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
+    .addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
+    .addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
     };
-
+printf("");
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(*pd->gpu, &properties); // TODO mover esto a properties miembro de PhysicalDevice
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
