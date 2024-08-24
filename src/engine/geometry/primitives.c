@@ -87,7 +87,52 @@ GEOM_OBJECT* create_grid(int numPoints, float padding) {
 
 
 // Cube
-GEOM_OBJECT* create_cube(float size, uint32_t offset) {
+GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
+    GEOM_OBJECT* cube = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
+    cube->dataLen = 8; // 8 vertices for a cube
+    cube->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
+    cube->indicesLen = 36; // 6 faces * 2 triangles * 3 vertices each
+    cube->indices = (uint32_t*)malloc(sizeof(uint32_t) * cube->indicesLen);
+    cube->vertexOffset = 8;
+
+    float s = size / 2.0f;
+    float cx = globalCoords->point.x;
+    float cy = globalCoords->point.y;
+    float cz = globalCoords->point.x;
+
+    // Define vertices
+    GEOM_VERTEX vertices[8] = {
+        {cx - s, cy - s, cz - s, 0, 0, 0, 0, 0}, // 0: Left  Bottom Back
+        {cx + s, cy - s, cz - s, 1, 0, 0, 2, 0}, // 1: Right Bottom Back
+        {cx + s, cy + s, cz - s, 1, 1, 0, 2, 2}, // 2: Right Top    Back
+        {cx - s, cy + s, cz - s, 0, 1, 0, 0, 2}, // 3: Left  Top    Back
+        {cx - s, cy - s, cz + s, 0, 0, 1, 0, 0}, // 4: Left  Bottom Front
+        {cx + s, cy - s, cz + s, 1, 0, 1, 2, 0}, // 5: Right Bottom Front
+        {cx + s, cy + s, cz + s, 1, 1, 1, 2, 2}, // 6: Right Top    Front
+        {cx - s, cy + s, cz + s, 0, 1, 1, 0, 2}  // 7: Left  Top    Front
+    };
+
+    // Copy vertices to cube data
+    memcpy(cube->data, vertices, sizeof(vertices));
+
+    // Define indices for all 6 faces
+    uint32_t indices[] = {
+        4, 5, 6, 6, 7, 4, // Front face
+        0, 3, 2, 2, 1, 0, // Back face
+        3, 7, 6, 6, 2, 3, // Top face
+        0, 1, 5, 5, 4, 0, // Bottom face
+        1, 2, 6, 6, 5, 1, // Right face
+        0, 4, 7, 7, 3, 0  // Left face
+    };
+
+    // Copy indices to cube
+    memcpy(cube->indices, indices, sizeof(indices));
+
+    return cube;
+}
+
+/*
+GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
     GEOM_OBJECT* cube = malloc(sizeof(GEOM_OBJECT));
     cube->dataLen = 8; // 8 vertices for a cube
     cube->data = malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
@@ -125,7 +170,7 @@ GEOM_OBJECT* create_cube(float size, uint32_t offset) {
     }
 
     return cube;
-}
+}*/
 /*
 // Pyramid
 GEOM_OBJECT* create_pyramid(float base_size, float height) {

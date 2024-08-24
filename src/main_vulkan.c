@@ -23,7 +23,7 @@
 #include "textureManager.h"
 #include "primitives.h"
 #include "scene.h"
-
+/*
 void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEXT* callback_messenger){
     PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
     vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(*instance, "vkDestroyDebugUtilsMessengerEXT\0");
@@ -130,76 +130,7 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, Geomet
     vkDestroyInstance(dm->instance, NULL);
 }
 
-void createInstance(VkInstance** instance, SDL_Window* window) {
-    *instance = (VkInstance*) malloc(sizeof(VkInstance));
-    printf("CREATE INSTANCE FLAG 1\n");
-    const VkApplicationInfo app = {
-        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pNext = NULL,
-        .pApplicationName = "GrassBox\0",
-        .applicationVersion = 0,
-        .pEngineName = "GrassBox\0",
-        .engineVersion = 0,
-        .apiVersion = VK_API_VERSION_1_0,
-    };
 
-    char* extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0", "VK_KHR_surface\0", "VK_KHR_dynamic_rendering"};
-
-    uint32_t available_instance_layers_count = 0;
-    VkLayerProperties* vulkan_instance_layer_properties;
-
-    VkResult vkEnumInstLayerPropsResult = vkEnumerateInstanceLayerProperties(&available_instance_layers_count, VK_NULL_HANDLE);
-    assert(vkEnumInstLayerPropsResult == VK_SUCCESS && available_instance_layers_count > 0);
-    vulkan_instance_layer_properties = malloc(sizeof(VkLayerProperties) * available_instance_layers_count);
-
-    VkResult vkEnumInstLayPropResult = vkEnumerateInstanceLayerProperties(&available_instance_layers_count, vulkan_instance_layer_properties);
-    assert(vkEnumInstLayPropResult == VK_SUCCESS);
-    // Devices TODO: Aqui deberiamos buscar por las extensiones del dipositivo despues de la creación, asegurarnos
-    // que soporta, y a
-    char* layers_to_select[] = {"VK_LAYER_KHRONOS_validation\0"};
-    const char** actual_layers_selected = malloc(sizeof(char*));
-    actual_layers_selected[0] = malloc(sizeof(char) * 256);
-    assert(actual_layers_selected != NULL);
-    printf("CREATE INSTANCE FLAG 2\n");
-    uint32_t actual_number_layers_selected = 0;
-    for(short i = 0; i < available_instance_layers_count; i++){
-        // TODO: Cambiar esto cuando se necesite mas de una capa
-        if(ARE_STRINGS_EQUAL(vulkan_instance_layer_properties[i].layerName, layers_to_select[0])){
-            actual_layers_selected[0] = vulkan_instance_layer_properties[i].layerName;
-            actual_number_layers_selected++;
-        }
-    }
-
-    printf("CREATE INSTANCE FLAG 3\n");
-    //Probamos con la configuracion de SDL
-
-    uint32_t extensionCount = 0;
-    SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, NULL);
-    const char** extensionNames = malloc(extensionCount * sizeof(char*));
-    SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, extensionNames);
-
-    //VkInstance instance;
-    VkInstanceCreateInfo instance_info = {
-        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pApplicationInfo = &app,
-        .enabledLayerCount = actual_number_layers_selected,
-        .ppEnabledLayerNames = (const char *const *)actual_layers_selected,
-        .enabledExtensionCount = 3,
-        .ppEnabledExtensionNames = (const char *const *) extensionsToSelect,
-    };
-    //TODO: Para asegurar portabilidad entre sistemas con sdl, leer la direccion de la propia funcion vkGetInstanceProdAddr
-    //a traves de SDL en vez de llamarla directamente como hacemos en createDebugCallbackForVulkan
-    VkResult debug = vkCreateInstance(&instance_info, NULL, *instance);
-    printf("Debug: %x\n", debug);
-    printf("CREATE INSTANCE FLAG 4\n");
-    if ( debug != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create Vulkan instance\n");
-        exit(EXIT_FAILURE);
-    }
-
-    assert(instance != NULL);
-
-}
 /*
 void fillGeometryData(GEOM_OBJECT **geometry){
     //printf("GEOM OBJECTS FLAG 0 \n");
@@ -247,6 +178,8 @@ void fillGeometryData(GEOM_OBJECT **geometry){
     (*geometry)->indices[4] = 3;
     (*geometry)->indices[5] = 0;
 }*/
+
+/*
 void apply_offset_to_indices(TRVZXS_SIZE* indices, size_t num_indices, TRVZXS_SIZE offset) {
     for (size_t i = 0; i < num_indices; i++) {
         indices[i] += offset;
@@ -280,12 +213,12 @@ void getScene(SCENE **scene, size_t objectsLen, float size) {
     printf("FINALIZAMOS CREACION ESCENA!\n");
     printf("SCENELEN : %d", derrefScene->sceneLen);
         printf("INDICESLEN : %d", derrefScene->totalIndicesLen);
-}
+}*/
 /*
 void getGrid(GEOM_OBJECT **geometry, int points, int padding) {
     *geometry = create_grid(geometry, points, padding);
 }*/
-
+/*
 DeviceManager* initTRVZXSEngine(SDL_Window* window){
 
     DeviceManager* dm = malloc(sizeof(DeviceManager)); // Init for the general state object of the render
@@ -294,7 +227,7 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     (*dm->lDevice) = malloc(sizeof(**dm->lDevice));
     dm->pDevice = malloc(sizeof(dm->pDevice));
     dm->gpuIndex = 0;
-    dm->deviceIndex = 0;*/
+    dm->deviceIndex = 0;
 
 
 
@@ -394,5 +327,75 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     printf("Init vulkan ended.\n");
 
     return dm;
+
+}*/
+void createInstance(VkInstance** instance, SDL_Window* window) {
+    *instance = (VkInstance*) malloc(sizeof(VkInstance));
+    printf("CREATE INSTANCE FLAG 1\n");
+    const VkApplicationInfo app = {
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pNext = NULL,
+        .pApplicationName = "GrassBox\0",
+        .applicationVersion = 0,
+        .pEngineName = "GrassBox\0",
+        .engineVersion = 0,
+        .apiVersion = VK_API_VERSION_1_0,
+    };
+
+    char* extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0", "VK_KHR_surface\0", "VK_KHR_dynamic_rendering"};
+
+    uint32_t available_instance_layers_count = 0;
+    VkLayerProperties* vulkan_instance_layer_properties;
+
+    VkResult vkEnumInstLayerPropsResult = vkEnumerateInstanceLayerProperties(&available_instance_layers_count, VK_NULL_HANDLE);
+    assert(vkEnumInstLayerPropsResult == VK_SUCCESS && available_instance_layers_count > 0);
+    vulkan_instance_layer_properties = malloc(sizeof(VkLayerProperties) * available_instance_layers_count);
+
+    VkResult vkEnumInstLayPropResult = vkEnumerateInstanceLayerProperties(&available_instance_layers_count, vulkan_instance_layer_properties);
+    assert(vkEnumInstLayPropResult == VK_SUCCESS);
+    // Devices TODO: Aqui deberiamos buscar por las extensiones del dipositivo despues de la creación, asegurarnos
+    // que soporta, y a
+    char* layers_to_select[] = {"VK_LAYER_KHRONOS_validation\0"};
+    const char** actual_layers_selected = malloc(sizeof(char*));
+    actual_layers_selected[0] = malloc(sizeof(char) * 256);
+    assert(actual_layers_selected != NULL);
+    printf("CREATE INSTANCE FLAG 2\n");
+    uint32_t actual_number_layers_selected = 0;
+    for(short i = 0; i < available_instance_layers_count; i++){
+        // TODO: Cambiar esto cuando se necesite mas de una capa
+        if(ARE_STRINGS_EQUAL(vulkan_instance_layer_properties[i].layerName, layers_to_select[0])){
+            actual_layers_selected[0] = vulkan_instance_layer_properties[i].layerName;
+            actual_number_layers_selected++;
+        }
+    }
+
+    printf("CREATE INSTANCE FLAG 3\n");
+    //Probamos con la configuracion de SDL
+
+    uint32_t extensionCount = 0;
+    SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, NULL);
+    const char** extensionNames = malloc(extensionCount * sizeof(char*));
+    SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, extensionNames);
+
+    //VkInstance instance;
+    VkInstanceCreateInfo instance_info = {
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pApplicationInfo = &app,
+        .enabledLayerCount = actual_number_layers_selected,
+        .ppEnabledLayerNames = (const char *const *)actual_layers_selected,
+        .enabledExtensionCount = 3,
+        .ppEnabledExtensionNames = (const char *const *) extensionsToSelect,
+    };
+    //TODO: Para asegurar portabilidad entre sistemas con sdl, leer la direccion de la propia funcion vkGetInstanceProdAddr
+    //a traves de SDL en vez de llamarla directamente como hacemos en createDebugCallbackForVulkan
+    VkResult debug = vkCreateInstance(&instance_info, NULL, *instance);
+    printf("Debug: %x\n", debug);
+    printf("CREATE INSTANCE FLAG 4\n");
+    if ( debug != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create Vulkan instance\n");
+        exit(EXIT_FAILURE);
+    }
+
+    assert(instance != NULL);
 
 }

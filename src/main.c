@@ -10,7 +10,7 @@
 #include "displayManager.h"
 
 
-
+/*
 // Tamaño de la ventana
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
@@ -24,7 +24,7 @@ int engineEntryPoint(){
     /*if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("SDL no pudo inicializarse! SDL Error: %s\n", SDL_GetError());
         return -1;
-    }*/
+    }
 
     if (window == NULL) {
         printf("La ventana no pudo crearse! SDL Error: %s\n", SDL_GetError());
@@ -48,7 +48,7 @@ int engineEntryPoint(){
         SDL_DestroyWindow(window);
         SDL_Quit();
         return -1;
-    }*/
+    }
     uint32_t running = 1;
     bool resizing = 0;
     SDL_Event event;
@@ -133,4 +133,4 @@ int engineEntryPoint(){
     SDL_Quit();
 
     return 0;
-}
+}*/
