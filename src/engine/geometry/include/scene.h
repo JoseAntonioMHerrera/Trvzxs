@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdint.h>
 #include "cglm.h"
 #include "numberTypes.h"
@@ -6,6 +7,7 @@
 #include "assert.h"
 
 typedef struct SCENE {
+
     GEOM_OBJECT* pScene;
     uint32_t sceneLen;
 
@@ -16,12 +18,13 @@ typedef struct SCENE {
     GEOM_VERTEX* sceneVertex;
     uint32_t sceneVertexLen;
 
-    // lights
-    // effects
 } SCENE;
-
 
 uint32_t getIndicesLenFromScene(const SCENE * const scene);
 uint32_t* getIndicesFromScene(const SCENE * const scene);
 uint32_t getVertexLenFromScene(const SCENE * const scene);
+
 GEOM_VERTEX* getVertexFromScene(const SCENE * const scene);
+
+void fillSceneData(SCENE* const scene, GEOM_OBJECT* const objects, uint32_t sceneLen);
+void initSceneWithData(SCENE* scene, GEOM_OBJECT* const objects, uint32_t sceneLen);

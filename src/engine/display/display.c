@@ -1,6 +1,30 @@
 #include <assert.h>
 #include "displayManager.h"
 
+
+void cleanupSyncObjects(VkDevice device, GeometryDisplayPipelineManager* gdp){
+
+    for (size_t i = 0; i < gdp->maxFrames; i++) {
+        vkDestroySemaphore(device, gdp->renderEndFlag[i], NULL);
+        vkDestroySemaphore(device, gdp->imgViewSemaphore[i], NULL);
+        vkDestroyFence(device, gdp->inFlightFence[i], NULL);
+    }
+
+}
+
+
+void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* window){
+    SDL_bool result_surface_creation = SDL_Vulkan_CreateSurface(window,
+                                  *instance,
+                                  &dm->surface);
+    printf("CREATE INSTANCE FLAG 5\n");
+    assert(dm->surface);
+    assert(*instance);
+
+    assert(result_surface_creation == SDL_TRUE);
+}
+
+
 void drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GeometryDisplayPipelineManager *gdp,
 VkDevice device, SDL_Window *window) {
     printf("DRAW FRAME: frame %d: Fence %p\n", dm->currentFrame, gdp->inFlightFence[dm->currentFrame]);

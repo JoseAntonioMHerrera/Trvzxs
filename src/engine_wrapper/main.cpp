@@ -1,10 +1,12 @@
 #include <iostream>
 #include <vector>
+#include "metaEngine.hpp"
 #include "model.hpp"
 
 extern "C" {
     #include <SDL_stdinc.h>
     #include <SDL_vulkan.h>
+    #include <SDL.h>
     #include <stdint.h>
     #include <time.h>
     #include <vulkan/vulkan.h>
@@ -26,7 +28,6 @@ extern "C" {
     #include "uniformBuffer.h"
     #include "descriptor.h"
     #include "textureManager.h"
-    #include "primitives.h"
     #include "scene.h"
 };
 
@@ -40,10 +41,26 @@ int main() {
 
     try {
         auto global = GEOM_VERTEX{5,5,0};
-        std::vector<Model<GEOM_OBJECT>> scene;
-        scene.emplace_back(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::CUBE, &global, 3)));
-        std::cout << "HOLA HOLA CARACOLA" << std::endl;
-        std::cout << scene.back() << std::endl;
+        Scene<SCENE, Model, GEOM_OBJECT> scene;
+        scene.addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::CUBE, &global, 3)));
+        scene.init();
+
+        SDL_Window* window = NULL;
+        window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 800, SDL_WINDOW_VULKAN);
+        assert(window != NULL);
+        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+            printf("SDL no pudo inicializarse! SDL Error: %s\n", SDL_GetError());
+            return -1;
+        }
+
+        if (window == NULL) {
+            printf("La ventana no pudo crearse! SDL Error: %s\n", SDL_GetError());
+            SDL_Quit();
+            return -1;
+        }
+
+        std::cout <<" nos trajo para que el se vaya" << std::endl;
+        auto engine =  new MetaEngine<SCENE, Model, GEOM_OBJECT>(window, scene);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }

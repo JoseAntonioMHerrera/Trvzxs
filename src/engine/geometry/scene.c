@@ -4,6 +4,11 @@
 #include "scene.h"
 
 
+void apply_offset_to_indices(TRVZXS_SIZE* indices, size_t num_indices, TRVZXS_SIZE offset) {
+    for (size_t i = 0; i < num_indices; i++) {
+        indices[i] += offset;
+    }
+}
 
 void initIndicesScene(uint32_t* indices, uint32_t indicesLen){
     for(int i=0; i < indicesLen; i++){
@@ -84,4 +89,50 @@ GEOM_VERTEX* getVertexFromScene(const SCENE * const scene) {
     }
 
     return pVertex;
+}
+
+void initScene(SCENE** scene, uint32_t sceneLen){
+    (*scene) = malloc(sizeof(SCENE));
+    (*scene)->pScene = malloc(sizeof(GEOM_OBJECT) * sceneLen);
+    (*scene)->sceneLen = sceneLen;
+}
+
+void printScene(const GEOM_OBJECT* const objects, uint32_t objectsLen){
+    for(int objIndex = 0; objIndex < objectsLen; objIndex++){
+        for(int vertexIndex = 0; vertexIndex < objects[objIndex].dataLen; vertexIndex++)
+            printf("(X,Y,Z):{%f,%f,%f} \n", objects[objIndex].data[vertexIndex].point.x,
+            objects[objIndex].data[vertexIndex].point.y,
+            objects[objIndex].data[vertexIndex].point.z);
+    }
+};
+
+void initSceneWithData(SCENE* scene, GEOM_OBJECT* const objects, uint32_t sceneLen){
+    printf("INIT SCENE WITH SCENELEN:%d\n", sceneLen);
+    uint32_t spaceOffsetForModel = 0;
+    uint32_t indexOffsetForModelIndices = 0;
+    initScene(&scene, sceneLen);
+    //printScene(objects, sceneLen);
+
+    for(int objIndex = 0; objIndex < sceneLen; objIndex++){
+        scene->pScene[objIndex] = objects[objIndex];
+        printf("SDFUNSOGNOSD\n");
+        GEOM_OBJECT* cube = &scene->pScene[objIndex];
+
+        apply_offset_to_indices(cube->indices, cube->indicesLen, indexOffsetForModelIndices);
+        indexOffsetForModelIndices += cube->vertexOffset;
+
+        printf("INDICES DEL CUBO: %d\n", scene->pScene[objIndex].indicesLen);
+        spaceOffsetForModel+=5;
+    }
+
+    printf("TRAS ITERAR EL BUCLE DE OBJETOS\n");
+
+    scene->sceneVertexLen =  getVertexLenFromScene(scene);
+    scene->sceneVertex =  getVertexFromScene(scene);
+
+    scene->totalIndicesLen = getIndicesLenFromScene(scene);
+    scene->sceneIndices = getIndicesFromScene(scene);
+    printf("FINALIZAMOS CREACION ESCENA!\n");
+    printf("SCENELEN : %d", scene->sceneLen);
+    printf("INDICESLEN : %d", scene->totalIndicesLen);
 }

@@ -4,15 +4,19 @@
 # Gather all source files
 file(GLOB_RECURSE ENGINE_WRAPPER_SOURCES
     "main.cpp"
-    "model/*.cpp"
+    "metaEngine/model/*.cpp"
+    "metaEngine/scene/*.cpp"
     "metaEngine/metaObject/*.cpp"
+    "metaEngine/*.cpp"
  #TODO move entryfiles to the library to engine folder tree
 )
 
 # Gather all header files
 file(GLOB_RECURSE ENGINE_WRAPPER_HEADERS
-    "model/include/*.hpp"
+    "metaEngine/model/include/*.hpp"
     "metaEngine/metaObject/include/*.hpp"
+    "metaEngine/include/*.hpp"
+    "metaEngine/scene/include/*.hpp"
      # TODO move CInterface to engine with entrypoint of engine
 )
 
@@ -33,8 +37,10 @@ target_include_directories(${PROJECT_NAME}
     ${SDL2_INCLUDE_DIRS}
     ${SDL}
     ${CMAKE_SOURCE_DIR}/src/
-    model/include/
+    metaEngine/model/include/
+    metaEngine/scene/include/
     metaEngine/metaObject/include
+    metaEngine/include
 )
 
 
