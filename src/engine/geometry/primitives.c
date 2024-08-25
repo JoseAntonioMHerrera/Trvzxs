@@ -85,7 +85,25 @@ GEOM_OBJECT* create_grid(int numPoints, float padding) {
     return grid;
 }*/
 
+void print_cube(const GEOM_OBJECT* cube) {
+    printf("Cube Information:\n");
+    printf("Number of vertices: %u\n", cube->dataLen);
+    printf("Number of indices: %u\n", cube->indicesLen);
+    printf("Vertex offset: %u\n", cube->vertexOffset);
 
+    printf("\nVertices:\n");
+    for (uint32_t i = 0; i < cube->dataLen; i++) {
+        printf("Vertex %u: (%.2f, %.2f, %.2f) UV: (%.2f, %.2f) Normal: (%.2f, %.2f, %.2f)\n",
+               i,
+               cube->data[i].point.x, cube->data[i].point.y, cube->data[i].point.z,
+               cube->data[i].textCoords.u, cube->data[i].textCoords.v, cube->data[i].textCoords.w);
+    };
+
+    printf("\nIndices:\n");
+    for (uint32_t i = 0; i < cube->indicesLen; i += 3) {
+        printf("Triangle %u: %u, %u, %u\n", i / 3, cube->indices[i], cube->indices[i+1], cube->indices[i+2]);
+    }
+}
 // Cube
 GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
     GEOM_OBJECT* cube = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
@@ -127,7 +145,7 @@ GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
 
     // Copy indices to cube
     memcpy(cube->indices, indices, sizeof(indices));
-
+    print_cube(cube);
     return cube;
 }
 

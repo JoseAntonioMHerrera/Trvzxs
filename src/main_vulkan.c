@@ -24,37 +24,11 @@
 #include "primitives.h"
 #include "scene.h"
 /*
-void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEXT* callback_messenger){
-    PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-    vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(*instance, "vkDestroyDebugUtilsMessengerEXT\0");
-    assert(vkDestroyDebugUtilsMessengerEXT != NULL);
-
-    vkDestroyDebugUtilsMessengerEXT(*instance, *callback_messenger, NULL);
-
-    printf("Vulkan log callback destroyed.\n");
-}
 
 
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void * pUserData){
 
-    printf("@@ DEBUG CALLBACK @@\n");
-    printf("Mascara de severidad de mensaje: %u\n",severity);
-    printf("Mascara de tipo de mensaje: %u\n",type);
-    printf("Numero de objetos reportados: %d\n", pCallbackData->objectCount);
-    for(uint32_t i =0; i <= pCallbackData->objectCount; i++) {
-        printf("%s\n",pCallbackData->pMessage);
-        printf("%lu\n",pCallbackData->pObjects[i].objectHandle);
 
-    }
-    printf("@@ DEBUG CALLBACK @@\n");
-
-    // More deep checks and analysis here
-
-    // Based on the data received, choose to halt or not halt program
-    return VK_FALSE;
-
-};
 
 
 
@@ -329,6 +303,93 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     return dm;
 
 }*/
+
+void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEXT* callback_messenger){
+    PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(*instance, "vkDestroyDebugUtilsMessengerEXT\0");
+    assert(vkDestroyDebugUtilsMessengerEXT != NULL);
+
+    vkDestroyDebugUtilsMessengerEXT(*instance, *callback_messenger, NULL);
+
+    printf("Vulkan log callback destroyed.\n");
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void * pUserData){
+
+    printf("@@ DEBUG CALLBACK @@\n");
+    printf("Mascara de severidad de mensaje: %u\n",severity);
+    printf("Mascara de tipo de mensaje: %u\n",type);
+    printf("Numero de objetos reportados: %d\n", pCallbackData->objectCount);
+    for(uint32_t i =0; i <= pCallbackData->objectCount; i++) {
+        printf("%s\n",pCallbackData->pMessage);
+        printf("%lu\n",pCallbackData->pObjects[i].objectHandle);
+
+    }
+    printf("@@ DEBUG CALLBACK @@\n");
+
+    // More deep checks and analysis here
+
+    // Based on the data received, choose to halt or not halt program
+    return VK_FALSE;
+
+};
+
+VkDebugUtilsMessengerEXT* createDebugCallbackForVulkan(const VkInstance* instance){
+    VkDebugUtilsMessengerCreateInfoEXT debug_callback_info = {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+        .messageType =  VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        .pfnUserCallback = &vulkanDebugCallback,
+        .pUserData = NULL,
+    };
+    VkDebugUtilsMessengerEXT* callback_messenger = NULL;
+    callback_messenger = malloc(sizeof(VkDebugUtilsMessengerEXT));
+    assert(callback_messenger != NULL);
+
+    PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(*instance, "vkCreateDebugUtilsMessengerEXT\0");
+    assert(vkCreateDebugUtilsMessengerEXT != NULL);
+
+    VkResult messenger_creation_result = vkCreateDebugUtilsMessengerEXT(*instance, &debug_callback_info, NULL,  callback_messenger);
+    assert(messenger_creation_result == VK_SUCCESS);
+
+    return callback_messenger;
+}
+
+void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, GeometryDisplayPipelineManager* gdp, VkDebugUtilsMessengerEXT *logCallback) {
+    vkDeviceWaitIdle(dm->lDevice[dm->deviceIndex]->device);
+    cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager, ld->displayManager->swapChainM);
+    vkDestroyBuffer(ld->device, gdp->deviceBuffer->buffer, NULL);
+    vkDestroyBuffer(ld->device, gdp->deviceBuffer->indexBuffer, NULL);
+    vkFreeMemory(ld->device, gdp->deviceBuffer->bufferMemory, NULL);
+    vkFreeMemory(ld->device, gdp->deviceBuffer->indexBufferMemory, NULL);
+    vkDestroyRenderPass(ld->device, gdp->renderPass, NULL);
+    vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
+    vkDestroyCommandPool(ld->device, gdp->commandPool->transferCommandPool, NULL);
+    vkDestroyPipeline(ld->device, gdp->pipeline, NULL);
+    vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL);
+    vkDestroyPipelineLayout(ld->device, gdp->pipelineLayout, NULL);
+    cleanupSyncObjects(ld->device,gdp);
+
+    //vkDestroyPipelineLayout(device, pipelineLayout, NULL);
+
+
+    vkDestroyDevice(ld->device, NULL);
+
+    if (logCallback) {
+        destroyDebugCallbackForVulkan(&dm->instance, dm->logCallback);
+    }
+
+    vkDestroySurfaceKHR(dm->instance, dispM->surface, NULL);
+    vkDestroyInstance(dm->instance, NULL);
+}
+
 void createInstance(VkInstance** instance, SDL_Window* window) {
     *instance = (VkInstance*) malloc(sizeof(VkInstance));
     printf("CREATE INSTANCE FLAG 1\n");

@@ -22,15 +22,26 @@ target_include_directories(engine_mod PUBLIC
 
 # Gather all source files
 file(GLOB_RECURSE ENGINE_SOURCES
-    "device/*.c"
-    "familyQueues/*.c"
+    "buffer/*.c"
     "commands/*.c"
-    "image/*.c"
+    "device/*.c"
     "display/*.c"
-    "texture/*.c"
+    "geometry/*.c"
+    "image/*.c"
+    "pipelines/*.c"
     "pipelines/descriptors/*.c"
     "pipelines/constants/*.c"
-    "geometry/*.c"
+    "swapchain/*.c"
+    "texture/*.c"
+    "commands/*.c"
+
+
+
+
+
+
+
+
     "${CMAKE_SOURCE_DIR}/src/*.c" #TODO move entryfiles to the library to engine folder tree
 )
 

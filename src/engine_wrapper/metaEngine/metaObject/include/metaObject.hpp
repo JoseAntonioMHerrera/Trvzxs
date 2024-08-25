@@ -7,15 +7,15 @@
 #include "vertex.h"
 #include <memory>
 
-template<typename T>
-// Class representing a geometric object
+template<typename T, typename Deleter>
 class MetaObject {
 protected:
-        std::unique_ptr<T> object;
+        std::unique_ptr<T, Deleter> object;
 
 public:
     // Default constructor
-    MetaObject() : object(nullptr){};
+    MetaObject() : object(nullptr, Deleter()){};
+    MetaObject(T* data, Deleter deleter = Deleter()) : object(std::unique_ptr<T, Deleter>(data, deleter)) {};
 
     // Copy constructor
     MetaObject(const MetaObject&) = delete;
@@ -28,14 +28,18 @@ public:
     // Move assignment operator
     MetaObject& operator=(MetaObject&& other) {
         std::cout << "LLAMAMOS AL OPERADOR ASIGNACION MOVE THE METAOBJECT" << std::endl;
-        if(this != other){
-            this->object = std::move<T>(other.object);
-        }
+
+            this->object = std::move(other.object);
+
         return *this;
     };
 
     // Shallow copy assignment operator
     MetaObject& operator=(const MetaObject&) = delete;
 
-    ~MetaObject()= default;
+    ~MetaObject(){};
+
+    T* getStruct(){
+        return object.get();
+    };
 };

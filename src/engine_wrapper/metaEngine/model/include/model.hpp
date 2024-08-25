@@ -16,46 +16,55 @@ enum class PRIMITIVE_TYPE {
     SPHERE,
     MODEL
 };
+template <typename T>
+constexpr auto modelDeletor = [](T* obj){ free(obj->data); free(obj->indices);};
 
 template <typename T>
-class Model : public MetaObject<T> {
+class Model : public MetaObject<T, void(*)(T*)> {
 public:
-    // default constructor
-    Model() : MetaObject<T>(){};
+    // Default constructor
+    Model() : MetaObject<T, void(*)(T*)>() {}
 
-    explicit Model(const std::string& modelPath, const GEOM_VERTEX* const globalCoords, uint32_t size) noexcept{
+    // Constructor for loading from file
+    explicit Model(const std::string& modelPath, const GEOM_VERTEX* const globalCoords, uint32_t size) noexcept
+    : MetaObject<T, void(*)(T*)>() {
         std::cout << "Loading PRIMITIVE_TYPE::MODEL" << std::endl;
-    };
+        // TODO: Implement model loading logic
+    }
 
-    explicit Model(PRIMITIVE_TYPE primitive, GEOM_VERTEX* const globalCoord, const uint32_t size) {
-        T* cube;
-        switch(primitive){
+    // Constructor for creating primitives
+    explicit Model(PRIMITIVE_TYPE primitive, GEOM_VERTEX* const globalCoord, const uint32_t size)
+    : MetaObject<T, void(*)(T*)>() {
+        T* object = nullptr;
+        switch(primitive) {
             case PRIMITIVE_TYPE::CUBE:
                 std::cout << "CREAMOS MODELO CUBO FLAG" << std::endl;
-                cube = create_cube(globalCoord, size);
-                this->object = std::unique_ptr<T>(cube);
+                object = create_cube(globalCoord, size);
+            // Add other cases for different primitives
             break;
-            default:
-                throw std::runtime_error("Primitive not supported!");
+        default:
+            throw std::runtime_error("Primitive not supported!");
+        }
+        if (object) {
+            this->MetaObject<T, void(*)(T*)>::operator=(MetaObject<T, void(*)(T*)>(object, modelDeletor<T>));
         }
         std::cout << "FINALIZAMOS MODELO CUBO FLAG" << std::endl;
     };
 
     // Copy constructor
-    Model(const Model& other) = delete;
+    Model(const Model<T>& other) = delete;
 
     const Model& operator=(const Model& other) = delete;
 
     // Move constructor
-    Model(Model&& other) noexcept : MetaObject<T>(std::move(other)){
-        std::cout << "LLAMAMOS AL MODEL MOVE THE METAOBJECT" << std::endl;
+    Model(Model<T>&& other) noexcept : MetaObject<T, void(*)(T*)>(std::move(other)){
+        std::cout << "LLAMAMOS AL MODEL MOVE" << std::endl;
     };
 
     // Move assignment operator
     Model& operator=(Model&& other) noexcept {
-            if(this != other){
-                MetaObject<T>::operator=(std::move(other));
-            }
+                MetaObject<T,void(*)(T*)>::operator=(std::move(other));
+
             std::cout << "LLAMAMOS AL MODEL operator= THE METAOBJECT" << std::endl;
     };
 
@@ -72,9 +81,7 @@ public:
     }
     ~Model(){
         if(this->object){
-            std::cout << "LLAMAMOS AL DESTRUCTOR DE MODELO" << std::endl;
-            free(this->object->data);
-            free(this->object->indices);
+            std::cout << "DESTRUCTOR MODELO" << std::endl;
         }
 
     };

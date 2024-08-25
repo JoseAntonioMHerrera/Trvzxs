@@ -10,3 +10,4 @@ GeometryDisplayPipelineManager *gdp, VkDebugUtilsMessengerEXT *logCallback);
 void physicalDeviceTest(VkPhysicalDevice* pd);
 VkBool32 isDeviceValid(VkDevice device);
 void createInstance(VkInstance** instance, SDL_Window* window);
+VkDebugUtilsMessengerEXT* createDebugCallbackForVulkan(const VkInstance* instance);
