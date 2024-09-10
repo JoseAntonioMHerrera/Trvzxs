@@ -1,6 +1,7 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include <stddef.h>
+#include "imageTypes.h"
 typedef struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
     VkSurfaceFormatKHR* formats;
@@ -25,6 +26,7 @@ typedef struct DisplaySwapchainManager {
 
     uint32_t scImageViewLen;
     VkImageView p_scImageView[4];
+    DepthBufferImage depthImage;
     VkSurfaceFormatKHR *currentSurfaceFormat;
     SwapChainSupportDetails *swapChainSupportDetails;
     VkSubpassDependency *subpassDependency;

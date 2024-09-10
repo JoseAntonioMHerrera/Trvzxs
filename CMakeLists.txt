@@ -13,6 +13,17 @@ set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(SDL2)
 
+# FetchContent for SDL2_ttf
+FetchContent_Declare(
+    SDL2_ttf
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf
+    GIT_TAG release-2.20.2
+    GIT_PROGRESS TRUE
+)
+set(SDL2TTF_SAMPLES OFF CACHE BOOL "" FORCE)
+set(SDL2TTF_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(SDL2_ttf)
+
 # Set the C standard
 set(CMAKE_C_STANDARD 17)
 

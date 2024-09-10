@@ -24,6 +24,7 @@ file(GLOB_RECURSE ENGINE_WRAPPER_HEADERS
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
     SDL2::SDL2
+    SDL2_ttf::SDL2_ttf
     Vulkan::Vulkan
     m  # Math library
     X11  # X11 library

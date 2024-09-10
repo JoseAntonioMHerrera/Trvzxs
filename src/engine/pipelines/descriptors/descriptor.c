@@ -56,7 +56,7 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GeometryDisplayPip
         };
         VkDescriptorImageInfo imgInfo = {
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .imageView = texture->imgView,
+            .imageView = texture->common->imageView,
             .sampler = texture->sampler,
         };
 

@@ -14,6 +14,7 @@ extern "C" {
     #include "geometryPipelineTypes.h"
     #include "textureManager.h"
     #include "descriptor.h"
+    #include "scene.h"
     #include <SDL2/SDL.h>
 
 }
@@ -27,13 +28,13 @@ class MetaEngine {
         MetaObject<DeviceManager, void(*)(DeviceManager*)> deviceManager;
         MetaObject<VkInstance, void(*)(VkInstance*)> vkInstance;
         MetaObject<DisplayManager, void(*)(DisplayManager*)> displayManager; //TODO: Only a graphics pipeline need displayManager, on/off rendering
-        Scene<T, U, V> scene;
+        std::unique_ptr<Scene<T, U, V>> scene;
         uint32_t currentSceneIndex = 0;
 
     public:
 
     // Bulk init of everything
-    MetaEngine(SDL_Window* window, Scene<T, U, V>& scene){
+    MetaEngine(SDL_Window* window, std::unique_ptr<Scene<T, U, V>> scene){
         DeviceManager* dm = (DeviceManager*) malloc(sizeof(DeviceManager)); // Init for the general state object of the render
         std::cout << "inittrazosengine flag 1" << '\n';
         dm->lDevice = (LogicalDevice**) malloc(sizeof(*dm->lDevice));
@@ -52,6 +53,13 @@ class MetaEngine {
         GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
         DeviceBufferManager *devicebm;
         gdp->commandPool = (CommandPools*) malloc(sizeof(*gdp->commandPool));
+        gdp->geometry = scene.get()->getStruct();
+
+        printf("POinter geometry %x\n", gdp->geometry);
+        //printScene_(gdp->geometry->pScene, gdp->geometry->sceneLen);
+        std::cout << "RETURNED PRINT SCENE" << std::endl;
+
+        this->scene = std::move(scene);
         gdp->maxFrames = MAX_FRAMES_IN_FLIGHT;
         dsm->scImagesLen = gdp->maxFrames;
         createSDLSurface(dispM, dm->instance, window);
@@ -68,13 +76,11 @@ class MetaEngine {
             throw std::runtime_error("isDeviceValid returns VK_FALSE");
         }
 
-
-
         createSwapChain(pd, ld, dispM, dsm, window);
         gdp->maxFrames = dsm->scImagesLen;
         std::cout << "NUMERO DE FRAMES " << gdp->maxFrames << '\n';
         std::cout << "RETORNO CREATESWAPCHAIN" << '\n';
-        createRenderPass(dispM->swapChainM,ld->device,gdp);
+        createRenderPass(pd, dispM->swapChainM,ld->device,gdp);
         std::cout << "RETORNO RENDERPASS" << '\n';
         dsm->scImageViewLen = dsm->scImagesLen;
         for(uint32_t i=0; i < ld->displayManager->swapChainM->scImagesLen; i++){
@@ -82,6 +88,7 @@ class MetaEngine {
                         createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapChainM->p_scImages[i]);
         }
         std::cout << "RETORNO IMAGEVIEWS" << '\n';
+        createDepthImageResources(pd, ld, dispM->swapChainM);
         createFrameBuffers(dsm,gdp->renderPass, &ld->device);
         std::cout << "RETORNO FRAMEBUFFERS" << '\n';
         gdp->deviceBuffer = (DeviceBufferManager*) malloc(sizeof(*gdp->deviceBuffer));
@@ -97,6 +104,7 @@ class MetaEngine {
         uint32_t height;
         createTextureImage( pd,  ld, gdp, &gdp->texture);
         std::cout << "RETORNO createTextureImage" << '\n';
+
         createTextureImageView(dispM->swapChainM, ld->device, gdp->texture);
         std::cout << "RETORNO createTextureImageView" << '\n';
         devicebm->ubo = (UniformBufferManager*) malloc(sizeof(*(gdp->deviceBuffer->ubo)));
@@ -129,4 +137,13 @@ class MetaEngine {
         this->displayManager = MetaObject<DisplayManager,void(*)(DisplayManager*)>(dispM, freeDisplayManager) ;
         this->vkInstance = MetaObject<VkInstance,void(*)(VkInstance*)>(*instance, freeInstance);
     };
+
+    void metaDrawFrame(SDL_Window* window){
+        DeviceManager* deviceManager = this->deviceManager.getStruct();
+        drawFrame(deviceManager->pDevice, deviceManager->lDevice[0],// TODO hay que usar deviceManager->deviceIndex and gpuIndex
+        deviceManager->lDevice[0]->displayManager,
+        deviceManager->lDevice[0]->displayManager->geomPipeline,
+        deviceManager->lDevice[0]->device, window );
+        std::cout << "RETORNAMOS EL CONTROL DESDE DRAW FRAME" << std::endl;
+    }
 };

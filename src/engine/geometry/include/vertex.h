@@ -24,7 +24,7 @@ typedef struct GEOM_VERTEX_TEXT_COORD {
 typedef struct GEOM_VERTEX {
     struct GEOM_VERTEX_POSITION point;
     struct GEOM_VERTEX_COLOR_RGBA color;
-    GEOM_VERTEX_TEXT_COORD textCoords;
+    struct GEOM_VERTEX_TEXT_COORD textCoords;
 } GEOM_VERTEX;
 
 typedef struct GEOM_OBJECT {

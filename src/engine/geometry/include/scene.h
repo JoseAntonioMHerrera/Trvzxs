@@ -27,4 +27,6 @@ uint32_t getVertexLenFromScene(const SCENE * const scene);
 GEOM_VERTEX* getVertexFromScene(const SCENE * const scene);
 
 void fillSceneData(SCENE* const scene, GEOM_OBJECT* const objects, uint32_t sceneLen);
-void initSceneWithData(SCENE* scene, GEOM_OBJECT* const objects, uint32_t sceneLen);
+void initSceneWithData(SCENE** scene, GEOM_OBJECT** objects, uint32_t sceneLen);
+void printScene(GEOM_OBJECT** const objects, uint32_t objectsLen);
+void printScene_(GEOM_OBJECT* objects, uint32_t objectsLen);

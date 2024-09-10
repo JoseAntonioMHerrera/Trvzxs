@@ -22,7 +22,7 @@ uint32_t getIndicesLenFromScene(const SCENE * const scene) {
         indicesLen += scene->pScene[i].indicesLen;
     }
 
-    printf("RETORNAMOS %d INDICES LEN\n", indicesLen);
+    //printf("RETORNAMOS %d INDICES LEN\n", indicesLen);
     return indicesLen;
 }
 
@@ -41,16 +41,13 @@ uint32_t* getIndicesFromScene(const SCENE * const scene) {
         uint32_t startPositionOffset = iteratorStorageIndices; // flag current offset
         uint32_t iteratorReadIndices = 0;
         for(iteratorStorageIndices ; iteratorStorageIndices < (startPositionOffset + currentObjectIndicesLen)  ; iteratorStorageIndices++){
-            printf("ITERATOR:%d\n", indicesStorageIterator);
+            //printf("ITERATOR:%d\n", indicesStorageIterator);
             indices[indicesStorageIterator] = scene->pScene[i].indices[iteratorReadIndices];
             indicesStorageIterator++;
             iteratorReadIndices++;
         }
     }
 
-    for(int i = 0; i < indicesStorageIterator; i++) {
-        printf("%d\n", indices[i]);
-    }
 
     return indices;
 }
@@ -58,11 +55,11 @@ uint32_t* getIndicesFromScene(const SCENE * const scene) {
 uint32_t getVertexLenFromScene(const SCENE * const scene) {
     uint32_t dataLen = 0;
     for(int i = 0; i < scene->sceneLen; i++){
-            printf("AÑADIMOS %d DATA LEN\n", scene->pScene[i].dataLen);
+            //printf("AÑADIMOS %d DATA LEN\n", scene->pScene[i].dataLen);
         dataLen += scene->pScene[i].dataLen;
     }
 
-    printf("RETORNAMOS %d DATA LEN\n", dataLen);
+    //printf("RETORNAMOS %d DATA LEN\n", dataLen);
 
     return dataLen;
 }
@@ -75,29 +72,34 @@ GEOM_VERTEX* getVertexFromScene(const SCENE * const scene) {
     // Copy individual array of objects indices to scene indices array
     for(int i = 0; i < scene->sceneLen; i++){
         for(int indexObjVertex = 0 ; indexObjVertex <  scene->pScene[i].dataLen; indexObjVertex++){
-            printf("ITERATOR:%d\n", indicesStorageIterator);
+            //printf("ITERATOR:%d\n", indicesStorageIterator);
             pVertex[indicesStorageIterator] = scene->pScene[i].data[indexObjVertex];
-            printf("ITERATOR:%d %d %d\n", pVertex[indexObjVertex].point.x,pVertex[indexObjVertex].point.y,pVertex[indexObjVertex].point.z);
+            //printf("ITERATOR:%d %d %d\n", pVertex[indexObjVertex].point.x,pVertex[indexObjVertex].point.y,pVertex[indexObjVertex].point.z);
             indicesStorageIterator++;
         }
-    }
-
-    for(int i = 0; i < scene->sceneVertexLen; i++) {
-        printf("X: %.6f\n", pVertex[i].point.x);
-        printf("Y: %f\n", pVertex[i].point.y);
-        printf("Z: %f\n", pVertex[i].point.z);
     }
 
     return pVertex;
 }
 
-void initScene(SCENE** scene, uint32_t sceneLen){
-    (*scene) = malloc(sizeof(SCENE));
-    (*scene)->pScene = malloc(sizeof(GEOM_OBJECT) * sceneLen);
-    (*scene)->sceneLen = sceneLen;
+void initScene(SCENE*** scene, uint32_t sceneLen){
+    (**scene) = (SCENE*) malloc(sizeof(SCENE));
+    (**scene)->pScene = (GEOM_OBJECT*) malloc(sizeof(GEOM_OBJECT) * sceneLen);
+    (**scene)->sceneLen = sceneLen;
 }
 
-void printScene(const GEOM_OBJECT* const objects, uint32_t objectsLen){
+void printScene(GEOM_OBJECT** objects, uint32_t objectsLen){
+    //printf("OBJECTS: %x -> %d\n",objects, objectsLen);
+    for(int objIndex = 0; objIndex < objectsLen; objIndex++){
+        for(int vertexIndex = 0; vertexIndex < objects[objIndex]->dataLen; vertexIndex++)
+            printf("(X,Y,Z):{%f,%f,%f} \n", objects[objIndex]->data[vertexIndex].point.x,
+            objects[objIndex]->data[vertexIndex].point.y,
+            objects[objIndex]->data[vertexIndex].point.z);
+    }
+};
+
+void printScene_(GEOM_OBJECT* objects, uint32_t objectsLen){
+    //printf("OBJECTS: %x -> %d\n",objects, objectsLen);
     for(int objIndex = 0; objIndex < objectsLen; objIndex++){
         for(int vertexIndex = 0; vertexIndex < objects[objIndex].dataLen; vertexIndex++)
             printf("(X,Y,Z):{%f,%f,%f} \n", objects[objIndex].data[vertexIndex].point.x,
@@ -106,7 +108,7 @@ void printScene(const GEOM_OBJECT* const objects, uint32_t objectsLen){
     }
 };
 
-void initSceneWithData(SCENE* scene, GEOM_OBJECT* const objects, uint32_t sceneLen){
+void initSceneWithData(SCENE** scene, GEOM_OBJECT** objects, uint32_t sceneLen){
     printf("INIT SCENE WITH SCENELEN:%d\n", sceneLen);
     uint32_t spaceOffsetForModel = 0;
     uint32_t indexOffsetForModelIndices = 0;
@@ -114,25 +116,25 @@ void initSceneWithData(SCENE* scene, GEOM_OBJECT* const objects, uint32_t sceneL
     //printScene(objects, sceneLen);
 
     for(int objIndex = 0; objIndex < sceneLen; objIndex++){
-        scene->pScene[objIndex] = objects[objIndex];
-        printf("SDFUNSOGNOSD\n");
-        GEOM_OBJECT* cube = &scene->pScene[objIndex];
+        (*scene)->pScene[objIndex] = *objects[objIndex];
+        //printf("SDFUNSOGNOSD\n");
+        GEOM_OBJECT* cube = &(*scene)->pScene[objIndex];
 
         apply_offset_to_indices(cube->indices, cube->indicesLen, indexOffsetForModelIndices);
         indexOffsetForModelIndices += cube->vertexOffset;
 
-        printf("INDICES DEL CUBO: %d\n", scene->pScene[objIndex].indicesLen);
+        //printf("INDICES DEL CUBO: %d\n", (*scene)->pScene[objIndex].indicesLen);
         spaceOffsetForModel+=5;
     }
 
-    printf("TRAS ITERAR EL BUCLE DE OBJETOS\n");
+    //printf("TRAS ITERAR EL BUCLE DE OBJETOS\n");
 
-    scene->sceneVertexLen =  getVertexLenFromScene(scene);
-    scene->sceneVertex =  getVertexFromScene(scene);
+    (*scene)->sceneVertexLen =  getVertexLenFromScene((*scene));
+    (*scene)->sceneVertex =  getVertexFromScene((*scene));
 
-    scene->totalIndicesLen = getIndicesLenFromScene(scene);
-    scene->sceneIndices = getIndicesFromScene(scene);
-    printf("FINALIZAMOS CREACION ESCENA!\n");
-    printf("SCENELEN : %d", scene->sceneLen);
-    printf("INDICESLEN : %d", scene->totalIndicesLen);
+    (*scene)->totalIndicesLen = getIndicesLenFromScene((*scene));
+    (*scene)->sceneIndices = getIndicesFromScene((*scene));
+    //printf("FINALIZAMOS CREACION ESCENA!\n");
+    //printf("SCENELEN : %d", (*scene)->sceneLen);
+    //printf("INDICESLEN : %d", (*scene)->totalIndicesLen);
 }

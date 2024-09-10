@@ -18,7 +18,7 @@ MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
     glm_rotate(ubo.model, time * glm_rad(45.0f), (vec3){0.0f, 1.0f, 0.0f});
 
     // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
-    vec3 eye = {8.0f, 8.0f, 8.0f};
+    vec3 eye = {30.0f, 30.0f, 30.0f};
     vec3 center = {0.0f, 0.0f, 0.0f};
     vec3 up = {0.0f, 0.0f, 1.0f};
 
@@ -26,7 +26,7 @@ MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
 
     // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
 
-    glm_perspective(glm_rad(45.0f), dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height, 0.1f, 100.0f, ubo.proj);
+    glm_perspective(glm_rad(45.0f), dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height, 0.1f, 500.0f, ubo.proj);
     //printf("WHAT Is happening HERE \n");
     // Adjust for Vulkan's coordinate system
     ubo.proj[1][1] *= -1;

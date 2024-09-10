@@ -1,5 +1,5 @@
 #include "swapchainManager.h"
-
+//TODO: maybe move this function  def/decl to image.h
 VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFormat format, VkImage image) {
     printf("CREATE IMAGE VIEW FLAG 1\n");
     VkImageViewCreateInfo viewInfo = {
@@ -35,13 +35,14 @@ VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFor
 
     for (uint32_t i = 0; i < swapManager->scImagesLen; i++) {
         VkImageView attachments[] = {
-            swapManager->p_scImageView[i]
+            swapManager->p_scImageView[i],
+            swapManager->depthImage.common->imageView,
         };
 
         VkFramebufferCreateInfo framebufferInfo = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass = *renderPass,
-            .attachmentCount = 1,
+            .attachmentCount = 2,
             .pAttachments = attachments,
             .width = swapManager->currentExtent2D.width,
             .height = swapManager->currentExtent2D.height,
@@ -80,8 +81,97 @@ VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFor
 }
 
  void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *displayM, DisplaySwapchainManager * displaySwapCh, SDL_Window* window) {
-    // Implementation of createSwapChain function
-    // ... (The rest of the function remains the same)
+        SwapChainSupportDetails *swapChainSupportDetails = (SwapChainSupportDetails*) malloc(sizeof(SwapChainSupportDetails));
+        displaySwapCh->swapChainSupportDetails = swapChainSupportDetails;
+        VkResult queryPhysicalDeviceSurfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR((*pd->gpu),
+                                                                                            displayM->surface,
+                                                                                            &swapChainSupportDetails->capabilities);
+        //assert(queryPhysicalDeviceSurfaceCapabilitiesResult == VK_SUCCESS);
+        printf("CREATESWAPCHAIN FLAG 0\n");
+        // Query de los formatos de presentacion en superficie que ofrece la gpu (physicalDevice)
+        swapChainSupportDetails->surfaceFormatsLen =  0;
+        VkResult queryPhysicalDeviceSurfaceFormatsCountResult = vkGetPhysicalDeviceSurfaceFormatsKHR(*pd->gpu, displayM->surface,
+                                                                                &swapChainSupportDetails->surfaceFormatsLen, NULL);
+        //assert(swapChainSupportDetails->surfaceFormatsLen > 0 && queryPhysicalDeviceSurfaceFormatsCountResult == VK_SUCCESS);
+        printf("CREATESWAPCHAIN FLAG 1\n");
+
+        if (swapChainSupportDetails->surfaceFormatsLen > 0) {
+            swapChainSupportDetails->formats = (VkSurfaceFormatKHR*) malloc(sizeof(VkSurfaceFormatKHR)* swapChainSupportDetails->surfaceFormatsLen);
+            VkResult queryPhysicalDeviceSurfaceFormatsResult = vkGetPhysicalDeviceSurfaceFormatsKHR(*pd->gpu, displayM->surface, &swapChainSupportDetails->surfaceFormatsLen, swapChainSupportDetails->formats);
+            //assert(queryPhysicalDeviceSurfaceFormatsResult == VK_SUCCESS);
+            printf("CREATESWAPCHAIN FLAG 2\n");
+        }
+        printf("CREATESWAPCHAIN FLAG 3\n");
+        swapChainSupportDetails->presentModeLen  = 0;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(*pd->gpu, displayM->surface, &swapChainSupportDetails->presentModeLen, NULL);
+        printf("CREATESWAPCHAIN FLAG 4\n");
+        // Query present modes
+        if (swapChainSupportDetails->presentModeLen != 0) {
+            swapChainSupportDetails->presentModes = (VkPresentModeKHR*) malloc(sizeof(VkPresentModeKHR)* swapChainSupportDetails->presentModeLen);
+
+            vkGetPhysicalDeviceSurfacePresentModesKHR(*pd->gpu, displayM->surface, &swapChainSupportDetails->presentModeLen, swapChainSupportDetails->presentModes);
+        printf("CREATESWAPCHAIN FLAG 5\n");
+        }
+
+
+        // Seleccionamos el formatos de superficie entre los disponibles que ofrece la gpu
+        displaySwapCh->currentSurfaceFormat = chooseSwapSurfaceFormat(swapChainSupportDetails->formats, swapChainSupportDetails->surfaceFormatsLen);
+    printf("CREATESWAPCHAIN FLAG 6\n");
+        //Seleccionamos el modo de presentación para las imagenes a renderizar por la gpu
+
+        VkPresentModeKHR selectedPresentationMode =  chooseSwapPresentMode(swapChainSupportDetails->presentModes, swapChainSupportDetails->presentModeLen, VK_PRESENT_MODE_MAILBOX_KHR);
+    printf("CREATESWAPCHAIN FLAG 7\n");
+        //Procesamos la resolución soportada por nuestra ventana y la del framebuffer de swapchain
+        chooseSwapExtent2D(&displaySwapCh->currentExtent2D, &swapChainSupportDetails->capabilities, window);
+
+        // Number of images allowed in the swapchain at the same time
+        displaySwapCh->scImagesLen = swapChainSupportDetails->capabilities.minImageCount + 1;
+
+        //Check if imageCount exceeds the maxImageCount of the physical device surface capabilities
+        if (swapChainSupportDetails->capabilities.maxImageCount > 0 && displaySwapCh->scImagesLen >
+            swapChainSupportDetails->capabilities.maxImageCount) {
+            displaySwapCh->scImagesLen = swapChainSupportDetails->capabilities.maxImageCount;
+        }
+
+        // Finally, we build the SwapChain info struct
+        uint32_t familyIndices[] = {pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.transferFamily};
+
+        VkSwapchainCreateInfoKHR creationSwapChainInfo= {
+            .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+            .surface = displayM->surface,
+            .minImageCount = displaySwapCh->scImagesLen,
+            .imageFormat = displaySwapCh->currentSurfaceFormat->format,
+            .imageColorSpace =displaySwapCh->currentSurfaceFormat->colorSpace,
+            .imageExtent = displaySwapCh->currentExtent2D,
+            .imageArrayLayers = 1,
+            .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, // Para renderizar directamente la imagen
+            .imageSharingMode = VK_SHARING_MODE_CONCURRENT,
+            .queueFamilyIndexCount = 2,
+            .pQueueFamilyIndices = familyIndices,
+            .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+            .presentMode = selectedPresentationMode,
+            .clipped = VK_TRUE,
+            .oldSwapchain = VK_NULL_HANDLE,
+            .preTransform = swapChainSupportDetails->capabilities.currentTransform,
+        };
+
+        //printf("swapchain %d: %x\n", 0,ld);
+        //TODO fix procesamiento de seleccion de colas, se deja hardcodeado que vamos a usar dos colas distintas 0 presentacion 1 drawing
+        VkResult createSwapchainResult = vkCreateSwapchainKHR(ld->device, &creationSwapChainInfo, NULL, &displaySwapCh->swapchain);
+        if (createSwapchainResult != VK_SUCCESS) {
+            printf("%u", createSwapchainResult);
+            printf("failed to create swap chain!\n");
+            exit(1);
+        }
+
+        vkGetSwapchainImagesKHR(ld->device, displaySwapCh->swapchain, &displaySwapCh->scImagesLen, NULL);
+        //displaySwapCh->p_scImages = (VkImage*) malloc(sizeof(VkImage)* displaySwapCh->scImagesLen);
+        printf("SC IMAGES LEN FROM SWAPCHAIN GIVES %d\n", displaySwapCh->scImagesLen);
+
+        if(vkGetSwapchainImagesKHR(ld->device, displaySwapCh->swapchain, &displaySwapCh->scImagesLen, displaySwapCh->p_scImages) != VK_SUCCESS){
+            printf("failed to retrieve images from the swap chain!\n");
+            exit(1);
+        }
 }
 
  void cleanupSwapChain(LogicalDevice *ld, DisplayManager *dm, DisplaySwapchainManager *dsm) {

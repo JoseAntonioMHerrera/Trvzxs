@@ -41,13 +41,16 @@
 
     };
     printf("START RENDER FLAG FLAG 1\n");
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    VkClearValue clearValues[2];
+    clearValues[0].color = (VkClearColorValue){0.0f, 0.0f, 0.0f, 1.0f};
+    clearValues[1].depthStencil = (VkClearDepthStencilValue){1.0f, 0};
+    renderPassInfo.clearValueCount = 2;
+    renderPassInfo.pClearValues = &clearValues;
 
     vkCmdBeginRenderPass(gdp->commandBuffer[dm->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 printf("START RENDER FLAG FLAG 2\n");
     vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipeline);
+
 printf("START RENDER FLAG FLAG 3\n");
     VkViewport viewport = {
         viewport.x = 0.0f,
@@ -83,6 +86,8 @@ printf("START RENDER FLAG FLAGs 6\n");
         .flags = 0, // Optional
         .pInheritanceInfo = NULL, // Optional
     };
+
+
     printf("RECORD COMMAND BUFFER\n");
     printf("IMAGE INDEX %u\n", imageIndex);
     if (vkBeginCommandBuffer(gdp->commandBuffer[imageIndex], &beginInfo) != VK_SUCCESS) {
@@ -91,7 +96,7 @@ printf("START RENDER FLAG FLAGs 6\n");
 
     VkDeviceSize offsets[] = {0};
     const VkBuffer localBuffer[] = {*gdp->deviceBuffer->buffer};
-    updatePushConstants(gdp->commandBuffer[imageIndex], gdp->pipelineLayout);
+    //updatePushConstants(gdp->commandBuffer[imageIndex], gdp->pipelineLayout);
     vkCmdBindVertexBuffers(gdp->commandBuffer[imageIndex], 0, 1, localBuffer, offsets);
     vkCmdBindIndexBuffer(gdp->commandBuffer[imageIndex], *gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -150,7 +155,24 @@ printf("START RENDER FLAG FLAGs 6\n");
     (*objectsIAD)[2].offset = offsetof(GEOM_VERTEX, textCoords);
 }
 
- void createRenderPass(DisplaySwapchainManager *dsm, VkDevice device, GeometryDisplayPipelineManager *gdp) {
+ void createRenderPass(PhysicalDevice *pd, DisplaySwapchainManager *dsm, VkDevice device, GeometryDisplayPipelineManager *gdp) {
+
+    VkAttachmentReference depthAttachmentRef = {
+        .attachment = 1,
+        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
+    VkAttachmentDescription depthAttachment = {
+        .format = *(findDepthImageFormat(pd->gpu)),
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
     VkAttachmentDescription colorAttachment = {
         .format = (dsm->currentSurfaceFormat)->format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -173,23 +195,25 @@ printf("START RENDER FLAG FLAGs 6\n");
         .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
         .colorAttachmentCount = 1,
         .pColorAttachments = &colorAttachmentRef,
+        .pDepthStencilAttachment = &depthAttachmentRef,
     };
         printf("CREATERENDERPASS FLAG 1\n");
 
     // TODO MANAGE SUBPASS TREE
 
-    dsm->subpassDependency = malloc(sizeof(VkSubpassDependency));
+    dsm->subpassDependency = malloc(sizeof(VkSubpassDependency)); //TODO this subpassDependency doesnt need to be  a pointer
     dsm->subpassDependency->srcSubpass = VK_SUBPASS_EXTERNAL;
     dsm->subpassDependency->dstSubpass = 0;
-    dsm->subpassDependency->srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dsm->subpassDependency->srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;;
     dsm->subpassDependency->srcAccessMask = 0;
-    dsm->subpassDependency->dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dsm->subpassDependency->dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dsm->subpassDependency->dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dsm->subpassDependency->dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;;
     dsm->subpassDependency->dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    VkAttachmentDescription attatchments[2] = {colorAttachment, depthAttachment};
     VkRenderPassCreateInfo renderPassInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = 1,
-        .pAttachments = &colorAttachment,
+        .attachmentCount = 2,
+        .pAttachments = attatchments,
         .subpassCount = 1,
         .pSubpasses = &subpass,
         .dependencyCount = 1,
@@ -257,6 +281,19 @@ printf("START RENDER FLAG FLAGs 6\n");
         .dynamicStateCount = dynamicStateSize,
         .pDynamicStates = dynamicStates,
         .pNext = VK_NULL_HANDLE,
+    };
+
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = VK_COMPARE_OP_LESS,
+        .depthBoundsTestEnable = VK_FALSE,
+        .minDepthBounds = 0.0f, // Optional
+        .maxDepthBounds = 1.0f, // Optional
+        .stencilTestEnable = VK_FALSE,
+        .front = {}, // Optional
+        .back = {}, // Optional
     };
 
     printf("CREATEGRAPHICSPIPE FLAG 6\n");
@@ -360,18 +397,18 @@ printf("START RENDER FLAG FLAGs 6\n");
         .pNext = VK_NULL_HANDLE,
     };
 
-    VkPushConstantRange pushConstantRange = {
+    /*VkPushConstantRange pushConstantRange = {
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
         .offset = 0,
         .size = sizeof(PushConstantDisplayTimer)
-    };
+    }*/;
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = gdp->maxFrames, // Optional
         .pSetLayouts = (VkDescriptorSetLayout[]){gdp->dsl, gdp->dsl, gdp->dsl},
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &pushConstantRange, // Optional
+        //.pushConstantRangeCount = 0,
+        //.pPushConstantRanges = &pushConstantRange, // Optional
         .pNext = VK_NULL_HANDLE,
     };
 
@@ -400,6 +437,7 @@ printf("START RENDER FLAG FLAGs 6\n");
         .layout = *gdp->pipelineLayout,
         .renderPass = *gdp->renderPass,
         .subpass = 0,
+        .pDepthStencilState = &depthStencil,
         .basePipelineHandle = VK_NULL_HANDLE, // Optional
         .basePipelineIndex = -1, // Optional
         .pNext = VK_NULL_HANDLE,
