@@ -33,13 +33,18 @@ public:
     }
 
     // Constructor for creating primitives
-    explicit Model(PRIMITIVE_TYPE primitive, GEOM_VERTEX* const globalCoord, const uint32_t size)
+    explicit Model(PRIMITIVE_TYPE primitive, GEOM_VERTEX_POSITION* const globalCoord, const uint32_t size)
     : MetaObject<T, void(*)(T*)>() {
         T* object = nullptr;
         switch(primitive) {
             case PRIMITIVE_TYPE::CUBE:
-                std::cout << "CREAMOS MODELO CUBO FLAG" << std::endl;
+
                 object = create_cube(globalCoord, size);
+            // Add other cases for different primitives
+            break;
+             case PRIMITIVE_TYPE::QUAD:
+
+                object = create_quad(globalCoord, size);
             // Add other cases for different primitives
             break;
         default:
@@ -48,7 +53,7 @@ public:
         if (object) {
             this->MetaObject<T, void(*)(T*)>::operator=(MetaObject<T, void(*)(T*)>(object, modelDeletor<T>));
         }
-        std::cout << "FINALIZAMOS MODELO CUBO FLAG" << std::endl;
+
     };
 
     // Copy constructor
@@ -58,14 +63,11 @@ public:
 
     // Move constructor
     Model(Model<T>&& other) noexcept : MetaObject<T, void(*)(T*)>(std::move(other)){
-        std::cout << "LLAMAMOS AL MODEL MOVE" << std::endl;
     };
 
     // Move assignment operator
     Model& operator=(Model&& other) noexcept {
                 MetaObject<T,void(*)(T*)>::operator=(std::move(other));
-
-            std::cout << "LLAMAMOS AL MODEL operator= THE METAOBJECT" << std::endl;
     };
 
 
@@ -76,7 +78,6 @@ public:
             output << "Y: " << model.object->data[i].point.y << " ";
             output << "Z: " << model.object->data[i].point.z << std::endl;
         }
-        exit(0);
         return output;
     }
     ~Model(){

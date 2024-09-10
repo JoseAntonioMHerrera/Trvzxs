@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "vertex.h"
+#include "string.h"
 // Helper function to create a vertex
 GEOM_VERTEX* create_vertex(float x, float y, float z, float r, float g, float b, float u, float v) {
     GEOM_VERTEX *vertex = malloc(sizeof(GEOM_VERTEX));
@@ -96,7 +97,7 @@ void print_cube(const GEOM_OBJECT* cube) {
         printf("Vertex %u: (%.2f, %.2f, %.2f) UV: (%.2f, %.2f) Normal: (%.2f, %.2f, %.2f)\n",
                i,
                cube->data[i].point.x, cube->data[i].point.y, cube->data[i].point.z,
-               cube->data[i].textCoords.u, cube->data[i].textCoords.v, cube->data[i].textCoords.w);
+               cube->data[i].textCoords.u, cube->data[i].textCoords.v);
     };
 
     printf("\nIndices:\n");
@@ -105,7 +106,43 @@ void print_cube(const GEOM_OBJECT* cube) {
     }
 }
 // Cube
-GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
+
+GEOM_OBJECT* create_quad(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
+    GEOM_OBJECT* quad = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
+    quad->dataLen = 4; // 8 vertices for a cube
+    quad->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * quad->dataLen);
+    quad->indicesLen = 6; // 6 faces * 2 triangles * 3 vertices each
+    quad->indices = (uint32_t*)malloc(sizeof(uint32_t) * quad->indicesLen);
+    quad->vertexOffset = 4;
+
+    float s = size / 2.0f;
+    float cx = globalCoords->x;
+    float cy = globalCoords->y;
+    float cz = globalCoords->z;
+
+    // Define vertices
+GEOM_VERTEX vertices[4] = {
+    {cx - s, cy - s, cz - s, 0, 0, 0, 0, 0, 0}, // 0: Left  Bottom Back
+    {cx + s, cy - s, cz - s, 1, 0, 0, 1, 1, 0}, // 1: Right Bottom Back
+    {cx + s, cy + s, cz - s, 1, 1, 0, 1, 1, 1}, // 2: Right Top    Back
+    {cx - s, cy + s, cz - s, 0, 1, 0, 0, 0, 1}, // 3: Left  Top    Back
+};
+
+    // Copy vertices to cube data
+    memcpy(quad->data, vertices, sizeof(vertices));
+
+    // Define indices for all 6 faces
+    uint32_t indices[] = {
+        0, 3, 2, 0, 2, 1, // Back face
+    };
+
+    // Copy indices to cube
+    memcpy(quad->indices, indices, sizeof(indices));
+    //print_cube(cube);
+    return quad;
+}
+
+GEOM_OBJECT* create_cube(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
     GEOM_OBJECT* cube = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
     cube->dataLen = 8; // 8 vertices for a cube
     cube->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
@@ -114,21 +151,21 @@ GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
     cube->vertexOffset = 8;
 
     float s = size / 2.0f;
-    float cx = globalCoords->point.x;
-    float cy = globalCoords->point.y;
-    float cz = globalCoords->point.x;
+    float cx = globalCoords->x;
+    float cy = globalCoords->y;
+    float cz = globalCoords->z;
 
     // Define vertices
-    GEOM_VERTEX vertices[8] = {
-        {cx - s, cy - s, cz - s, 0, 0, 0, 0, 0}, // 0: Left  Bottom Back
-        {cx + s, cy - s, cz - s, 1, 0, 0, 2, 0}, // 1: Right Bottom Back
-        {cx + s, cy + s, cz - s, 1, 1, 0, 2, 2}, // 2: Right Top    Back
-        {cx - s, cy + s, cz - s, 0, 1, 0, 0, 2}, // 3: Left  Top    Back
-        {cx - s, cy - s, cz + s, 0, 0, 1, 0, 0}, // 4: Left  Bottom Front
-        {cx + s, cy - s, cz + s, 1, 0, 1, 2, 0}, // 5: Right Bottom Front
-        {cx + s, cy + s, cz + s, 1, 1, 1, 2, 2}, // 6: Right Top    Front
-        {cx - s, cy + s, cz + s, 0, 1, 1, 0, 2}  // 7: Left  Top    Front
-    };
+GEOM_VERTEX vertices[8] = {
+    {cx - s, cy - s, cz - s, 0, 0, 0, 0, 0, 0}, // 0: Left  Bottom Back
+    {cx + s, cy - s, cz - s, 1, 0, 0, 1, 1, 0}, // 1: Right Bottom Back
+    {cx + s, cy + s, cz - s, 1, 1, 0, 1, 1, 1}, // 2: Right Top    Back
+    {cx - s, cy + s, cz - s, 0, 1, 0, 0, 0, 1}, // 3: Left  Top    Back
+    {cx - s, cy - s, cz + s, 0, 0, 1, 0, 0, 0}, // 4: Left  Bottom Front
+    {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1, 0}, // 5: Right Bottom Front
+    {cx + s, cy + s, cz + s, 1, 1, 1, 1, 1, 1}, // 6: Right Top    Front
+    {cx - s, cy + s, cz + s, 0, 1, 1, 0, 0, 1}  // 7: Left  Top    Front
+};
 
     // Copy vertices to cube data
     memcpy(cube->data, vertices, sizeof(vertices));
@@ -145,10 +182,80 @@ GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
 
     // Copy indices to cube
     memcpy(cube->indices, indices, sizeof(indices));
-    print_cube(cube);
+    //print_cube(cube);
     return cube;
 }
+/*
+GEOM_OBJECT* create_cube(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
+    GEOM_OBJECT* cube = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
+    cube->dataLen = 24; // 6 faces * 4 vertices per face
+    cube->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
+    cube->indicesLen = 36; // 6 faces * 2 triangles * 3 vertices each
+    cube->indices = (uint32_t*)malloc(sizeof(uint32_t) * cube->indicesLen);
+    cube->vertexOffset = 24;
 
+    float s = size / 2.0f;
+    float cx = globalCoords->x;
+    float cy = globalCoords->y;
+    float cz = globalCoords->z;
+
+    // Define vertices (counter-clockwise winding when viewed from outside)
+    GEOM_VERTEX vertices[24] = {
+        // Front face (z = +s)
+        {cx - s, cy - s, cz + s, 0, 0, 1, 0, 1}, // 0: Bottom-left
+        {cx - s, cy + s, cz + s, 0, 1, 1, 0, 0}, // 1: Top-left
+        {cx + s, cy + s, cz + s, 1, 1, 1, 1, 0}, // 2: Top-right
+        {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1}, // 3: Bottom-right
+
+        // Back face (z = -s)
+        {cx + s, cy - s, cz - s, 0, 0, 0, 0, 1}, // 4: Bottom-left
+        {cx + s, cy + s, cz - s, 0, 1, 0, 0, 0}, // 5: Top-left
+        {cx - s, cy + s, cz - s, 1, 1, 0, 1, 0}, // 6: Top-right
+        {cx - s, cy - s, cz - s, 1, 0, 0, 1, 1}, // 7: Bottom-right
+
+        // Top face (y = +s)
+        {cx - s, cy + s, cz - s, 0, 0, 0, 0, 1}, // 8: Back-left
+        {cx - s, cy + s, cz + s, 0, 1, 0, 0, 0}, // 9: Front-left
+        {cx + s, cy + s, cz + s, 1, 1, 0, 1, 0}, // 10: Front-right
+        {cx + s, cy + s, cz - s, 1, 0, 0, 1, 1}, // 11: Back-right
+
+        // Bottom face (y = -s)
+        {cx - s, cy - s, cz - s, 0, 1, 1, 0, 0}, // 12: Back-left
+        {cx - s, cy - s, cz + s, 0, 0, 1, 0, 1}, // 13: Front-left
+        {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1}, // 14: Front-right
+        {cx + s, cy - s, cz - s, 1, 1, 1, 1, 0}, // 15: Back-right
+
+        // Right face (x = +s)
+        {cx + s, cy - s, cz - s, 0, 0, 1, 0, 1}, // 16: Bottom-back
+        {cx + s, cy + s, cz - s, 0, 1, 1, 0, 0}, // 17: Top-back
+        {cx + s, cy + s, cz + s, 1, 1, 1, 1, 0}, // 18: Top-front
+        {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1}, // 19: Bottom-front
+
+        // Left face (x = -s)
+        {cx - s, cy - s, cz + s, 0, 0, 0, 0, 1}, // 20: Bottom-front
+        {cx - s, cy + s, cz + s, 0, 1, 0, 0, 0}, // 21: Top-front
+        {cx - s, cy + s, cz - s, 1, 1, 0, 1, 0}, // 22: Top-back
+        {cx - s, cy - s, cz - s, 1, 0, 0, 1, 1}  // 23: Bottom-back
+    };
+
+    // Copy vertices to cube data
+    memcpy(cube->data, vertices, sizeof(vertices));
+
+    // Define indices for all 6 faces (counter-clockwise winding)
+    uint32_t indices[] = {
+        0, 1, 2,  2, 3, 0,    // Front face
+        4, 5, 6,  6, 7, 4,    // Back face
+        8, 9, 10, 10, 11, 8,  // Top face
+        12, 13, 14, 14, 15, 12, // Bottom face
+        16, 17, 18, 18, 19, 16, // Right face
+        20, 21, 22, 22, 23, 20  // Left face
+    };
+
+    // Copy indices to cube
+    memcpy(cube->indices, indices, sizeof(indices));
+
+    return cube;
+}*/
 /*
 GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
     GEOM_OBJECT* cube = malloc(sizeof(GEOM_OBJECT));

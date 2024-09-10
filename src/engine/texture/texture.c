@@ -32,10 +32,13 @@ void createTextureImage(PhysicalDevice *pd, LogicalDevice *ld, GeometryDisplayPi
     stbi_uc* pixels;
     VkBuffer textureBuffer;
 
-    *texture = (Texture2D*) malloc(sizeof(Texture2D));
+    (*texture) = (Texture2D*) malloc(sizeof(Texture2D));
+
+    (*texture)->common = (CommonImage*) malloc(sizeof(CommonImage));
     loadTextureImage(&imageSize, &pixels, &width, &height);
     printf("CREATE FLAG TEXTURE IMAGE 1\n");
     printf("%lu\n", imageSize);
+
     createVkBuffer(pd, ld->device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,VK_SHARING_MODE_EXCLUSIVE,
     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
     &stagingBuffer, &stagingBufferMemory);
@@ -49,28 +52,39 @@ void createTextureImage(PhysicalDevice *pd, LogicalDevice *ld, GeometryDisplayPi
     printf("CREATE FLAG TEXTURE IMAGE 5\n");
     stbi_image_free(pixels);
     printf("CREATE FLAG TEXTURE IMAGE 6\n");
+
     createVkImage(ld->device, pd, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
-    ((VkImageUsageFlags)(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)),
-    ((VkMemoryPropertyFlags)VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), *texture, width, height);
+    (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT),
+    (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), (*texture)->common, width, height);
+
     printf("CREATE FLAG TEXTURE IMAGE AFTER VK IMAGE\n");
+
     // TODO DELETE INDIRECTION FROM COMMAND POOLS AND VQUEUE
-    transitionImageLayout(ld, (gdp->commandPool->graphicsCommandPool), (*texture)->img, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transitionImageLayout(ld, (gdp->commandPool->graphicsCommandPool), (*texture)->common->image,
+    VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     printf("CREATE FLAG TEXTURE IMAGE AFTER TRANSITION LAYOUT\n");
-    copyBufferToImage(ld, ld->device, (gdp->commandPool->graphicsCommandPool), *(ld->queueManager.graphicsQueue), stagingBuffer,(*texture)->img, width, height);
-    transitionImageLayout(ld, (gdp->commandPool->graphicsCommandPool), (*texture)->img,
+
+    copyBufferToImage(ld, ld->device, (gdp->commandPool->graphicsCommandPool),
+    *(ld->queueManager.graphicsQueue), stagingBuffer,
+    (*texture)->common->image, width, height);
+
+    transitionImageLayout(ld, (gdp->commandPool->graphicsCommandPool),
+    (*texture)->common->image,
     VK_FORMAT_R8G8B8A8_SRGB,
     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    printf("PRUEBA  \n");
+
     printf("CREATE FLAG TEXTURE IMAGE AFTER BUFFER TO IMAGE\n");
-    createTextureSampler(pd,ld,*texture);
+    createTextureSampler(pd, ld, *texture);
 
     printf("DESPUES DE CREAR TEXTURE SAMPLER\n");
 }
 
 
 void createTextureImageView(DisplaySwapchainManager* dsm, VkDevice device, Texture2D *texture){
-    texture->imgView = createImageView(dsm, device, VK_FORMAT_R8G8B8A8_SRGB, texture->img );
-    printf("TEXTURA CREADA IMAGE VIEW %p", texture->imgView);
+    texture->common->imageView = createImageView(dsm, device, VK_FORMAT_R8G8B8A8_SRGB, texture->common->image );
+    printf("TEXTURA CREADA IMAGE VIEW %p", texture->common->imageView);
 }
 
 
@@ -84,7 +98,7 @@ void createTextureSampler(PhysicalDevice* pd, LogicalDevice *ld, Texture2D *text
     .addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
     .addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
     };
-printf("");
+
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(*pd->gpu, &properties); // TODO mover esto a properties miembro de PhysicalDevice
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
@@ -97,7 +111,7 @@ printf("");
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0.0f;
     samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = 1.0f;
+        samplerInfo.maxAnisotropy = 1.0f;
 
     if (vkCreateSampler(ld->device, &samplerInfo, VK_NULL_HANDLE, &texture->sampler) != VK_SUCCESS) {
         printf("failed to create texture sampler!\n");

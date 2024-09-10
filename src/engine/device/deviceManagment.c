@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <SDL.h>
+
+#define DEFAULT_QUEUE_INDEX_VALUE UINT32_MAX
+
 uint32_t checkMemoryTypeCache(DeviceManager* pdmm){
 
 }
@@ -50,7 +53,7 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         .samplerAnisotropy = VK_TRUE,
     };
     // TODO: moverlo a una funcion o fichero para configuracion de dispositivo y dispositivo logico
-    const char* logicalDeviceExtensionNames = "VK_KHR_swapchain\0"; //TODO: mover las extensiones del device a otro lado
+    const char* logicalDeviceExtensionNames = VK_KHR_SWAPCHAIN_EXTENSION_NAME; //TODO: mover las extensiones del device a otro lado
     //Logical device
     VkDeviceCreateInfo createLogicalDeviceInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -79,18 +82,18 @@ void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamil
 
     assert(queuesIndices);
 
-    queuesIndices->graphicsFamily = UINT32_MAX;
-    queuesIndices->transferFamily = UINT32_MAX;
-    queuesIndices->presentFamily = UINT32_MAX;
+    queuesIndices->graphicsFamily = DEFAULT_QUEUE_INDEX_VALUE;
+    queuesIndices->transferFamily = DEFAULT_QUEUE_INDEX_VALUE;
+    queuesIndices->presentFamily = DEFAULT_QUEUE_INDEX_VALUE;
 
-    uint32_t currentLessOptimalGraphicQueueIndice = UINT32_MAX;
-    uint32_t currentLessOptimalTransferQueueIndice = UINT32_MAX;
-    uint32_t currentLessOptimalPresentSupportQueueIndice = UINT32_MAX;
+    uint32_t currentLessOptimalGraphicQueueIndice = DEFAULT_QUEUE_INDEX_VALUE;
+    uint32_t currentLessOptimalTransferQueueIndice = DEFAULT_QUEUE_INDEX_VALUE;
+    uint32_t currentLessOptimalPresentSupportQueueIndice = DEFAULT_QUEUE_INDEX_VALUE;
     VkBool32 presentSupport = SDL_FALSE;
 
     for (int i = 0; i < numProperties; i++) {
         if ((properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT ) == VK_QUEUE_GRAPHICS_BIT
-           && queuesIndices->graphicsFamily == UINT32_MAX) {
+           && queuesIndices->graphicsFamily == DEFAULT_QUEUE_INDEX_VALUE) {
 
             VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(*pd->gpu, i, ld->displayManager->surface, &presentSupport);
             assert(result == VK_SUCCESS);
@@ -105,7 +108,7 @@ void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamil
                 currentLessOptimalGraphicQueueIndice = i;
             }
 
-        }else if((properties[i].queueFlags & VK_QUEUE_TRANSFER_BIT ) == VK_QUEUE_TRANSFER_BIT && queuesIndices->transferFamily == UINT32_MAX){
+        }else if((properties[i].queueFlags & VK_QUEUE_TRANSFER_BIT ) == VK_QUEUE_TRANSFER_BIT && queuesIndices->transferFamily == DEFAULT_QUEUE_INDEX_VALUE){
 
             currentLessOptimalTransferQueueIndice = i;
 
@@ -115,7 +118,7 @@ void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamil
                 queuesIndices->transferFamily =  i;
             }
 
-        }else if(queuesIndices->presentFamily == UINT32_MAX){
+        }else if(queuesIndices->presentFamily == DEFAULT_QUEUE_INDEX_VALUE){
 
             vkGetPhysicalDeviceSurfaceSupportKHR(*pd->gpu, i, ld->displayManager->surface, &presentSupport);
 
@@ -124,27 +127,27 @@ void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamil
                 presentSupport = VK_FALSE;
 
             }
-        }else if(queuesIndices->transferFamily != UINT32_MAX && queuesIndices->graphicsFamily != UINT32_MAX && queuesIndices->presentFamily != UINT32_MAX){
+        }else if(queuesIndices->transferFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->presentFamily != DEFAULT_QUEUE_INDEX_VALUE){
             return;
         }
     }
 
     // If not optimal selection for queues were found, select the options available
-    if(queuesIndices->graphicsFamily == UINT32_MAX && queuesIndices->presentFamily == UINT32_MAX){
+    if(queuesIndices->graphicsFamily == DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->presentFamily == DEFAULT_QUEUE_INDEX_VALUE){
         queuesIndices->presentFamily = currentLessOptimalPresentSupportQueueIndice;
         queuesIndices->graphicsFamily = currentLessOptimalGraphicQueueIndice;
     }
-    if(queuesIndices->transferFamily == UINT32_MAX)
+    if(queuesIndices->transferFamily == DEFAULT_QUEUE_INDEX_VALUE)
         queuesIndices->transferFamily = currentLessOptimalTransferQueueIndice;
 
     // Panic if no queues selected
-    assert(queuesIndices->presentFamily != UINT32_MAX && queuesIndices->transferFamily != UINT32_MAX && queuesIndices->graphicsFamily != UINT32_MAX);
+    assert(queuesIndices->presentFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->transferFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE);
 }
 
 void initPhysicalDeviceQueues(PhysicalDevice* pd){
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(*pd->gpu, &queueFamilyCount, VK_NULL_HANDLE);
-    printf("INITPSHYSICALDEVICE QUEUES 1\n");
+
     if(queueFamilyCount > 0){
         pd->queueFamilyProperties = malloc(sizeof(VkQueueFamilyProperties) * queueFamilyCount);
         pd->queueFamilyCount = queueFamilyCount;
@@ -185,7 +188,7 @@ void physicalDeviceTest(VkPhysicalDevice* gPhysicalDevice){
     printf("%u\n", pdProp.driverVersion);
     printf("%u\n", pdProp.vendorID);
 }
-
+// TODO: just test the device with a dummy operation, the name should be change to reflect this
 VkBool32 isDeviceValid(VkDevice device) {
     if (device == VK_NULL_HANDLE) {
         printf("NULL HANDLE NINIO\n");
@@ -214,38 +217,104 @@ VkBool32 isDeviceValid(VkDevice device) {
     return VK_TRUE;
 }
 
+uint32_t rateDeviceSuitability(VkPhysicalDevice physicalDevice,
+                               VkPhysicalDeviceProperties deviceProperties,
+                               VkPhysicalDeviceFeatures deviceFeatures){
+    int score = 0;
+
+    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        score += 1000;
+    }
+
+    // Maximum possible size of textures affects graphics quality
+    score += deviceProperties.limits.maxImageDimension2D;
+
+    // Application can't function without geometry shaders
+    if (!deviceFeatures.geometryShader) {
+        return 0;
+    }
+
+    return score;
+
+}
+
+bool isDeviceSuitable(PhysicalDevice* pd, LogicalDevice* ld){
+
+    getMatchingQueueIndices(pd, ld, pd->queueFamilyProperties, pd->queueFamilyCount, &pd->queueFamilyIndices);
+
+    return pd->queueFamilyIndices.graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE;
+}
 void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* dispM){
         printf("FLAG INITDEVICEMANAGER\n");
     uint32_t supportedGpuLen = 0;
     VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, NULL);
     printf("FLAG INITDEVICEMANAGER 2\n");
     assert(supportedGpuLen >= 1);
-    dm->deviceIndex = 0;
-    dm->gpuIndex = 0;
+    assert(vkEnumPhysDevcResult == VK_SUCCESS);
+
+
     dm->phyDeviceLen = supportedGpuLen;
     dm->deviceLen = supportedGpuLen;
     dm->pDevice = malloc(sizeof(*dm->pDevice) * supportedGpuLen);
     dm->lDevice = malloc(sizeof(*dm->lDevice) * supportedGpuLen);
-    dm->lDevice[0] = malloc(sizeof(**dm->lDevice));
-    dm->lDevice[0]->displayManager = dispM;
-    dm->pDevice[0].gpu = malloc(sizeof(VkPhysicalDevice));
 
 
-    vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, dm->pDevice[dm->gpuIndex].gpu);
+    VkPhysicalDevice* pdCandidates = malloc(sizeof(VkPhysicalDevice) * supportedGpuLen);
+
+    vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, pdCandidates);
     assert(vkEnumPhysDevcResult == VK_SUCCESS);
 
+    uint32_t bestCandidateIndex = 0;
+    uint32_t bestCandidateFit = 0;
+    VkPhysicalDeviceProperties bestCandidateProperties;
+    VkPhysicalDeviceFeatures bestCandidateFeatures;
+
     FOR(i, 0, supportedGpuLen, 1) {
+
         printf("FLAG INITDEVICEMANAGER 3\n");
         printf("%d\n", i);
-
-        initPhysicalDeviceQueues(&(dm->pDevice[i]));
-        PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
-        LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
-                printf("Supported gpu len: %d\n", supportedGpuLen);
-        getMatchingQueueIndices(pd, ld, pd->queueFamilyProperties, pd->queueFamilyCount, &pd->queueFamilyIndices);
-        printf("%u %u %u", pd->queueFamilyIndices.graphicsFamily,pd->queueFamilyIndices.presentFamily,pd->queueFamilyIndices.transferFamily);
-        initDeviceQueues(&dm->pDevice[dm->gpuIndex], dm->lDevice[dm->deviceIndex]);
+        VkPhysicalDeviceProperties deviceProperties;
+        VkPhysicalDeviceFeatures deviceFeatures;
+        vkGetPhysicalDeviceProperties(pdCandidates[i], &deviceProperties);
+        vkGetPhysicalDeviceFeatures(pdCandidates[i], &deviceFeatures);
+        uint32_t currentCandidateScore = rateDeviceSuitability(pdCandidates[i], deviceProperties, deviceFeatures);
+        if(bestCandidateFit < currentCandidateScore){
+            bestCandidateFit = currentCandidateScore;
+            bestCandidateIndex = i;
+        };
     }
+
+    printf("BESTCANDIDATEINDEX: %d", bestCandidateIndex);
+        // We init the best available device
+    dm->pDevice->gpu = &pdCandidates[bestCandidateIndex]; //TODO: change gpu type from VkPHysicalDEvice* to dereferenced type
+    dm->gpuIndex = bestCandidateIndex;
+     // We set the index of the logical device and gpu selected ()
+    dm->deviceIndex = bestCandidateIndex;
+    dm->lDevice[dm->deviceIndex] = malloc(sizeof(**dm->lDevice));
+
+    // We instance the logical device for the candidate selected by his index (in the future, we we'll need more than one logicaldevice per gpu)
+
+    dm->lDevice[dm->deviceIndex]->displayManager = dispM;
+    initPhysicalDeviceQueues(&(dm->pDevice[dm->gpuIndex]));
+    PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
+    LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
+    printf("Supported gpu len: %d\n", supportedGpuLen);
+
+    if(!isDeviceSuitable(&dm->pDevice[bestCandidateIndex], dm->lDevice[bestCandidateIndex])){
+        printf("THE BEST CANDIDATE IS NOT SUITABLE!! THROW YOUR PC TO THE TRASH AND BUY ANOTHER!:D");
+        exit(0);
+    }
+    printf("RETORNAMOS DEL isDEVICESUITABLE\n");
+    //TODO: clean the rest of gpu not selected
+    /*for(int i=0; i < supportedGpuLen; i++){
+        if(pdCandidates[i] != dm->pDevice->gpu){
+            free(pdCandidates[i]);
+        }
+    }*/
+
+    //getMatchingQueueIndices(pd, ld, pd->queueFamilyProperties, pd->queueFamilyCount, &pd->queueFamilyIndices);
+    printf("%u %u %u", pd->queueFamilyIndices.graphicsFamily,pd->queueFamilyIndices.presentFamily,pd->queueFamilyIndices.transferFamily);
+    initDeviceQueues(&dm->pDevice[dm->gpuIndex], dm->lDevice[dm->deviceIndex]);
 }
 
 /*

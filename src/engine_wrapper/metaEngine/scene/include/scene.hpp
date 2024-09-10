@@ -6,24 +6,26 @@ extern "C" {
     #include "scene.h"
 }
 
-template <typename T>
-constexpr auto sceneDeletor = [](T* scene){ free(scene->pScene); free(scene->sceneIndices); free(scene);};
+constexpr auto sceneDeletor = [](SCENE* scene){ free(scene->pScene); free(scene->sceneIndices); free(scene);};
 
 template <typename T, template <typename> class U, typename V>
-class Scene : MetaObject<T, void(*)(T*)> {
+class Scene : public MetaObject<T, DeleterFunctionType<SCENE>> {
 
 private:
     std::vector<U<V>> models;
-    std::unique_ptr<MetaObject<T, void(*)(T*)>> scene;
 
 public:
     // Default constructor
+    template <typename SceneType = T>
     Scene(){
         std::cout << "DEFAULT CONSTRUCTOR DE SCENE" << std::endl;
     };
 
+    Scene(DeleterFunctionType<T> deleteScene): MetaObject<T, DeleterFunctionType<T>>(deleteScene){};
+
     // Copy constructor
     Scene(const Scene& other) = delete;
+
 
     const Scene& operator=(const Scene& other) = delete;
 
@@ -46,12 +48,11 @@ public:
             output << "Y: " << model.object->data[i].point.y << " ";
             output << "Z: " << model.object->data[i].point.z << std::endl;
         }
-        exit(0);
+
         return output;
     };
 
     ~Scene(){
-            std::cout << "DESTRUCTOR MODELO" << std::endl;
 
     };
 
@@ -69,16 +70,16 @@ public:
 
     void init()
     {
-        T* scene = static_cast<T*>(malloc(sizeof(T)));
-        V** objectsData = static_cast<V**>(malloc(sizeof(V*) * this->models.size()));
-        std::cout << this->models.size() << std::endl;
-        for(uint32_t i = 0; i < this->models.size(); i++) {
-            objectsData[i] = this->models.at(i).getStruct();
+        std::cout << "EN INIT() SCENE MODELS SIZE " << this->models.size() << '\n';
+        T* scene;
+        std::vector<V*> objectsData(this->models.size());
+        for (size_t i = 0; i < this->models.size(); ++i) {
+            objectsData[i] = this->models[i].getStruct();
         }
 
-        initSceneWithData(scene, objectsData[0], this->models.size());
+        initSceneWithData(&scene, objectsData.data(), this->models.size());
         std::cout << "VOLVEMOS DE INITSCENEWITHDATA" << std::endl;
-        this->scene = std::make_unique<MetaObject<T, void(*)(T*)>>(scene, sceneDeletor<T>);
+        this->object.reset(scene);
     };
 
 

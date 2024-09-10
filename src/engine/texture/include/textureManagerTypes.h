@@ -1,9 +1,8 @@
 #pragma once
 #include <vulkan/vulkan.h>
+#include "imageTypes.h"
 
 typedef struct Texture2D {
-    VkImage img;
-    VkDeviceMemory memory;
-    VkImageView imgView;
+    CommonImage* common;
     VkSampler sampler;
 } Texture2D;
