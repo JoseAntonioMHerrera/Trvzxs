@@ -1,6 +1,6 @@
 #include "swapchainManager.h"
 //TODO: maybe move this function  def/decl to image.h
-VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFormat format, VkImage image) {
+VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels) {
     printf("CREATE IMAGE VIEW FLAG 1\n");
     VkImageViewCreateInfo viewInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -9,7 +9,7 @@ VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFor
         .format = format,
         .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .subresourceRange.baseMipLevel = 0,
-        .subresourceRange.levelCount = 1,
+        .subresourceRange.levelCount = mipLevels,
         .subresourceRange.baseArrayLayer = 0,
         .subresourceRange.layerCount = 1,
     };
@@ -194,7 +194,7 @@ void recreateSwapChain(PhysicalDevice *pd, LogicalDevice* ld, SDL_Window *window
     for (uint32_t i = 0; i < ld->displayManager->swapChainM->scImagesLen; i++) {
         ld->displayManager->swapChainM->p_scImageView[i] = createImageView(ld->displayManager->swapChainM, ld->device,
                                                             ld->displayManager->swapChainM->currentSurfaceFormat->format,
-                                                            ld->displayManager->swapChainM->p_scImages[i]);
+                                                            ld->displayManager->swapChainM->p_scImages[i], 1);
     }
     createFrameBuffers(ld->displayManager->swapChainM, ld->displayManager->geomPipeline->renderPass, &ld->device);
 }

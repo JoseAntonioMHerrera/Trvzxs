@@ -8,7 +8,7 @@
 #include "deviceManagmentTypes.h"
 
 
-VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFormat format, VkImage image);
+VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels);
 
 void createFrameBuffers(DisplaySwapchainManager *swapManager, VkRenderPass *renderPass, VkDevice* device);
 

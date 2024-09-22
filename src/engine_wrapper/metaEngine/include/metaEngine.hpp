@@ -85,7 +85,7 @@ class MetaEngine {
         dsm->scImageViewLen = dsm->scImagesLen;
         for(uint32_t i=0; i < ld->displayManager->swapChainM->scImagesLen; i++){
             ld->displayManager->swapChainM->p_scImageView[i] =
-                        createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapChainM->p_scImages[i]);
+            createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapChainM->p_scImages[i], 1);
         }
         std::cout << "RETORNO IMAGEVIEWS" << '\n';
         createDepthImageResources(pd, ld, dispM->swapChainM);
@@ -105,7 +105,7 @@ class MetaEngine {
         createTextureImage( pd,  ld, gdp, &gdp->texture);
         std::cout << "RETORNO createTextureImage" << '\n';
 
-        createTextureImageView(dispM->swapChainM, ld->device, gdp->texture);
+        createTextureImageView(dispM->swapChainM, ld->device, gdp->texture, gdp->texture->mipLevels);
         std::cout << "RETORNO createTextureImageView" << '\n';
         devicebm->ubo = (UniformBufferManager*) malloc(sizeof(*(gdp->deviceBuffer->ubo)));
         createUniformBuffers(pd,ld, gdp->maxFrames, gdp->deviceBuffer->ubo);

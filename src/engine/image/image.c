@@ -6,7 +6,7 @@ bool hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 //TODO refactor this function
-void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(ld, commandPool);
     VkImageMemoryBarrier barrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -19,7 +19,7 @@ void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage
 
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = mipLevels;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
@@ -75,7 +75,7 @@ void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage
 }
 
 void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImageTiling tiling, VkImageLayout imageLayout, VkImageUsageFlags imageUsage,
-     VkMemoryPropertyFlags memoryTypeNeeded, CommonImage *commonImage, uint32_t width, uint32_t height) {
+     VkMemoryPropertyFlags memoryTypeNeeded, CommonImage *commonImage, uint32_t width, uint32_t height, uint32_t mipLevels, uint32_t numSamples) {
 
     printf("CREATEVKIMAGE FLAG 1\n");
     VkImageCreateInfo imageInfo = {
@@ -84,7 +84,7 @@ void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImage
         .extent.width = width,
         .extent.height = height,
         .extent.depth = 1,
-        .mipLevels = 1,
+        .mipLevels = mipLevels,
         .arrayLayers = 1,
         .format = format,
         .tiling = tiling,
@@ -92,6 +92,7 @@ void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImage
         .usage = imageUsage,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .samples = VK_SAMPLE_COUNT_1_BIT,
+        .samples = numSamples,
         .flags = 0, // Optional
     };
 
@@ -152,7 +153,119 @@ void createDepthImageResources(PhysicalDevice* pd, LogicalDevice *ld, DisplaySwa
     dispM->depthImage.common = malloc(sizeof(*dispM->depthImage.common));
     createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    dispM->depthImage.common, dispM->currentExtent2D.width, dispM->currentExtent2D.height);
+    dispM->depthImage.common, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1);
 
-    dispM->depthImage.common->imageView = createImageView(dispM, ld->device, format,dispM->depthImage.common->image);
+    dispM->depthImage.common->imageView = createImageView(dispM, ld->device, format,dispM->depthImage.common->image, 1);
+}
+
+void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, CommandPools* commandPool, VkQueue queue, VkImage image, uint32_t textWidth, uint32_t textHeight, uint32_t mipLevels, VkFormat imageFormat){
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(ld, commandPool->graphicsCommandPool);
+    //TODO: setear la transferQueue para ser utilizada, comprobar que vulkan permita misma cola para diferentes accionees
+    VkFormatProperties formatProperties;
+    vkGetPhysicalDeviceFormatProperties(physDevice, imageFormat, &formatProperties);
+    if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+        printf("texture image format does not support linear blitting!");
+        exit(1);
+    }
+    VkImageMemoryBarrier barrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .image = image,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+            .levelCount = 1
+        },
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .srcAccessMask = 0,
+        .dstAccessMask = 0
+    };
+
+    for(uint32_t i = 1; i < mipLevels; i++) {
+        barrier.subresourceRange.baseMipLevel = i - 1;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+        0, NULL,
+        0, NULL,
+        1, &barrier);
+
+        VkImageBlit blit = {
+            .srcOffsets = {
+                [0] = { 0, 0, 0 },
+                [1] = { textWidth, textHeight, 1 }
+            },
+            .srcSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = i - 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            },
+            .dstOffsets = {
+                [0] = { 0, 0, 0 },
+                [1] = {
+                    textWidth > 1 ? textWidth / 2 : 1,
+                    textHeight > 1 ? textHeight / 2 : 1,
+                    1
+                }
+            },
+            .dstSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = i,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };
+        vkCmdBlitImage(commandBuffer,
+        image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1, &blit,
+        VK_FILTER_LINEAR);
+
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+            0, NULL,
+            0, NULL,
+            1, &barrier);
+        if (textWidth > 1) textWidth /= 2;
+        if (textHeight > 1) textHeight /= 2;
+    }
+
+    barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+        0, NULL,
+        0, NULL,
+        1, &barrier);
+    endSingleTimeCommands(commandBuffer, commandPool->graphicsCommandPool, queue, ld->device);
+}
+
+VkSampleCountFlagBits getMaxUsableSampleCount(PhysicalDevice* phyDevice) {
+
+    VkSampleCountFlags counts = phyDevice->gpuProperties.limits.framebufferColorSampleCounts &  phyDevice->gpuProperties.limits.framebufferDepthSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+    return VK_SAMPLE_COUNT_1_BIT;
 }

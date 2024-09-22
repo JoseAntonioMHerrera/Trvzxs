@@ -18,7 +18,7 @@ MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
     glm_rotate(ubo.model, time * glm_rad(45.0f), (vec3){0.0f, 1.0f, 0.0f});
 
     // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
-    vec3 eye = {30.0f, 30.0f, 30.0f};
+    vec3 eye = {1.5f, 1.5f, 1.5f};
     vec3 center = {0.0f, 0.0f, 0.0f};
     vec3 up = {0.0f, 0.0f, 1.0f};
 

@@ -287,6 +287,7 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
     printf("BESTCANDIDATEINDEX: %d", bestCandidateIndex);
         // We init the best available device
     dm->pDevice->gpu = &pdCandidates[bestCandidateIndex]; //TODO: change gpu type from VkPHysicalDEvice* to dereferenced type
+    vkGetPhysicalDeviceProperties((*dm->pDevice->gpu), &(dm->pDevice->gpuProperties) );
     dm->gpuIndex = bestCandidateIndex;
      // We set the index of the logical device and gpu selected ()
     dm->deviceIndex = bestCandidateIndex;

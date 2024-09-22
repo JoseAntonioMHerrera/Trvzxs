@@ -4,6 +4,7 @@
 
 extern "C" {
     #include "primitives.h"
+    #include "model.h"
 }
 
 // Enumeration for primitive types
@@ -26,9 +27,11 @@ public:
     Model() : MetaObject<T, void(*)(T*)>() {}
 
     // Constructor for loading from file
-    explicit Model(const std::string& modelPath, const GEOM_VERTEX* const globalCoords, uint32_t size) noexcept
+    explicit Model(const std::string& modelPath) noexcept
     : MetaObject<T, void(*)(T*)>() {
-        std::cout << "Loading PRIMITIVE_TYPE::MODEL" << std::endl;
+        T* model;
+        model = load_obj_to_geom_object(modelPath.c_str());
+        this->MetaObject<T, void(*)(T*)>::operator=(MetaObject<T, void(*)(T*)>(model, modelDeletor<T>));
         // TODO: Implement model loading logic
     }
 
