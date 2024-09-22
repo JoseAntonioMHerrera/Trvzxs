@@ -3,7 +3,6 @@
 #include "vertex.h"
 #include "scene.h"
 
-
 void apply_offset_to_indices(TRVZXS_SIZE* indices, size_t num_indices, TRVZXS_SIZE offset) {
     for (size_t i = 0; i < num_indices; i++) {
         indices[i] += offset;

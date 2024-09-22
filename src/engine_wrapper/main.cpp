@@ -56,7 +56,7 @@ int main() {
       const float cubeSize = 3.0f;
         const float spacing = 3.0f;
         const float totalSize = cubeSize + spacing;
-        const int dimensions = 20;
+        const int dimensions = 500;
         const int numCubesPerDimension = static_cast<int>(dimensions / totalSize);
 
         for (int i = 0; i < numCubesPerDimension; ++i) {
@@ -71,9 +71,12 @@ int main() {
                 }
             }
         }
+
         //scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::CUBE, &global, 3)));
         //GEOM_VERTEX_POSITION* cubeOrigin = new GEOM_VERTEX_POSITION{0, 0, 0};
         //scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::QUAD, cubeOrigin, cubeSize)));
+
+        //scene->addModel(std::move(Model<GEOM_OBJECT>(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj"))));
         scene->init();
 
         SDL_Window* window = NULL;

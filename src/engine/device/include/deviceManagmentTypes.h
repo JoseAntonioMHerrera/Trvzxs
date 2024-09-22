@@ -5,12 +5,15 @@
 #include <stdalign.h>
 #include <stddef.h>
 // DISPLAY MANAGER //
-#define COMMAND_POOL_OFFSET offsetof(DisplayManager, commandPools);
+/*#define COMMAND_POOL_OFFSET offsetof(DisplayManager, commandPools);
 #define DEVICE_BUFFER_OFFSET offsetof(DisplayManager, deviceBuffer);
 
 TRVZXS_inline void* fget(void* self, size_t offset ) {
     return (char*)self + offset; // char*, bytewise
-}
+}*/
+
+
+
 
 
 typedef struct QueueManager {
@@ -41,7 +44,7 @@ typedef struct DisplayManager {
 typedef struct PhysicalDevice {
     VkPhysicalDevice *gpu;
     VkPhysicalDeviceMemoryProperties *memProperties;
-
+    VkPhysicalDeviceProperties gpuProperties;
     VkQueueFamilyProperties *queueFamilyProperties;
     uint32_t queueFamilyCount;
 

@@ -21,8 +21,15 @@ typedef struct GEOM_VERTEX_TEXT_COORD {
     float w;
 } GEOM_VERTEX_TEXT_COORD;
 
+typedef struct GEOM_VERTEX_NORMAL {
+    float x;
+    float y;
+    float z;
+} GEOM_VERTEX_NORMAL;
+
 typedef struct GEOM_VERTEX {
     struct GEOM_VERTEX_POSITION point;
+    struct GEOM_VERTEX_NORMAL normal;  // Added normal
     struct GEOM_VERTEX_COLOR_RGBA color;
     struct GEOM_VERTEX_TEXT_COORD textCoords;
 } GEOM_VERTEX;

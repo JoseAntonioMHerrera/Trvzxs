@@ -34,14 +34,6 @@ file(GLOB_RECURSE ENGINE_SOURCES
     "swapchain/*.c"
     "texture/*.c"
     "commands/*.c"
-
-
-
-
-
-
-
-
     "${CMAKE_SOURCE_DIR}/src/*.c" #TODO move entryfiles to the library to engine folder tree
 )
 

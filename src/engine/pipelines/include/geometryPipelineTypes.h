@@ -51,6 +51,10 @@ typedef struct GeometryDisplayPipelineManager {
     CommandPools *commandPool;
     VkCommandBuffer *commandBuffer;
 
+    //ANTI-ALIASING RESOURCES
+    CommonImage* mmsaRes;
+
+
     // ATTACHTMENTS
     VkVertexInputBindingDescription *objectIBD;
     size_t objectIBDLen;
