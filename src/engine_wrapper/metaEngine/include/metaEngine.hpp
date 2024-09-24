@@ -9,6 +9,7 @@ extern "C" {
     #include "vertex.h"
     #include "buffer.h"
     #include "swapchainManager.h"
+    #include "image.h"
     #include "commandPool.h"
     #include "deviceManagment.h"
     #include "geometryPipelineTypes.h"
@@ -80,12 +81,17 @@ class MetaEngine {
         gdp->maxFrames = dsm->scImagesLen;
         std::cout << "NUMERO DE FRAMES " << gdp->maxFrames << '\n';
         std::cout << "RETORNO CREATESWAPCHAIN" << '\n';
+        createMsaaColorResources(ld->device, pd, dsm);
+        createMsaaDepthResources(ld->device, pd, dsm);
         createRenderPass(pd, dispM->swapChainM,ld->device,gdp);
         std::cout << "RETORNO RENDERPASS" << '\n';
         dsm->scImageViewLen = dsm->scImagesLen;
+        printf("CREAMOS LOS MSAA RECURSOS\n");
+
+        printf("RETORNAMOS DE LOS MSAA RECURSOS\n");
         for(uint32_t i=0; i < ld->displayManager->swapChainM->scImagesLen; i++){
             ld->displayManager->swapChainM->p_scImageView[i] =
-            createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapChainM->p_scImages[i], 1);
+            createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapChainM->p_scImages[i], 1, VK_IMAGE_ASPECT_COLOR_BIT);
         }
         std::cout << "RETORNO IMAGEVIEWS" << '\n';
         createDepthImageResources(pd, ld, dispM->swapChainM);

@@ -1,13 +1,14 @@
 #include "swapchainManager.h"
+#include "image.h"
 //TODO: maybe move this function  def/decl to image.h
-VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels) {
+VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels, VkImageAspectFlags aspectMask) {
     printf("CREATE IMAGE VIEW FLAG 1\n");
     VkImageViewCreateInfo viewInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = format,
-        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .subresourceRange.aspectMask = aspectMask,
         .subresourceRange.baseMipLevel = 0,
         .subresourceRange.levelCount = mipLevels,
         .subresourceRange.baseArrayLayer = 0,
@@ -20,13 +21,14 @@ VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFor
     if (vkCreateImageView(device, &viewInfo, VK_NULL_HANDLE, &imageView) != VK_SUCCESS) {
         printf("failed to create texture image view!\n");
     }
+
     printf("IMAGE VIEW CREADA %p", &imageView);
     printf("CREATE IMAGE VIEW FLAG 1\n");
 
     return imageView;
 }
 
- void createFrameBuffers(DisplaySwapchainManager *swapManager, VkRenderPass *renderPass, VkDevice* device) {
+void createFrameBuffers(DisplaySwapchainManager *swapManager, VkRenderPass *renderPass, VkDevice* device) {
     printf("CREAMOS FRAMEBUFFERS \n");
     printf("FRAMEBUFFERS %d\n", swapManager->scImagesLen);
 
@@ -35,14 +37,15 @@ VkImageView createImageView(DisplaySwapchainManager *dsm, VkDevice device, VkFor
 
     for (uint32_t i = 0; i < swapManager->scImagesLen; i++) {
         VkImageView attachments[] = {
+            swapManager->msaaColorRes->imageView,
+            swapManager->msaaDepthRes->imageView,
             swapManager->p_scImageView[i],
-            swapManager->depthImage.common->imageView,
         };
 
         VkFramebufferCreateInfo framebufferInfo = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass = *renderPass,
-            .attachmentCount = 2,
+            .attachmentCount = 3, // TODO abstract attachtments creation with everything, maybe at subpass level
             .pAttachments = attachments,
             .width = swapManager->currentExtent2D.width,
             .height = swapManager->currentExtent2D.height,
@@ -190,11 +193,12 @@ void recreateSwapChain(PhysicalDevice *pd, LogicalDevice* ld, SDL_Window *window
     vkDeviceWaitIdle(ld->device);
     cleanupSwapChain(ld, ld->displayManager, ld->displayManager->swapChainM);
     createSwapChain(pd, ld, ld->displayManager, ld->displayManager->swapChainM, window);
-
+    createMsaaColorResources(ld->device, pd, ld->displayManager->swapChainM);
+    createMsaaDepthResources(ld->device, pd, ld->displayManager->swapChainM);
     for (uint32_t i = 0; i < ld->displayManager->swapChainM->scImagesLen; i++) {
         ld->displayManager->swapChainM->p_scImageView[i] = createImageView(ld->displayManager->swapChainM, ld->device,
                                                             ld->displayManager->swapChainM->currentSurfaceFormat->format,
-                                                            ld->displayManager->swapChainM->p_scImages[i], 1);
+                                                            ld->displayManager->swapChainM->p_scImages[i], 1, VK_IMAGE_ASPECT_COLOR_BIT);
     }
     createFrameBuffers(ld->displayManager->swapChainM, ld->displayManager->geomPipeline->renderPass, &ld->device);
 }

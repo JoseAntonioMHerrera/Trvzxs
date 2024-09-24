@@ -5,6 +5,7 @@ typedef struct CommonImage {
     VkImage image;
     VkDeviceMemory imageMemory;
     VkImageView imageView;
+    VkSampleCountFlags numSamples;
 } CommonImage;
 
 typedef struct DepthBufferImage {
