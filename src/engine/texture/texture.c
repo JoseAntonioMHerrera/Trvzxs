@@ -90,7 +90,7 @@ void createTextureImage(PhysicalDevice *pd, LogicalDevice *ld, GeometryDisplayPi
 }
 
 void createTextureImageView(DisplaySwapchainManager* dsm, VkDevice device, Texture2D *texture, uint32_t mipLevels){
-    texture->common->imageView = createImageView(dsm, device, VK_FORMAT_R8G8B8A8_SRGB, texture->common->image, mipLevels );
+    texture->common->imageView = createImageView(dsm, device, VK_FORMAT_R8G8B8A8_SRGB, texture->common->image, mipLevels, VK_IMAGE_ASPECT_COLOR_BIT );
     printf("TEXTURA CREADA IMAGE VIEW %p", texture->common->imageView);
 }
 
@@ -116,7 +116,7 @@ void createTextureSampler(PhysicalDevice* pd, LogicalDevice *ld, Texture2D *text
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = mipLevels/2;
+    samplerInfo.minLod = 0;
     samplerInfo.maxLod = mipLevels;
     samplerInfo.anisotropyEnable = VK_TRUE;
     samplerInfo.maxAnisotropy = 1.0f;

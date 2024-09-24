@@ -22,7 +22,11 @@ typedef struct DisplaySwapchainManager {
 
     uint32_t scImagesLen; //size_t TODO
     VkImage p_scImages[4];
+    VkFormat swapchainImageFormat;
 
+    // ANTI-ALIASING RESOURCES
+    CommonImage* msaaColorRes;
+    CommonImage* msaaDepthRes;
 
     uint32_t scImageViewLen;
     VkImageView p_scImageView[4];

@@ -75,7 +75,7 @@ void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage
 }
 
 void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImageTiling tiling, VkImageLayout imageLayout, VkImageUsageFlags imageUsage,
-     VkMemoryPropertyFlags memoryTypeNeeded, CommonImage *commonImage, uint32_t width, uint32_t height, uint32_t mipLevels, uint32_t numSamples) {
+     VkMemoryPropertyFlags memoryTypeNeeded, CommonImage *commonImage, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples) {
 
     printf("CREATEVKIMAGE FLAG 1\n");
     VkImageCreateInfo imageInfo = {
@@ -124,21 +124,21 @@ void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImage
 
 }
 
-VkFormat* findSupportedFormat(VkPhysicalDevice *physicalDevice, VkFormat* candidates, uint32_t candidatesLen, VkImageTiling tiling, VkFormatFeatureFlags features) {
+VkFormat findSupportedFormat(VkPhysicalDevice *physicalDevice, VkFormat* candidates, uint32_t candidatesLen, VkImageTiling tiling, VkFormatFeatureFlags features) {
     for(uint32_t i = 0; i < candidatesLen; i++){
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(*physicalDevice, candidates[i], &props);
         if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-            return &candidates[i];
+            return candidates[i];
         } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-                return &candidates[i];
+                return candidates[i];
         }
     }
 
-    return 0;
+    return VK_FORMAT_UNDEFINED;
 }
 
-VkFormat* findDepthImageFormat (VkPhysicalDevice *physicalDevice) {
+VkFormat findDepthImageFormat (VkPhysicalDevice *physicalDevice) {
     VkFormat candidateFormats[3] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
     return findSupportedFormat(physicalDevice,
         candidateFormats,
@@ -149,13 +149,13 @@ VkFormat* findDepthImageFormat (VkPhysicalDevice *physicalDevice) {
 }
 
 void createDepthImageResources(PhysicalDevice* pd, LogicalDevice *ld, DisplaySwapchainManager* dispM) {
-    VkFormat format = *(findDepthImageFormat(pd->gpu));
+    VkFormat format = (findDepthImageFormat(pd->gpu));
     dispM->depthImage.common = malloc(sizeof(*dispM->depthImage.common));
     createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     dispM->depthImage.common, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1);
 
-    dispM->depthImage.common->imageView = createImageView(dispM, ld->device, format,dispM->depthImage.common->image, 1);
+    dispM->depthImage.common->imageView = createImageView(dispM, ld->device, format,dispM->depthImage.common->image, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, CommandPools* commandPool, VkQueue queue, VkImage image, uint32_t textWidth, uint32_t textHeight, uint32_t mipLevels, VkFormat imageFormat){
@@ -268,4 +268,25 @@ VkSampleCountFlagBits getMaxUsableSampleCount(PhysicalDevice* phyDevice) {
     if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
 
     return VK_SAMPLE_COUNT_1_BIT;
+}
+
+void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, DisplaySwapchainManager *dsm){
+    dsm->msaaColorRes = malloc(sizeof(*dsm->msaaColorRes));
+    VkFormat colorFormat = dsm->currentSurfaceFormat->format;
+    dsm->msaaColorRes->numSamples = getMaxUsableSampleCount(pd);
+    createVkImage(device, pd, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+     dsm->msaaColorRes, dsm->currentExtent2D.width, dsm->currentExtent2D.height, 1,  dsm->msaaColorRes->numSamples);
+    dsm->msaaColorRes->imageView = createImageView(dsm, device, colorFormat, dsm->msaaColorRes->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void createMsaaDepthResources(VkDevice device, PhysicalDevice* pd, DisplaySwapchainManager *dsm){
+    dsm->msaaDepthRes = malloc(sizeof(*dsm->msaaDepthRes));
+    VkFormat depthFormat = findDepthImageFormat(pd->gpu);
+    dsm->msaaDepthRes->numSamples = getMaxUsableSampleCount(pd);
+    createVkImage(device, pd, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        dsm->msaaDepthRes, dsm->currentExtent2D.width, dsm->currentExtent2D.height, 1,  dsm->msaaDepthRes->numSamples);
+    dsm->msaaDepthRes->imageView = createImageView(dsm, device, depthFormat, dsm->msaaDepthRes->image, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
+
 }
