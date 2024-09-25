@@ -7,9 +7,9 @@
 #include "graphicsPipeline.h"
 #define MAX_FRAMES_IN_FLIGHT 2
 
-void  drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GeometryDisplayPipelineManager *gdp,
+void  drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp,
 VkDevice device, SDL_Window *window);
 
-void cleanupSyncObjects(VkDevice device, GeometryDisplayPipelineManager* gdp);
+void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp);
 
 void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* window);

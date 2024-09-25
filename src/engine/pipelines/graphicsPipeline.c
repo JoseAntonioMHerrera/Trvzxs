@@ -3,7 +3,7 @@
 #define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
 
- void createSyncObjects(GeometryDisplayPipelineManager *gd, VkDevice *device){
+ void createSyncObjects(GraphicPipelineToSurface *gd, VkDevice *device){
     VkSemaphoreCreateInfo semaphoreInfo = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
@@ -31,7 +31,7 @@
 
 }
 
- void startRenderPass(GeometryDisplayPipelineManager *gdp, DisplayManager *dm, VkFramebuffer swapchainFramebuffer){
+ void startRenderPass(GraphicPipelineToSurface *gdp, DisplayManager *dm, VkFramebuffer swapchainFramebuffer){
     VkRenderPassBeginInfo renderPassInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = *gdp->renderPass,
@@ -80,7 +80,7 @@ printf("START RENDER FLAG FLAGs 6\n");
     printf("START RENDER FLAG FLAG 10\n");
 }
 
- void recordCommandBuffer(GeometryDisplayPipelineManager *gdp, DisplayManager* dm, uint32_t imageIndex) {
+ void recordCommandBuffer(GraphicPipelineToSurface *gdp, DisplayManager* dm, uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0, // Optional
@@ -155,7 +155,7 @@ printf("START RENDER FLAG FLAGs 6\n");
     (*objectsIAD)[2].offset = offsetof(GEOM_VERTEX, textCoords);
 }
 
- void createRenderPass(PhysicalDevice *pd, DisplaySwapchainManager *dsm, VkDevice device, GeometryDisplayPipelineManager *gdp) {
+ void createRenderPass(PhysicalDevice *pd, DisplaySwapchainManager *dsm, VkDevice device, GraphicPipelineToSurface *gdp) {
     //TODO make abstractions for resources attachtments and resolvers
     VkAttachmentReference depthAttachmentRef = {
         .attachment = 1,
@@ -246,7 +246,7 @@ printf("START RENDER FLAG FLAGs 6\n");
 
 }
 
- void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, DisplayManager *dm, VkDevice* device) {
+ void createGraphicsPipeline(GraphicPipelineToSurface *gdp, DisplayManager *dm, VkDevice* device) {
     char** triangleVert = (char**) malloc(sizeof(char*));
     char** triangleFrag = (char**) malloc(sizeof(char*));
 

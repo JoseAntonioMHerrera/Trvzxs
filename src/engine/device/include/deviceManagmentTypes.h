@@ -33,7 +33,7 @@ typedef struct DisplayManager {
     VkFence inFlightFence;
     uint32_t currentFrame;
     DisplaySwapchainManager *swapChainM;
-    GeometryDisplayPipelineManager *geomPipeline;
+    GraphicPipelineToSurface *geomPipeline;
     void* (*createGeometryPipeline)();
 
     //void* getField;

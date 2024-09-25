@@ -6,7 +6,7 @@
 #include "displayManager.h"
 //DeviceManager* initTRVZXSEngine(SDL_Window* window);
 void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM,
-GeometryDisplayPipelineManager *gdp, VkDebugUtilsMessengerEXT *logCallback);
+GraphicPipelineToSurface *gdp, VkDebugUtilsMessengerEXT *logCallback);
 void physicalDeviceTest(VkPhysicalDevice* pd);
 VkBool32 isDeviceValid(VkDevice device);
 void createInstance(VkInstance** instance, SDL_Window* window);

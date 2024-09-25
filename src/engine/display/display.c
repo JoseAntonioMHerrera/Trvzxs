@@ -2,7 +2,7 @@
 #include "displayManager.h"
 
 
-void cleanupSyncObjects(VkDevice device, GeometryDisplayPipelineManager* gdp){
+void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp){
 
     for (size_t i = 0; i < gdp->maxFrames; i++) {
         vkDestroySemaphore(device, gdp->renderEndFlag[i], NULL);
@@ -25,7 +25,7 @@ void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* wind
 }
 
 
-void drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GeometryDisplayPipelineManager *gdp,
+void drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp,
 VkDevice device, SDL_Window *window) {
     printf("DRAW FRAME: frame %d: Fence %p\n", dm->currentFrame, gdp->inFlightFence[dm->currentFrame]);
     printf("END DRAW FRAME LOG\n");

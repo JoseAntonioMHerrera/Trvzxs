@@ -160,9 +160,9 @@ TRVZXS_inline void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer ds
     printf("COPYBUFFER FLAG 4\n");
     vkFreeCommandBuffers(ld->device, *transferCommandPool, 1, &transferCommandBuffer);
 }*/
-void createCommandBuffer(GeometryDisplayPipelineManager *gdp, VkDevice *device, size_t framesInFlight);
+void createCommandBuffer(GraphicPipelineToSurface *gdp, VkDevice *device, size_t framesInFlight);
 
-/*TRVZXS_inline void createCommandBuffer(GeometryDisplayPipelineManager *gdp, VkDevice *device, size_t framesInFlight){
+/*TRVZXS_inline void createCommandBuffer(GraphicPipelineToSurface *gdp, VkDevice *device, size_t framesInFlight){
     gdp->commandLen = framesInFlight;
     gdp->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
     VkCommandBufferAllocateInfo allocInfo = {

@@ -25,7 +25,7 @@ void loadTextureImage(VkDeviceSize* imageSize, stbi_uc** pixels, uint32_t *width
 }
 
 // TODO move texture memory init away from this function, this is only for VkImage creation. Also move the sampler creation.
-void createTextureImage(PhysicalDevice *pd, LogicalDevice *ld, GeometryDisplayPipelineManager* gdp, Texture2D** texture){
+void createTextureImage(PhysicalDevice *pd, LogicalDevice *ld, GraphicPipelineToSurface* gdp, Texture2D** texture){
     printf("CREATE FLAG TEXTURE IMAGE 0\n");
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;

@@ -1,6 +1,6 @@
 #include "commandPool.h"
 
-void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GeometryDisplayPipelineManager *gdp) {
+void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp) {
 
     VkCommandPoolCreateInfo poolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -17,7 +17,7 @@ void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GeometryDisp
 }
 
 
-void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, GeometryDisplayPipelineManager *gdp) {
+void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp) {
     VkCommandPoolCreateInfo transferPoolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
