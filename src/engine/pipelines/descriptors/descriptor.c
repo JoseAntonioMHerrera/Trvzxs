@@ -1,7 +1,7 @@
 
 #include "descriptor.h"
 #include <assert.h>
-void createDescriptorPool(uint32_t maxFrames, VkDevice device, GeometryDisplayPipelineManager* gdp){
+void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp){
     VkDescriptorPoolSize poolSizes[] = {
         {
             .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -30,7 +30,7 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GeometryDisplayPi
 
 }
 //TODO must receive n textures that will be rendered in screen
-void createDescriptorSet(uint32_t maxFrames, VkDevice device, GeometryDisplayPipelineManager* gdp, Texture2D* texture){
+void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp, Texture2D* texture){
     assert(gdp->dsl);
 
     // We allocate one descriptorset for
@@ -89,7 +89,7 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GeometryDisplayPip
     }
 }
 
-void createDescriptorSetLayout(LogicalDevice *ld, GeometryDisplayPipelineManager* gdp, uint32_t maxFrames){
+void createDescriptorSetLayout(LogicalDevice *ld, GraphicPipelineToSurface* gdp, uint32_t maxFrames){
 
     VkDescriptorSetLayoutBinding uboLayoutBinding = {
         .binding = 0,

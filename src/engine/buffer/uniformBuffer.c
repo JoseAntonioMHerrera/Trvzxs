@@ -15,7 +15,7 @@ MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
 
     // Model matrix: rotate around Z-axis
     glm_mat4_identity(ubo.model);
-    //glm_rotate(ubo.model, time * glm_rad(45.0f), (vec3){0.0f, 1.0f, 0.0f});
+    glm_rotate(ubo.model, time * glm_rad(45.0f), (vec3){0.0f, 1.0f, 0.0f});
 
     // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
     vec3 eye = {1.5f, 1.5f, 1.5f};

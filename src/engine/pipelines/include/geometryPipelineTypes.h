@@ -29,7 +29,7 @@ typedef struct TextureManager {
     VkDescriptorSet *descriptorSet;
 } TextureManager;
 
-typedef struct GeometryDisplayPipelineManager {
+typedef struct GraphicPipelineToSurface {
     uint32_t maxFrames;
 
     size_t commandLen;
@@ -65,4 +65,4 @@ typedef struct GeometryDisplayPipelineManager {
     VkShaderModule *vertShader;
     VkShaderModule *fragShader;
     VkShaderModule *geomShader;
-} GeometryDisplayPipelineManager;
+} GraphicPipelineToSurface;

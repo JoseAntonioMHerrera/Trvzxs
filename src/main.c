@@ -38,7 +38,7 @@ int engineEntryPoint(){
     DisplayManager *dispM = dm->lDevice[dm->deviceIndex]->displayManager;
     LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
     PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
-    GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
+    GraphicPipelineToSurface *gdp = dispM->geomPipeline;
     DisplaySwapchainManager *dsm = dispM->swapChainM;
         printf("INIT DISPLAY MANAGER MAIN CONTEXT 2\n");
    // Crear renderizador para la ventana

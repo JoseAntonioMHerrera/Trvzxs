@@ -76,7 +76,7 @@ VkDebugUtilsMessengerEXT* createDebugCallbackForVulkan(const VkInstance* instanc
     return callback_messenger;
 }
 
-void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, GeometryDisplayPipelineManager* gdp, VkDebugUtilsMessengerEXT *logCallback) {
+void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, GraphicPipelineToSurface* gdp, VkDebugUtilsMessengerEXT *logCallback) {
     vkDeviceWaitIdle(dm->lDevice[dm->deviceIndex]->device);
     cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager, ld->displayManager->swapChainM);
     vkDestroyBuffer(ld->device, gdp->deviceBuffer->buffer, NULL);
@@ -212,7 +212,7 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     dispM->geomPipeline = malloc(sizeof(*dispM->geomPipeline));
     DisplaySwapchainManager *dsm = dispM->swapChainM;
 
-    GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
+    GraphicPipelineToSurface *gdp = dispM->geomPipeline;
     DeviceBufferManager *devicebm;
     gdp->commandPool = malloc(sizeof(*gdp->commandPool));
     gdp->texture =
@@ -362,7 +362,7 @@ VkDebugUtilsMessengerEXT* createDebugCallbackForVulkan(const VkInstance* instanc
     return callback_messenger;
 }
 
-void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, GeometryDisplayPipelineManager* gdp, VkDebugUtilsMessengerEXT *logCallback) {
+void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, GraphicPipelineToSurface* gdp, VkDebugUtilsMessengerEXT *logCallback) {
     vkDeviceWaitIdle(dm->lDevice[dm->deviceIndex]->device);
     cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager, ld->displayManager->swapChainM);
     vkDestroyBuffer(ld->device, gdp->deviceBuffer->buffer, NULL);

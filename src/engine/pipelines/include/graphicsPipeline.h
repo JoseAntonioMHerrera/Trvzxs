@@ -17,11 +17,11 @@
 #define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
 
- void createSyncObjects(GeometryDisplayPipelineManager *gd, VkDevice *device);
+ void createSyncObjects(GraphicPipelineToSurface *gd, VkDevice *device);
 
- void startRenderPass(GeometryDisplayPipelineManager *gdp, DisplayManager *dm, VkFramebuffer swapchainFramebuffer);
+ void startRenderPass(GraphicPipelineToSurface *gdp, DisplayManager *dm, VkFramebuffer swapchainFramebuffer);
 
- void recordCommandBuffer(GeometryDisplayPipelineManager *gdp, DisplayManager* dm, uint32_t imageIndex);
+ void recordCommandBuffer(GraphicPipelineToSurface *gdp, DisplayManager* dm, uint32_t imageIndex);
 
  VkShaderModule* createShaderModule(VkDevice device, char** code, size_t codeSize);
 
@@ -29,6 +29,6 @@
 
  void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD);
 
- void createRenderPass(PhysicalDevice *pd, DisplaySwapchainManager *dsm, VkDevice device, GeometryDisplayPipelineManager *gdp);
+ void createRenderPass(PhysicalDevice *pd, DisplaySwapchainManager *dsm, VkDevice device, GraphicPipelineToSurface *gdp);
 
- void createGraphicsPipeline(GeometryDisplayPipelineManager *gdp, DisplayManager *dm, VkDevice* device);
+ void createGraphicsPipeline(GraphicPipelineToSurface *gdp, DisplayManager *dm, VkDevice* device);

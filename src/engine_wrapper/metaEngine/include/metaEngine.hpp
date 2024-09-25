@@ -48,10 +48,10 @@ class MetaEngine {
         std::cout << "RETORNO CREATEINSTANCE" << '\n';
         DisplayManager *dispM = (DisplayManager*) malloc(sizeof(DisplayManager));
         dispM->swapChainM = (DisplaySwapchainManager*) malloc(sizeof(*dispM->swapChainM));
-        dispM->geomPipeline = (GeometryDisplayPipelineManager*) malloc(sizeof(*dispM->geomPipeline));
+        dispM->geomPipeline = (GraphicPipelineToSurface*) malloc(sizeof(*dispM->geomPipeline));
         DisplaySwapchainManager *dsm = (DisplaySwapchainManager*) dispM->swapChainM;
 
-        GeometryDisplayPipelineManager *gdp = dispM->geomPipeline;
+        GraphicPipelineToSurface *gdp = dispM->geomPipeline;
         DeviceBufferManager *devicebm;
         gdp->commandPool = (CommandPools*) malloc(sizeof(*gdp->commandPool));
         gdp->geometry = scene.get()->getStruct();

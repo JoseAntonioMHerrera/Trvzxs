@@ -142,7 +142,7 @@ void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
     vkFreeCommandBuffers(ld->device, *transferCommandPool, 1, &transferCommandBuffer);*/
 }
 
-void createCommandBuffer(GeometryDisplayPipelineManager *gdp, VkDevice *device, size_t framesInFlight){
+void createCommandBuffer(GraphicPipelineToSurface *gdp, VkDevice *device, size_t framesInFlight){
     gdp->commandLen = framesInFlight;
     gdp->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
     VkCommandBufferAllocateInfo allocInfo = {

@@ -11,6 +11,6 @@
 #include "geometryPipelineTypes.h"
 #include <string.h> //TODO revisar memcpy de aqui
 
- void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GeometryDisplayPipelineManager *gdp);
+ void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
 
- void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, GeometryDisplayPipelineManager *gdp);
+ void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
