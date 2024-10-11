@@ -29,6 +29,6 @@
 
  void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD);
 
- void createRenderPass(PhysicalDevice *pd, DisplaySwapchainManager *dsm, VkDevice device, GraphicPipelineToSurface *gdp);
+ void createRenderPass(PhysicalDevice *pd, GraphicSwapchain *dsm, VkDevice device, GraphicPipelineToSurface *gdp);
 
  void createGraphicsPipeline(GraphicPipelineToSurface *gdp, DisplayManager *dm, VkDevice* device);

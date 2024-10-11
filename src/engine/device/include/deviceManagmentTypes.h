@@ -32,9 +32,7 @@ typedef struct DisplayManager {
     VkSurfaceKHR surface;
     VkFence inFlightFence;
     uint32_t currentFrame;
-    DisplaySwapchainManager *swapChainM;
-    GraphicPipelineToSurface *geomPipeline;
-    void* (*createGeometryPipeline)();
+    GraphicPipelineToSurface *graphicPipeline;
 
     //void* getField;
     //void* (*drawFrame)(uint8_t currentFrame);

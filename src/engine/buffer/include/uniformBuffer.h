@@ -18,6 +18,6 @@
 #include "affine.h"
 //#include "displayTimer.h"
 
-MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm);
+MODEL_VIEW_PROJECTION updateUniformBuffers(GraphicSwapchain* dsm);
 
 int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos);

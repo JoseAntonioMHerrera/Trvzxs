@@ -47,16 +47,16 @@ class MetaEngine {
         createInstance(&dm->instance, window);
         std::cout << "RETORNO CREATEINSTANCE" << '\n';
         DisplayManager *dispM = (DisplayManager*) malloc(sizeof(DisplayManager));
-        dispM->swapChainM = (DisplaySwapchainManager*) malloc(sizeof(*dispM->swapChainM));
-        dispM->geomPipeline = (GraphicPipelineToSurface*) malloc(sizeof(*dispM->geomPipeline));
-        DisplaySwapchainManager *dsm = (DisplaySwapchainManager*) dispM->swapChainM;
+        dispM->graphicPipeline = (GraphicPipelineToSurface*) malloc(sizeof(*dispM->graphicPipeline));
+        dispM->graphicPipeline->swapchain = (GraphicSwapchain*) malloc(sizeof(*dispM->graphicPipeline->swapchain));
+        GraphicSwapchain *dsm = (GraphicSwapchain*) dispM->graphicPipeline->swapchain;
 
-        GraphicPipelineToSurface *gdp = dispM->geomPipeline;
+        GraphicPipelineToSurface *gdp = dispM->graphicPipeline;
         DeviceBufferManager *devicebm;
         gdp->commandPool = (CommandPools*) malloc(sizeof(*gdp->commandPool));
         gdp->geometry = scene.get()->getStruct();
 
-        printf("POinter geometry %x\n", gdp->geometry);
+
         //printScene_(gdp->geometry->pScene, gdp->geometry->sceneLen);
         std::cout << "RETURNED PRINT SCENE" << std::endl;
 
@@ -77,24 +77,24 @@ class MetaEngine {
             throw std::runtime_error("isDeviceValid returns VK_FALSE");
         }
 
-        createSwapChain(pd, ld, dispM, dsm, window);
+        createSwapChain(pd, ld, dispM, window);
         gdp->maxFrames = dsm->scImagesLen;
         std::cout << "NUMERO DE FRAMES " << gdp->maxFrames << '\n';
         std::cout << "RETORNO CREATESWAPCHAIN" << '\n';
         createMsaaColorResources(ld->device, pd, dsm);
         createMsaaDepthResources(ld->device, pd, dsm);
-        createRenderPass(pd, dispM->swapChainM,ld->device,gdp);
+        createRenderPass(pd, dispM->graphicPipeline->swapchain, ld->device, gdp);
         std::cout << "RETORNO RENDERPASS" << '\n';
         dsm->scImageViewLen = dsm->scImagesLen;
-        printf("CREAMOS LOS MSAA RECURSOS\n");
 
-        printf("RETORNAMOS DE LOS MSAA RECURSOS\n");
-        for(uint32_t i=0; i < ld->displayManager->swapChainM->scImagesLen; i++){
-            ld->displayManager->swapChainM->p_scImageView[i] =
-            createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapChainM->p_scImages[i], 1, VK_IMAGE_ASPECT_COLOR_BIT);
+
+
+        for(uint32_t i=0; i < ld->displayManager->graphicPipeline->swapchain->scImagesLen; i++){
+            ld->displayManager->graphicPipeline->swapchain->p_scImageView[i] =
+            createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->graphicPipeline->swapchain->p_scImages[i], 1, VK_IMAGE_ASPECT_COLOR_BIT);
         }
         std::cout << "RETORNO IMAGEVIEWS" << '\n';
-        createDepthImageResources(pd, ld, dispM->swapChainM);
+        createDepthImageResources(pd, ld, dispM->graphicPipeline->swapchain);
         createFrameBuffers(dsm,gdp->renderPass, &ld->device);
         std::cout << "RETORNO FRAMEBUFFERS" << '\n';
         gdp->deviceBuffer = (DeviceBufferManager*) malloc(sizeof(*gdp->deviceBuffer));
@@ -111,7 +111,7 @@ class MetaEngine {
         createTextureImage( pd,  ld, gdp, &gdp->texture);
         std::cout << "RETORNO createTextureImage" << '\n';
 
-        createTextureImageView(dispM->swapChainM, ld->device, gdp->texture, gdp->texture->mipLevels);
+        createTextureImageView(dispM->graphicPipeline->swapchain, ld->device, gdp->texture, gdp->texture->mipLevels);
         std::cout << "RETORNO createTextureImageView" << '\n';
         devicebm->ubo = (UniformBufferManager*) malloc(sizeof(*(gdp->deviceBuffer->ubo)));
         createUniformBuffers(pd,ld, gdp->maxFrames, gdp->deviceBuffer->ubo);
@@ -148,8 +148,8 @@ class MetaEngine {
         DeviceManager* deviceManager = this->deviceManager.getStruct();
         drawFrame(deviceManager->pDevice, deviceManager->lDevice[0],// TODO hay que usar deviceManager->deviceIndex and gpuIndex
         deviceManager->lDevice[0]->displayManager,
-        deviceManager->lDevice[0]->displayManager->geomPipeline,
+        deviceManager->lDevice[0]->displayManager->graphicPipeline,
         deviceManager->lDevice[0]->device, window );
-        std::cout << "RETORNAMOS EL CONTROL DESDE DRAW FRAME" << std::endl;
+        //std::cout << "RETORNAMOS EL CONTROL DESDE DRAW FRAME" << std::endl;
     }
 };

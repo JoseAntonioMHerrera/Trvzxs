@@ -1,7 +1,7 @@
 #include "uniformBuffer.h"
 
 
-MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
+MODEL_VIEW_PROJECTION updateUniformBuffers(GraphicSwapchain* dsm) {
 
     static struct timespec startTime;
     static int initialized = 0;
@@ -27,7 +27,7 @@ MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
     // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
 
     glm_perspective(glm_rad(45.0f), dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height, 0.1f, 500.0f, ubo.proj);
-    //printf("WHAT Is happening HERE \n");
+//printf("WHAT Is happening HERE \n");
     // Adjust for Vulkan's coordinate system
     ubo.proj[1][1] *= -1;
 
@@ -35,23 +35,23 @@ MODEL_VIEW_PROJECTION updateUniformBuffers(DisplaySwapchainManager* dsm) {
 }
 
 int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos) {
-    printf("holahsodasdsa\n");
+
     assert(ubos);
-    printf("holahsodasdsa\n");
-    printf("holahsodasdsa\n");
+
+
     VkDeviceSize bufferSize = sizeof(MODEL_VIEW_PROJECTION);
 
-    ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ld->displayManager->geomPipeline->maxFrames);
-    printf("holahsodasdsa\n");
+    ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ld->displayManager->graphicPipeline->maxFrames);
+
     uint32_t uniformBuffersLen = ubosLen;
     if(uniformBuffersLen < 1){
         uniformBuffersLen = 1;
     }
-    printf("holahsodasdsa\n");
+
     ubos->uniformBuffers = (VkBuffer*) malloc(sizeof(VkBuffer)*uniformBuffersLen);
     ubos->uniformBuffersMemory = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory)*uniformBuffersLen);
     ubos->uniformBuffersLen = uniformBuffersLen;
-    printf("holahsodasdsa\n");
+
 
     for (TRVZXS_SIZE i = 0; i < uniformBuffersLen; i++) {
         createVkBuffer(pd, ld->device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -59,7 +59,7 @@ int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t u
         &ubos->uniformBuffers[i],
         &ubos->uniformBuffersMemory[i]);
         vkMapMemory(ld->device, ubos->uniformBuffersMemory[i], 0, bufferSize, 0, &ubos->uniformBuffersMapped[i]);
-        printf("asdhaiodnhaisdnaisndaio\n");
+
     }
     return 1;
 };
