@@ -39,13 +39,13 @@ void destroyVulkanSurface(const VkInstance* instance, VkSurfaceKHR* surface){
 
     vkDestroySurface(*instance, *surface, NULL);
 
-    printf("Vulkan surface destroyed.\n");
+
 }
 
 void destroyVulkanInstance(const VkInstance* instance){
     vkDestroyInstance(*instance, NULL);
 
-    printf("Vulkan instance destroyed.\n");
+
 }
 
 VkDebugUtilsMessengerEXT* createDebugCallbackForVulkan(const VkInstance* instance){
@@ -78,7 +78,7 @@ VkDebugUtilsMessengerEXT* createDebugCallbackForVulkan(const VkInstance* instanc
 
 void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, GraphicPipelineToSurface* gdp, VkDebugUtilsMessengerEXT *logCallback) {
     vkDeviceWaitIdle(dm->lDevice[dm->deviceIndex]->device);
-    cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager, ld->displayManager->swapChainM);
+    cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager, ld->displayManager->swapchain);
     vkDestroyBuffer(ld->device, gdp->deviceBuffer->buffer, NULL);
     vkDestroyBuffer(ld->device, gdp->deviceBuffer->indexBuffer, NULL);
     vkFreeMemory(ld->device, gdp->deviceBuffer->bufferMemory, NULL);
@@ -107,13 +107,13 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, Graphi
 
 /*
 void fillGeometryData(GEOM_OBJECT **geometry){
-    //printf("GEOM OBJECTS FLAG 0 \n");
+
     (*geometry) = (GEOM_OBJECT*) malloc(sizeof(GEOM_OBJECT));
-    //printf("GEOM OBJECTS FLAG 1 \n");
+
     (*geometry)->dataLen = 4;
     (*geometry)->indicesLen = 6;
     (*geometry)->data = malloc(sizeof(*((*geometry)->data)) * (*geometry)->dataLen);
-    //printf("GEOM OBJECTS FLAG 2 \n");
+
     GEOM_VERTEX_COLOR_RGBA colorData[4];
     for(uint32_t i=0; i < 4; i++){
             colorData[i].r = i == 0 ? 1.0f : i == 1 ? 0.0f : i == 2 ? 0.0f : 1.0f;
@@ -128,7 +128,7 @@ void fillGeometryData(GEOM_OBJECT **geometry){
             positionDat[i].x = i == 0 ? -0.5f : i == 1 ? 0.5f : i == 2 ? 0.5f : -0.5f;
             positionDat[i].y = i == 0 ? -0.5f : i == 1 ? -0.5f : i == 2 ? 0.5f : 0.5f;
             positionDat[i].z = 0.0f;
-            printf("Punto %d (%f,%f,%f)\n", i, positionDat[i].x, positionDat[i].y, positionDat[i].z);
+
             (*geometry)->data[i].point = positionDat[i];
     }
 
@@ -175,7 +175,7 @@ void getScene(SCENE **scene, size_t objectsLen, float size) {
         apply_offset_to_indices(cube->indices, cube->indicesLen, indexOffsetForModelIndices);
         indexOffsetForModelIndices += cube->vertexOffset;
 
-        printf("INDICES DEL CUBO: %d\n", derrefScene->pScene[objIndex].indicesLen);
+
         spaceOffsetForModel+=5;
     }
 
@@ -184,9 +184,9 @@ void getScene(SCENE **scene, size_t objectsLen, float size) {
 
     derrefScene->totalIndicesLen = getIndicesLenFromScene(derrefScene);
     derrefScene->sceneIndices = getIndicesFromScene(derrefScene);
-    printf("FINALIZAMOS CREACION ESCENA!\n");
-    printf("SCENELEN : %d", derrefScene->sceneLen);
-        printf("INDICESLEN : %d", derrefScene->totalIndicesLen);
+
+
+
 }*/
 /*
 void getGrid(GEOM_OBJECT **geometry, int points, int padding) {
@@ -196,7 +196,7 @@ void getGrid(GEOM_OBJECT **geometry, int points, int padding) {
 DeviceManager* initTRVZXSEngine(SDL_Window* window){
 
     DeviceManager* dm = malloc(sizeof(DeviceManager)); // Init for the general state object of the render
-    printf("inittrazosengine flag 1\n");
+
     /*dm->lDevice = malloc(sizeof(*dm->lDevice));
     (*dm->lDevice) = malloc(sizeof(**dm->lDevice));
     dm->pDevice = malloc(sizeof(dm->pDevice));
@@ -206,13 +206,13 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
 
 
     createInstance(&dm->instance, window);
-        printf("RETORNO CREATEINSTANCE\n\0");
-    DisplayManager *dispM = (DisplayManager*) malloc(sizeof(DisplayManager));
-    dispM->swapChainM = malloc(sizeof(*dispM->swapChainM));
-    dispM->geomPipeline = malloc(sizeof(*dispM->geomPipeline));
-    DisplaySwapchainManager *dsm = dispM->swapChainM;
 
-    GraphicPipelineToSurface *gdp = dispM->geomPipeline;
+    DisplayManager *dispM = (DisplayManager*) malloc(sizeof(DisplayManager));
+    dispM->swapchain = malloc(sizeof(*dispM->swapchain));
+    dispM->graphicPipeline = malloc(sizeof(*dispM->graphicPipeline));
+    GraphicSwapchain *dsm = dispM->swapchain;
+
+    GraphicPipelineToSurface *gdp = dispM->graphicPipeline;
     DeviceBufferManager *devicebm;
     gdp->commandPool = malloc(sizeof(*gdp->commandPool));
     gdp->texture =
@@ -220,10 +220,10 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     gdp->maxFrames = MAX_FRAMES_IN_FLIGHT;
     dsm->scImagesLen = gdp->maxFrames;
     createSDLSurface(dispM, dm->instance, window);
-    printf("RETORNO CREATESURFACE\n\0");
+
 
     initDeviceManager(dm->instance, dm, dispM);
-    printf("RETORNOINITDEVICEMANAGER\n\0");
+
 
 
     PhysicalDevice* pd = &dm->pDevice[dm->gpuIndex];
@@ -232,73 +232,73 @@ DeviceManager* initTRVZXSEngine(SDL_Window* window){
     // GET THE SCENE MODELS
     getScene(&gdp->geometry, 2,  2.0f);
     // exit(0);
-    printf("RETORNO FILLGEOMETRYDATA\n\0");
+
     physicalDeviceTest(pd->gpu);
     if(VK_FALSE == isDeviceValid(ld->device)){
-        printf("DEVICE INVALID\n");
+
         exit(1);
     }
     createSwapChain(pd, ld, dispM, dsm, window);
     //WE UPDATE MAXFRAMES WITH THE SWAPCHAIN RETURNED MAX IMAGE VIEWS allowed
     gdp->maxFrames = dsm->scImagesLen;
-    printf("NUMERO DE FRAMES %d\n", gdp->maxFrames);
-    printf("RETORNO CREATESWAPCHAIN\n\0");
-    createRenderPass(dispM->swapChainM,ld->device,gdp);
-        printf("RETORNO RENDERPASS\n\0");
+
+
+    createRenderPass(dispM->swapchain,ld->device,gdp);
+
     dsm->scImageViewLen = dsm->scImagesLen;
     // dsm->p_scImageView = malloc(sizeof(VkImageView) * dsm->scImageViewLen);
     // createImageView(dsm, &ld->device, dsm->currentSurfaceFormat->format);
-    for(uint32_t i=0; i < ld->displayManager->swapChainM->scImagesLen; i++){
-        ld->displayManager->swapChainM->p_scImageView[i] =
-                    createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapChainM->p_scImages[i]);
+    for(uint32_t i=0; i < ld->displayManager->swapchain->scImagesLen; i++){
+        ld->displayManager->swapchain->p_scImageView[i] =
+                    createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->swapchain->p_scImages[i]);
     }
-    printf("RETORNO IMAGEVIEWS\n\0");
+
     createFrameBuffers(dsm,gdp->renderPass, &ld->device);
-    printf("RETORNO FRAMEBUFFERS\n\0");
+
     gdp->deviceBuffer = malloc(sizeof(*gdp->deviceBuffer));
     devicebm = gdp->deviceBuffer;
 
 
     createGraphicsCommandPool(pd,ld->device,gdp);
-    printf("RETORNO COMMANDPOOLD\n\0");
+
     createTransferQueueCommandPool(pd,ld->device,gdp);
-        printf("RETORNO TRANSFERPOOL\n\0");
+
     createCommandBuffer(gdp, &ld->device, gdp->maxFrames);
     VkDeviceSize textureSize;
     stbi_uc *pixels;
     uint32_t width;
     uint32_t height;
     createTextureImage( pd,  ld, gdp, &gdp->texture);
-        printf("RETORNO createTextureImage\n\0");
-    createTextureImageView(dispM->swapChainM, ld->device, gdp->texture);
-        printf("RETORNO createTextureImageView\n\0");
+
+    createTextureImageView(dispM->swapchain, ld->device, gdp->texture);
+
     devicebm->ubo = malloc(sizeof(*(gdp->deviceBuffer->ubo)));
     createUniformBuffers(pd,ld, gdp->maxFrames, gdp->deviceBuffer->ubo);
-    printf("RETORNO UNIFORMBUFFERS\n\0");
-    printf("!!!!!! %d", gdp->maxFrames);
+
+
         createDescriptorPool(gdp->maxFrames, ld->device, gdp);
     createDescriptorSetLayout(ld, gdp, gdp->maxFrames);
-        printf("RETORNO SETLAYOUT\n\0");
-        printf("RETORNO DESCRIPTOR POOL\n\0");
+
+
     createDescriptorSet(gdp->maxFrames, ld->device, gdp, gdp->texture);
-    printf("RETORNO SETLAYOUT\n\0");
+
     createGraphicsPipeline(gdp, dispM, &ld->device);
-    printf("RETORNO GRPAHICSPIPLINE\n\0");
+
 //55555555555555//
-     printf("RETORNO COMMANDBUFFER\n\0");
+
     createSyncObjects(gdp, &ld->device);
-         printf("RETORNO SYNC\n\0");
+
 
     createGeometryBuffer(pd,ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
-         printf("RETORNO GEOMETRYBUFFER\n\0");
+
 
     assert(&gdp->geometry->pScene[0]);
     createIndiceBuffer(pd, ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
-         printf("RETORNOs INDICE\n\0");
+
 
     dm->logCallback = createDebugCallbackForVulkan(dm->instance);
     dispM->currentFrame = 0;
-    printf("Init vulkan ended.\n");
+
 
     return dm;
 
@@ -311,21 +311,21 @@ void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEX
 
     vkDestroyDebugUtilsMessengerEXT(*instance, *callback_messenger, NULL);
 
-    printf("Vulkan log callback destroyed.\n");
+
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void * pUserData){
 
-    printf("@@ DEBUG CALLBACK @@\n");
-    printf("Mascara de severidad de mensaje: %u\n",severity);
-    printf("Mascara de tipo de mensaje: %u\n",type);
-    printf("Numero de objetos reportados: %d\n", pCallbackData->objectCount);
+
+
+
+
     for(uint32_t i =0; i <= pCallbackData->objectCount; i++) {
-        printf("%s\n",pCallbackData->pMessage);
-        printf("%lu\n",pCallbackData->pObjects[i].objectHandle);
+
+
 
     }
-    printf("@@ DEBUG CALLBACK @@\n");
+
 
     // More deep checks and analysis here
 
@@ -364,7 +364,7 @@ VkDebugUtilsMessengerEXT* createDebugCallbackForVulkan(const VkInstance* instanc
 
 void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, GraphicPipelineToSurface* gdp, VkDebugUtilsMessengerEXT *logCallback) {
     vkDeviceWaitIdle(dm->lDevice[dm->deviceIndex]->device);
-    cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager, ld->displayManager->swapChainM);
+    cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager);
     vkDestroyBuffer(ld->device, gdp->deviceBuffer->buffer, NULL);
     vkDestroyBuffer(ld->device, gdp->deviceBuffer->indexBuffer, NULL);
     vkFreeMemory(ld->device, gdp->deviceBuffer->bufferMemory, NULL);
@@ -392,7 +392,7 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager* dispM, Graphi
 
 void createInstance(VkInstance** instance, SDL_Window* window) {
     *instance = (VkInstance*) malloc(sizeof(VkInstance));
-    printf("CREATE INSTANCE FLAG 1\n");
+
     const VkApplicationInfo app = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = NULL,
@@ -400,10 +400,10 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
         .applicationVersion = 0,
         .pEngineName = "GrassBox\0",
         .engineVersion = 0,
-        .apiVersion = VK_API_VERSION_1_0,
+        .apiVersion = VK_API_VERSION_1_3,
     };
 
-    char* extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0", "VK_KHR_surface\0", "VK_KHR_dynamic_rendering"};
+
 
     uint32_t available_instance_layers_count = 0;
     VkLayerProperties* vulkan_instance_layer_properties;
@@ -416,11 +416,13 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
     assert(vkEnumInstLayPropResult == VK_SUCCESS);
     // Devices TODO: Aqui deberiamos buscar por las extensiones del dipositivo despues de la creación, asegurarnos
     // que soporta, y a
-    char* layers_to_select[] = {"VK_LAYER_KHRONOS_validation\0"};
-    const char** actual_layers_selected = malloc(sizeof(char*));
+    char* layers_to_select[] = {"VK_LAYER_KHRONOS_validation\0","VK_LAYER_RENDERDOC_Capture\0"};
+    const char** actual_layers_selected = malloc(sizeof(char*)*2);
     actual_layers_selected[0] = malloc(sizeof(char) * 256);
+    actual_layers_selected[1] = malloc(sizeof(char) * 256);
     assert(actual_layers_selected != NULL);
-    printf("CREATE INSTANCE FLAG 2\n");
+
+    //TODO esto no sirve pa na me parece a mi
     uint32_t actual_number_layers_selected = 0;
     for(short i = 0; i < available_instance_layers_count; i++){
         // TODO: Cambiar esto cuando se necesite mas de una capa
@@ -429,14 +431,41 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
             actual_number_layers_selected++;
         }
     }
+    actual_layers_selected[actual_number_layers_selected++] = layers_to_select[1];
 
-    printf("CREATE INSTANCE FLAG 3\n");
+
+    printf("SELECCINOADAS %d capas de vvalidacion\n", actual_number_layers_selected);
+
     //Probamos con la configuracion de SDL
 
     uint32_t extensionCount = 0;
     SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, NULL);
-    const char** extensionNames = malloc(extensionCount * sizeof(char*));
+    printf("SELECCINOADAS %d extensiones de SDL\n", extensionCount);
+    const char** extensionNames = malloc((extensionCount+2) * sizeof(char*)); //TODO refactor this method to handle memory properly
     SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, extensionNames);
+
+    //char* extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0", "VK_KHR_surface\0", "VK_KHR_dynamic_rendering", VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+    char* extensionsToSelect[] = {"VK_EXT_debug_utils\0","VK_KHR_xlib_surface\0"};
+    extensionNames[extensionCount++] = extensionsToSelect[0];
+    extensionNames[extensionCount++] = extensionsToSelect[1];
+    //extensionNames[extensionCount++] = extensionsToSelect[2];
+    /*
+    extensionNames[extensionCount++] = extensionsToSelect[3];
+        extensionNames[extensionCount++] = extensionsToSelect[4];*/
+        printf("SELECCINOADAS %d extensiones\n", extensionCount);
+    /*VkValidationFeatureEnableEXT enables[] = {
+        VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
+    };
+
+    VkValidationFeaturesEXT validationFeatures = {
+        .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+        .enabledValidationFeatureCount = sizeof(enables) / sizeof(enables[0]),
+        .pEnabledValidationFeatures = enables,
+        .pNext = NULL,
+    };*/
 
     //VkInstance instance;
     VkInstanceCreateInfo instance_info = {
@@ -444,16 +473,18 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
         .pApplicationInfo = &app,
         .enabledLayerCount = actual_number_layers_selected,
         .ppEnabledLayerNames = (const char *const *)actual_layers_selected,
-        .enabledExtensionCount = 3,
-        .ppEnabledExtensionNames = (const char *const *) extensionsToSelect,
+        .enabledExtensionCount = extensionCount,
+        .ppEnabledExtensionNames = (const char *const *) extensionNames,
+        .pNext = NULL,
     };
+    printf("JUSTO ANTES DEL VKCREATEINSTANCE\n");
     //TODO: Para asegurar portabilidad entre sistemas con sdl, leer la direccion de la propia funcion vkGetInstanceProdAddr
     //a traves de SDL en vez de llamarla directamente como hacemos en createDebugCallbackForVulkan
     VkResult debug = vkCreateInstance(&instance_info, NULL, *instance);
-    printf("Debug: %x\n", debug);
-    printf("CREATE INSTANCE FLAG 4\n");
+
+
     if ( debug != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create Vulkan instance\n");
+        printf("ERROR AL CREAR INSTANCE: %d \n", debug);
         exit(EXIT_FAILURE);
     }
 

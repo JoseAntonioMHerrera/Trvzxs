@@ -59,7 +59,7 @@ void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     } else {
-        printf("unsupported layout transition!\n");
+
     }
 
     vkCmdPipelineBarrier(
@@ -77,7 +77,7 @@ void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage
 void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImageTiling tiling, VkImageLayout imageLayout, VkImageUsageFlags imageUsage,
      VkMemoryPropertyFlags memoryTypeNeeded, CommonImage *commonImage, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples) {
 
-    printf("CREATEVKIMAGE FLAG 1\n");
+
     VkImageCreateInfo imageInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
@@ -96,13 +96,13 @@ void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImage
         .flags = 0, // Optional
     };
 
-    printf("CREATEVKIMAGE FLAG 2\n");
+
 
     if (vkCreateImage(device, &imageInfo, VK_NULL_HANDLE, &commonImage->image) != VK_SUCCESS) {
-        printf("failed to create image!\n");
+
         exit(1);
     }
-    printf("CREATEVKIMAGE FLAG 3\n");
+
 
     // Allocating memory for the image
     VkMemoryRequirements memRequirements;
@@ -113,14 +113,14 @@ void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImage
         .allocationSize = memRequirements.size,
         .memoryTypeIndex = findMemoryType(pd, memRequirements.memoryTypeBits, memoryTypeNeeded),
     };
-    printf("CREATEVKIMAGE FLAG 4\n");
+
 
     if (vkAllocateMemory(device, &allocInfo, VK_NULL_HANDLE, &commonImage->imageMemory) != VK_SUCCESS) {
-        printf("failed to allocate image memory!\n");
+
         exit(1);
     };
     vkBindImageMemory(device, commonImage->image, commonImage->imageMemory, 0);
-    printf("CREATEVKIMAGE FLAG 5\n");
+
 
 }
 
@@ -148,7 +148,7 @@ VkFormat findDepthImageFormat (VkPhysicalDevice *physicalDevice) {
     );
 }
 
-void createDepthImageResources(PhysicalDevice* pd, LogicalDevice *ld, DisplaySwapchainManager* dispM) {
+void createDepthImageResources(PhysicalDevice* pd, LogicalDevice *ld, GraphicSwapchain* dispM) {
     VkFormat format = (findDepthImageFormat(pd->gpu));
     dispM->depthImage.common = malloc(sizeof(*dispM->depthImage.common));
     createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
@@ -164,7 +164,7 @@ void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, Comman
     VkFormatProperties formatProperties;
     vkGetPhysicalDeviceFormatProperties(physDevice, imageFormat, &formatProperties);
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-        printf("texture image format does not support linear blitting!");
+
         exit(1);
     }
     VkImageMemoryBarrier barrier = {
@@ -185,6 +185,7 @@ void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, Comman
     };
 
     for(uint32_t i = 1; i < mipLevels; i++) {
+        printf("EN EL BUCLE %d\n", i);
         barrier.subresourceRange.baseMipLevel = i - 1;
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -228,7 +229,6 @@ void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, Comman
         image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1, &blit,
         VK_FILTER_LINEAR);
-
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -254,7 +254,9 @@ void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, Comman
         0, NULL,
         0, NULL,
         1, &barrier);
+
     endSingleTimeCommands(commandBuffer, commandPool->graphicsCommandPool, queue, ld->device);
+
 }
 
 VkSampleCountFlagBits getMaxUsableSampleCount(PhysicalDevice* phyDevice) {
@@ -270,7 +272,7 @@ VkSampleCountFlagBits getMaxUsableSampleCount(PhysicalDevice* phyDevice) {
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, DisplaySwapchainManager *dsm){
+void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, GraphicSwapchain *dsm){
     dsm->msaaColorRes = malloc(sizeof(*dsm->msaaColorRes));
     VkFormat colorFormat = dsm->currentSurfaceFormat->format;
     dsm->msaaColorRes->numSamples = getMaxUsableSampleCount(pd);
@@ -280,7 +282,7 @@ void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, DisplaySwapch
     dsm->msaaColorRes->imageView = createImageView(dsm, device, colorFormat, dsm->msaaColorRes->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void createMsaaDepthResources(VkDevice device, PhysicalDevice* pd, DisplaySwapchainManager *dsm){
+void createMsaaDepthResources(VkDevice device, PhysicalDevice* pd, GraphicSwapchain *dsm){
     dsm->msaaDepthRes = malloc(sizeof(*dsm->msaaDepthRes));
     VkFormat depthFormat = findDepthImageFormat(pd->gpu);
     dsm->msaaDepthRes->numSamples = getMaxUsableSampleCount(pd);

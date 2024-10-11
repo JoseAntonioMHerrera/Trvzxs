@@ -25,7 +25,7 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineTo
     //TODO moved descriptorPool to stack
     // gdp->descriptorPool = malloc(sizeof(*gdp->descriptorPool));
     if (vkCreateDescriptorPool(device, &poolInfo, VK_NULL_HANDLE, &(gdp->descriptorPool)) != VK_SUCCESS) {
-        printf("failed to create descriptor pool!\n");
+
     }
 
 }
@@ -35,7 +35,7 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
 
     // We allocate one descriptorset for
     gdp->descriptorSet = malloc(sizeof(*gdp->descriptorSet) * maxFrames);
-    printf("%u\n", maxFrames);
+
 
     VkDescriptorSetAllocateInfo allocInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -43,11 +43,11 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
         .descriptorSetCount = maxFrames,
         .pSetLayouts = (VkDescriptorSetLayout[]){gdp->dsl, gdp->dsl, gdp->dsl},
     };
-    printf("CREATE DESCRIPTOR SET FLAG 1\n");
+
     if (vkAllocateDescriptorSets(device, &allocInfo, gdp->descriptorSet) != VK_SUCCESS) {
-        printf("failed to allocate descriptors sets!");
+
     }
-    printf("CREATE DESCRIPTOR SET FLAG 1\n");
+
     for (size_t i = 0; i < maxFrames; i++) {
         VkDescriptorBufferInfo bufferInfo = {
             .buffer = gdp->deviceBuffer->ubo->uniformBuffers[i],
@@ -85,7 +85,7 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
         };
 
         vkUpdateDescriptorSets(device, 2, descriptorWrite, 0, VK_NULL_HANDLE);
-        printf("ACTUALIZAMOS DESCRIPTORSETS\n");
+
     }
 }
 
@@ -109,7 +109,7 @@ void createDescriptorSetLayout(LogicalDevice *ld, GraphicPipelineToSurface* gdp,
 
     VkDescriptorSetLayoutBinding bindings[] = {uboLayoutBinding, samplerLayoutBinding};
 
-    printf("DESCRIPTORSETLAYOUTF LAG 1\n");
+
     VkDescriptorSetLayoutCreateInfo layoutInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .bindingCount = 2,
@@ -117,14 +117,14 @@ void createDescriptorSetLayout(LogicalDevice *ld, GraphicPipelineToSurface* gdp,
         .pNext = VK_NULL_HANDLE,
         .flags = 0,
     };
-    printf("DESCRIPTORSETLAYOUTF LAG 2\n");
-    printf("%u\n", maxFrames);
+
+
 
     if (vkCreateDescriptorSetLayout(ld->device, &layoutInfo, VK_NULL_HANDLE, &gdp->dsl) != VK_SUCCESS) {
-        printf("failed to create descriptor set layout!\n");
+
         exit(1);
     }
 
-    printf("Created descriptor set layout: %p\n", (void*)gdp->dsl);
+
 
 }

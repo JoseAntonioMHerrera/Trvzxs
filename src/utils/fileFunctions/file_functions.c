@@ -6,7 +6,7 @@
 int readSPVBinaryFile(const char* filename, char** data, size_t* length) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
-        printf("%s\n", filename);
+
         perror("Failed to open file");
         return -1;
     }
@@ -32,7 +32,7 @@ int readSPVBinaryFile(const char* filename, char** data, size_t* length) {
 
     // Read the file into the allocated memory
     size_t bytesRead = fread(*data, 1, fileSize, file);
-    printf("%s: %u\n", filename, bytesRead);
+
     if (bytesRead != fileSize) {
         perror("Failed to read file");
         free(*data);

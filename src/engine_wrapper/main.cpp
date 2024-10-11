@@ -31,13 +31,19 @@ extern "C" {
     #include "textureManager.h"
     #include "scene.h"
 };
+#include <chrono>
+
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
 const int MARGIN = 20;
+const double TARGET_FPS = 200.0;  // Assuming 60Hz refresh rate
+const double FRAME_TIME = 1.0 / TARGET_FPS;
 
 
-void mainRenderLoop(){
-
+double getCurrentTime() {
+    auto now = std::chrono::high_resolution_clock::now();
+    auto duration = now.time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::duration<double>>(duration).count();
 }
 
 
@@ -52,14 +58,29 @@ int main() {
 
     try {
 
+
+
+        SDL_Window* window = NULL;
+        window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);
+        assert(window != NULL);
+        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+
+            return -1;
+        }
+
+        if (window == NULL) {
+
+            SDL_Quit();
+            return -1;
+        }
         std::unique_ptr<Scene<SCENE, Model, GEOM_OBJECT>> scene = std::make_unique<Scene<SCENE, Model, GEOM_OBJECT>>(Scene<SCENE, Model, GEOM_OBJECT>(sceneDeletor));
       const float cubeSize = 3.0f;
         const float spacing = 3.0f;
         const float totalSize = cubeSize + spacing;
-        const int dimensions = 10;
+        /*const int dimensions = 1000;
         const int numCubesPerDimension = static_cast<int>(dimensions / totalSize);
 
-        /*for (int i = 0; i < numCubesPerDimension; ++i) {
+        for (int i = 0; i < numCubesPerDimension; ++i) {
             for (int j = 0; j < numCubesPerDimension; ++j) {
                 for (int k = 0; k < numCubesPerDimension; ++k) {
                     float x = i * totalSize;
@@ -78,22 +99,6 @@ int main() {
 
         scene->addModel(std::move(Model<GEOM_OBJECT>(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj"))));
         scene->init();
-
-        SDL_Window* window = NULL;
-        window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);
-        assert(window != NULL);
-        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-            printf("SDL no pudo inicializarse! SDL Error: %s\n", SDL_GetError());
-            return -1;
-        }
-
-        if (window == NULL) {
-            printf("La ventana no pudo crearse! SDL Error: %s\n", SDL_GetError());
-            SDL_Quit();
-            return -1;
-        }
-
-        std::cout <<" nos trajo para que el se vaya" << std::endl;
         MetaEngine<SCENE, Model, GEOM_OBJECT> *engine =  new MetaEngine<SCENE, Model, GEOM_OBJECT>(window, std::move(scene));
 
         // Add these variables at the beginning of your main function or in your game class
@@ -109,23 +114,26 @@ float avgFPS = 0.0f;
     SDL_Event event;
     int initialMouseX, initialMouseY;
     int initialWidth, initialHeight;
+    double lastFrameTime = getCurrentTime();
         while (running) {
+            double currentTime = getCurrentTime();
+            double deltaTime = currentTime - lastFrameTime;
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            printf("EN EL EVENT POOL DE SDL\n");
+
             switch (event.type) {
                 case SDL_QUIT:
-                    printf("ENTRAMOS SDL QUIT  \n");
-                    printf("Aaaaaaaaaaaaaaaa\n");
-                                        printf("Aaaaaaaaaaaaaaaa\n");
-                    printf("Aaaaaaaaaaaaaaaa\n");
 
-                    printf("Aaaaaaaaaaaaaaaa\n");
 
-                    printf("Aaaaaaaaaaaaaaaa\n");
-                                        printf("Aaaaaaaaaaaaaaaa\n");
 
-                    printf("Aaaaaaaaaaaaaaaa\n");
+
+
+
+
+
+
+
+
 
                     running = 0;
                     break;
@@ -163,15 +171,27 @@ float avgFPS = 0.0f;
                     break;
             }
         }
-        printf("RESIZING %d\n", resizing);
+
         // Llamada a la función drawFrame
         if(!resizing) {
-            printf("CALLING TO DRAWFRAME...\n");
-            engine->metaDrawFrame(window);
-            printf("DESPUES DE DRAW FRAME....\n");
+             if (deltaTime >= FRAME_TIME) {
+        // Render and present frame
+                    engine->metaDrawFrame(window);
+
+        lastFrameTime = currentTime;
+
+        // Frame pacing: Sleep to align with next vsync
+        double sleepTime = FRAME_TIME - (getCurrentTime() - currentTime);
+        if (sleepTime > 0) {
+            sleep(sleepTime);
+        }
+    }
+
+
+
         }
 
-        printf("RUNNING VALE %d\n", running);
+
 
         // Aquí puedes añadir tus comandos de dibujo
 //        SDL_RenderPresent(renderer);

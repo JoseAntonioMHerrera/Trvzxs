@@ -43,6 +43,9 @@ typedef struct GraphicPipelineToSurface {
     // LAYOUT //
     VkPipelineLayout *pipelineLayout;
 
+    // SWAPCHAIN //
+    GraphicSwapchain *swapchain;
+
     // DESCRIPTORS
     VkDescriptorSetLayout dsl;
     VkDescriptorPool descriptorPool;

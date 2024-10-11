@@ -88,7 +88,6 @@ void initScene(SCENE*** scene, uint32_t sceneLen){
 }
 
 void printScene(GEOM_OBJECT** objects, uint32_t objectsLen){
-    //printf("OBJECTS: %x -> %d\n",objects, objectsLen);
     for(int objIndex = 0; objIndex < objectsLen; objIndex++){
         for(int vertexIndex = 0; vertexIndex < objects[objIndex]->dataLen; vertexIndex++)
             printf("(X,Y,Z):{%f,%f,%f} \n", objects[objIndex]->data[vertexIndex].point.x,

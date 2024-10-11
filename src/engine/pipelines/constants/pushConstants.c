@@ -21,7 +21,7 @@ void updatePushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout *pipeli
     PushConstantDisplayTimer pushData = {
         .deltaTime = deltaTime,
     };
-    printf("ANTES DEL SHOCK");
+
     vkCmdPushConstants(commandBuffer, *pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantDisplayTimer), &pushData);
 
 }

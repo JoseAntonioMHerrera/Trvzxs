@@ -18,7 +18,7 @@ enum class PRIMITIVE_TYPE {
     MODEL
 };
 template <typename T>
-constexpr auto modelDeletor = [](T* obj){ free(obj->data); free(obj->indices);};
+constexpr auto modelDeletor = [](T* obj){ std::cout << "LLAMAMOS AL DELETER DE MODEL"<< std::endl;free(obj->data); free(obj->indices);};
 
 template <typename T>
 class Model : public MetaObject<T, void(*)(T*)> {
@@ -29,6 +29,7 @@ public:
     // Constructor for loading from file
     explicit Model(const std::string& modelPath) noexcept
     : MetaObject<T, void(*)(T*)>() {
+        std::cout << "LLAMAMOS AL MODELO POR PARAMETRO MODEL PATH" << std::endl;
         T* model;
         model = load_obj_to_geom_object(modelPath.c_str());
         this->MetaObject<T, void(*)(T*)>::operator=(MetaObject<T, void(*)(T*)>(model, modelDeletor<T>));

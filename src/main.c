@@ -22,29 +22,29 @@ int engineEntryPoint(){
     window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);
     assert(window != NULL);
     /*if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        printf("SDL no pudo inicializarse! SDL Error: %s\n", SDL_GetError());
+
         return -1;
     }
 
     if (window == NULL) {
-        printf("La ventana no pudo crearse! SDL Error: %s\n", SDL_GetError());
+
         SDL_Quit();
         return -1;
     }
 
 
     DeviceManager *dm = initTRVZXSEngine(window);
-    printf("INIT DISPLAY MANAGER MAIN CONTEXT 1\n");
+
     DisplayManager *dispM = dm->lDevice[dm->deviceIndex]->displayManager;
     LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
     PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
-    GraphicPipelineToSurface *gdp = dispM->geomPipeline;
-    DisplaySwapchainManager *dsm = dispM->swapChainM;
-        printf("INIT DISPLAY MANAGER MAIN CONTEXT 2\n");
+    GraphicPipelineToSurface *gdp = dispM->graphicPipeline;
+    GraphicSwapchain *dsm = dispM->swapchain;
+
    // Crear renderizador para la ventana
     /*SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == NULL) {
-        printf("El renderizador no pudo crearse! SDL Error: %s\n", SDL_GetError());
+
         SDL_DestroyWindow(window);
         SDL_Quit();
         return -1;
@@ -58,20 +58,20 @@ int engineEntryPoint(){
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            printf("EN EL EVENT POOL DE SDL\n");
+
             switch (event.type) {
                 case SDL_QUIT:
-                    printf("ENTRAMOS SDL QUIT  \n");
-                    printf("Aaaaaaaaaaaaaaaa\n");
-                                        printf("Aaaaaaaaaaaaaaaa\n");
-                    printf("Aaaaaaaaaaaaaaaa\n");
 
-                    printf("Aaaaaaaaaaaaaaaa\n");
 
-                    printf("Aaaaaaaaaaaaaaaa\n");
-                                        printf("Aaaaaaaaaaaaaaaa\n");
 
-                    printf("Aaaaaaaaaaaaaaaa\n");
+
+
+
+
+
+
+
+
 
                     running = 0;
                     break;
@@ -109,23 +109,23 @@ int engineEntryPoint(){
                     break;
             }
         }
-        printf("RESIZING %d\n", resizing);
+
         // Llamada a la función drawFrame
         if(!resizing) {
-            printf("CALLING TO DRAWFRAME...\n");
+
             drawFrame(pd, ld, dispM, gdp, ld->device, window);
-            printf("DESPUES DE DRAW FRAME....\n");
+
         }
 
-        printf("RUNNING VALE %d\n", running);
+
 
         // Aquí puedes añadir tus comandos de dibujo
 //        SDL_RenderPresent(renderer);
     }
     // Liberar recursos
-            printf("RUNNING VALE %d (FUERA)\n", running);
 
-    printf("ESTAMOS FUERA????????? \n\n\n\n\n\n\n");
+
+
 
     cleanup(dm, ld, dispM, gdp,dm->logCallback);
   //  SDL_DestroyRenderer(renderer);

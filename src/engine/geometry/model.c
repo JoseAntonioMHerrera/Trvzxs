@@ -5,7 +5,7 @@
 GEOM_OBJECT* load_obj_to_geom_object(const char* filename) {
     fastObjMesh* mesh = fast_obj_read(filename);
     if (!mesh) {
-        printf("Failed to load OBJ file\n");
+
         return NULL;
     }
 

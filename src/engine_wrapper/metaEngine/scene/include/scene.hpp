@@ -6,7 +6,13 @@ extern "C" {
     #include "scene.h"
 }
 
-constexpr auto sceneDeletor = [](SCENE* scene){ free(scene->pScene); free(scene->sceneIndices); free(scene);};
+constexpr auto sceneDeletor = [](SCENE* scene){
+
+    printScene(&scene->pScene, scene->sceneLen);
+    std::cout <<"LLAMAMOS AL DELETER DE SCENE*" << std::endl;
+    if(scene->sceneLen > 0)
+        free(scene->pScene);
+    };
 
 template <typename T, template <typename> class U, typename V>
 class Scene : public MetaObject<T, DeleterFunctionType<SCENE>> {
@@ -29,10 +35,19 @@ public:
 
     const Scene& operator=(const Scene& other) = delete;
 
-    // Move constructor
-    Scene(Scene&& other) noexcept {
-        std::cout << "LLAMAMOS AL MODEL MOVE THE METAOBJECT" << std::endl;
-    };
+    Scene(Scene&& other) noexcept
+        : MetaObject<T, DeleterFunctionType<SCENE>>(std::move(other)),
+          models(std::move(other.models))
+    {
+        std::cout << "Move constructor of Scene called" << std::endl;
+
+        // If there's any additional member that needs to be moved, do it here
+        // For example, if you had a member like:
+        // this->someOtherMember = std::move(other.someOtherMember);
+
+        // Optionally, reset the other object's state
+        // other.someResetFunction();
+    }
 
     // Move assignment operator
     Scene& operator=(Scene&& other) noexcept {
@@ -80,6 +95,7 @@ public:
         initSceneWithData(&scene, objectsData.data(), this->models.size());
         std::cout << "VOLVEMOS DE INITSCENEWITHDATA" << std::endl;
         this->object.reset(scene);
+        std::cout << "QUE ESTA PASANDO AQUI" << std::endl;
     };
 
 

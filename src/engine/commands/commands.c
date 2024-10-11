@@ -1,7 +1,7 @@
 #include "commandBuffer.h"
 
 VkCommandBuffer beginSingleTimeCommands(LogicalDevice *ld, VkCommandPool commandPool) {
-    printf("BEGIN SINGLETIME COMMAND FLAG 1\n");
+
     VkCommandBufferAllocateInfo allocInfo =
     {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -12,7 +12,7 @@ VkCommandBuffer beginSingleTimeCommands(LogicalDevice *ld, VkCommandPool command
 
 
     VkCommandBuffer commandBuffer;
-    printf("BEGIN SINGLETIME COMMAND FLAG 2\n");
+
     vkAllocateCommandBuffers(ld->device, &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo =
@@ -20,29 +20,29 @@ VkCommandBuffer beginSingleTimeCommands(LogicalDevice *ld, VkCommandPool command
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
-printf("BEGIN SINGLETIME COMMAND FLAG 3\n");
+
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
-printf("BEGIN SINGLETIME COMMAND FLAG 4\n");
+
     return commandBuffer;
 }
 
 void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool commandPool, VkQueue queue, VkDevice device) {
-    printf("end SINGLETIME COMMAND FLAG 1\n");
+
     vkEndCommandBuffer(commandBuffer);
-    printf("end SINGLETIME COMMAND FLAG 1\n");
+
     VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .commandBufferCount = 1,
         .pCommandBuffers = &commandBuffer,
     };
 
-    printf("end SINGLETIME COMMAND FLAG 1\n");
+
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-        printf("end SINGLETIME COMMAND FLAG 1\n");
+
     vkQueueWaitIdle(queue);
-    printf("end SINGLETIME COMMAND FLAG 1\n");
+
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-        printf("end SINGLETIME COMMAND FLAG 1\n");
+
 }
 // queue: queue where to submit
 void copyBufferToImage(LogicalDevice *ld, VkDevice device, VkCommandPool commandPool, VkQueue queue, VkBuffer buffer,
@@ -80,7 +80,7 @@ void copyBufferToImage(LogicalDevice *ld, VkDevice device, VkCommandPool command
     );
     // queue: the queue to process the command operations
     endSingleTimeCommands(commandBuffer,commandPool, queue, device);
-    printf("COPYBUFFER TO IMAGE FLAG 1\n");
+
 
 }
 
@@ -90,7 +90,7 @@ void copyBufferToImage(LogicalDevice *ld, VkDevice device, VkCommandPool command
 
 // TRANSFER OPERATIONS TODO MAKE IT USEFUL
 void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue queue) {
-        printf("COPYBUFFER FLAG 1\n");
+
 
     /*VkCommandBufferAllocateInfo allocInfo;
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -98,10 +98,10 @@ void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
     allocInfo.commandPool = *transferCommandPool;
     allocInfo.commandBufferCount = 1;
     allocInfo.pNext = VK_NULL_HANDLE;
-    printf("COPYBUFFER FLAG 1\n");
+
     VkCommandBuffer transferCommandBuffer;
     vkAllocateCommandBuffers(ld->device, &allocInfo, &transferCommandBuffer);
-        printf("COPYBUFFER FLAG 2\n");
+
 
     VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -110,7 +110,7 @@ void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
 
 
     vkBeginCommandBuffer(transferCommandBuffer, &beginInfo);
-    printf("COPYBUFFER FLAG 3\n");*/
+*/
 
     VkBufferCopy copyRegion = {
         .srcOffset = 0, // Optional
@@ -119,12 +119,12 @@ void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
     };
 
     VkCommandBuffer transferCommandBuffer = beginSingleTimeCommands(ld, commandPool);
-            printf("COPYBUFFER FLAG 1\n");
+
     vkCmdCopyBuffer(transferCommandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-            printf("COPYBUFFER FLAG 1\n");
+
     endSingleTimeCommands(transferCommandBuffer, commandPool, queue, ld->device);
-        printf("COPYBUFFER FLAG 1\n");
-    /*printf("COPYBUFFER FLAG 4\n");
+/*
+
 
 
     vkEndCommandBuffer(transferCommandBuffer);
@@ -138,7 +138,7 @@ void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
 
     vkQueueSubmit(*ld->queueManager.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(*ld->queueManager.transferQueue);
-    printf("COPYBUFFER FLAG 4\n");
+
     vkFreeCommandBuffers(ld->device, *transferCommandPool, 1, &transferCommandBuffer);*/
 }
 
@@ -152,9 +152,9 @@ void createCommandBuffer(GraphicPipelineToSurface *gdp, VkDevice *device, size_t
         .commandBufferCount = gdp->maxFrames,
         .pNext = VK_NULL_HANDLE,
     };
-    printf("HOLA ESTAMOS EN CREATECOMMANDBUFFER\n");
+
     if (vkAllocateCommandBuffers(*device, &allocInfo, gdp->commandBuffer) != VK_SUCCESS) {
-        printf("Error al crear el command buffer");
+
         exit(0);
     }
 }

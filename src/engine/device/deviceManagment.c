@@ -66,7 +66,7 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
     };
 
     if (vkCreateDevice(*pd->gpu, &createLogicalDeviceInfo, NULL, &ld->device) != VK_SUCCESS) {
-        printf("faile to create logical device!");
+
         exit(1);
     }
     ld->queueManager.graphicsQueue = malloc(sizeof(*ld->queueManager.graphicsQueue));
@@ -172,7 +172,7 @@ uint32_t findMemoryType(PhysicalDevice *pd, uint32_t typeFilter, VkMemoryPropert
     }
 
     // No fallback for specified memory type not available
-    printf("NO suitable memory type available for gpu %p!\n", (void*)&pd->gpu);
+
     exit(1);
 }
 #define FOR(var, start, end, step) \
@@ -182,16 +182,16 @@ void physicalDeviceTest(VkPhysicalDevice* gPhysicalDevice){
     VkPhysicalDeviceProperties pdProp;
     vkGetPhysicalDeviceProperties(*gPhysicalDevice, &pdProp);
 
-    printf("%u\n", pdProp.deviceID);
-    printf("%s\n", pdProp.deviceName);
-    printf("%u\n", pdProp.apiVersion);
-    printf("%u\n", pdProp.driverVersion);
-    printf("%u\n", pdProp.vendorID);
+
+
+
+
+
 }
 // TODO: just test the device with a dummy operation, the name should be change to reflect this
 VkBool32 isDeviceValid(VkDevice device) {
     if (device == VK_NULL_HANDLE) {
-        printf("NULL HANDLE NINIO\n");
+
         return VK_FALSE;
     }
 
@@ -245,10 +245,10 @@ bool isDeviceSuitable(PhysicalDevice* pd, LogicalDevice* ld){
     return pd->queueFamilyIndices.graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE;
 }
 void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* dispM){
-        printf("FLAG INITDEVICEMANAGER\n");
+
     uint32_t supportedGpuLen = 0;
     VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, NULL);
-    printf("FLAG INITDEVICEMANAGER 2\n");
+
     assert(supportedGpuLen >= 1);
     assert(vkEnumPhysDevcResult == VK_SUCCESS);
 
@@ -271,8 +271,8 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
 
     FOR(i, 0, supportedGpuLen, 1) {
 
-        printf("FLAG INITDEVICEMANAGER 3\n");
-        printf("%d\n", i);
+
+
         VkPhysicalDeviceProperties deviceProperties;
         VkPhysicalDeviceFeatures deviceFeatures;
         vkGetPhysicalDeviceProperties(pdCandidates[i], &deviceProperties);
@@ -284,7 +284,7 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
         };
     }
 
-    printf("BESTCANDIDATEINDEX: %d", bestCandidateIndex);
+
         // We init the best available device
     dm->pDevice->gpu = &pdCandidates[bestCandidateIndex]; //TODO: change gpu type from VkPHysicalDEvice* to dereferenced type
     vkGetPhysicalDeviceProperties((*dm->pDevice->gpu), &(dm->pDevice->gpuProperties) );
@@ -299,13 +299,13 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
     initPhysicalDeviceQueues(&(dm->pDevice[dm->gpuIndex]));
     PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
     LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
-    printf("Supported gpu len: %d\n", supportedGpuLen);
+
 
     if(!isDeviceSuitable(&dm->pDevice[bestCandidateIndex], dm->lDevice[bestCandidateIndex])){
-        printf("THE BEST CANDIDATE IS NOT SUITABLE!! THROW YOUR PC TO THE TRASH AND BUY ANOTHER!:D");
+
         exit(0);
     }
-    printf("RETORNAMOS DEL isDEVICESUITABLE\n");
+
     //TODO: clean the rest of gpu not selected
     /*for(int i=0; i < supportedGpuLen; i++){
         if(pdCandidates[i] != dm->pDevice->gpu){
@@ -314,7 +314,7 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
     }*/
 
     //getMatchingQueueIndices(pd, ld, pd->queueFamilyProperties, pd->queueFamilyCount, &pd->queueFamilyIndices);
-    printf("%u %u %u", pd->queueFamilyIndices.graphicsFamily,pd->queueFamilyIndices.presentFamily,pd->queueFamilyIndices.transferFamily);
+
     initDeviceQueues(&dm->pDevice[dm->gpuIndex], dm->lDevice[dm->deviceIndex]);
 }
 

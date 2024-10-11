@@ -11,11 +11,11 @@ typedef struct SwapChainSupportDetails {
 } SwapChainSupportDetails;
 
 
-typedef struct DisplaySwapchainManager {
+typedef struct GraphicSwapchain {
     // enum para ver tipo de swapchain
     VkExtent2D currentExtent2D;
     VkExtent3D currentExtent3D;
-    VkSwapchainKHR swapchain;
+    VkSwapchainKHR VkSwapchain;
 
     VkFramebuffer *p_framebuffers;
     size_t framebuffersLen;
@@ -34,4 +34,4 @@ typedef struct DisplaySwapchainManager {
     VkSurfaceFormatKHR *currentSurfaceFormat;
     SwapChainSupportDetails *swapChainSupportDetails;
     VkSubpassDependency *subpassDependency;
-} DisplaySwapchainManager;
+} GraphicSwapchain;
