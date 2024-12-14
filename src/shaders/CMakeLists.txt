@@ -1,14 +1,20 @@
 cmake_minimum_required(VERSION 3.12)
-
+find_package(glslang CONFIG REQUIRED)
+find_package(SPIRV-Tools CONFIG REQUIRED)
+find_package(unofficial-shaderc CONFIG REQUIRED)
 # Set the path to glslc compiler
-find_program(GLSLC glslc HINTS ${Vulkan_INCLUDE_DIRS}/../bin)
+# Find glslc compiler from shaderc
+find_program(GLSLC glslc 
+    HINTS 
+    "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/shaderc"
+    "${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/shaderc"
+)
 
 if(NOT GLSLC)
     message(FATAL_ERROR "glslc not found")
 else()
     message(STATUS "Found glslc: ${GLSLC}")
 endif()
-
 # Set the shaders
 set(SHADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/triangle.frag"

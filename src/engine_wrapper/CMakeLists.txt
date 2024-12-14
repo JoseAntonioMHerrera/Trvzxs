@@ -23,9 +23,20 @@ file(GLOB_RECURSE ENGINE_WRAPPER_HEADERS
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-    SDL2::SDL2
-    SDL2_ttf::SDL2_ttf
+    $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
+    $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+    $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
+    
+    # Vulkan and related
     Vulkan::Vulkan
+    Vulkan::Headers
+    GPUOpen::VulkanMemoryAllocator
+    
+    # SPIR-V and shader compilation
+    glslang::glslang
+    glslang::SPIRV
+    SPIRV-Tools-static
+    unofficial::shaderc::shaderc
     m  # Math library
     X11  # X11 library
     engine_mod

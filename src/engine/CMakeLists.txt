@@ -1,5 +1,15 @@
 add_library(engine_mod)
 add_subdirectory("include/")
+
+find_package(SDL2 CONFIG REQUIRED)
+find_package(SDL2_ttf CONFIG REQUIRED)
+find_package(Vulkan REQUIRED)
+find_package(VulkanHeaders CONFIG REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+find_package(glslang CONFIG REQUIRED)
+find_package(SPIRV-Tools CONFIG REQUIRED)
+find_package(unofficial-shaderc CONFIG REQUIRED)
+
 target_include_directories(engine_mod PUBLIC
     buffer/include
     device/include
@@ -69,8 +79,20 @@ target_sources(engine_mod PUBLIC ${ENGINE_SOURCES} ${ENGINE_HEADERS} ${CGLM_HEAD
 # Link libraries to the executable target
 target_link_libraries(engine_mod
     PRIVATE
-    SDL2::SDL2
+    $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
+    $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+    $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
+    
+    # Vulkan and related
     Vulkan::Vulkan
+    Vulkan::Headers
+    GPUOpen::VulkanMemoryAllocator
+    
+    # SPIR-V and shader compilation
+    glslang::glslang
+    glslang::SPIRV
+    SPIRV-Tools-static
+    unofficial::shaderc::shaderc
     m  # Math library
     X11  # X11 library
     utils_mod
