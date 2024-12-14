@@ -1,0 +1,20 @@
+{
+    "name": "renderer",
+    "version": "0.1.0",
+    "dependencies": [
+        {
+            "name": "sdl2",
+            "default-features": true,
+            "features": ["x11", "vulkan"]
+        },
+      "sdl2-ttf",
+      "spirv-headers",
+      "spirv-tools",
+      "glslang",
+      "vulkan",
+       "vulkan-loader",
+      "vulkan-headers",
+      "vulkan-memory-allocator",
+      "shaderc"  
+    ]
+  }

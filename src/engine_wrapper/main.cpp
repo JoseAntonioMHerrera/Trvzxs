@@ -57,19 +57,21 @@ int main() {
     #endif
 
     try {
-
+// Before SDL_Init
+SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "x11");
+// Add these checks
+if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
+    return -1;
+}
+std::cout << "Current video driver: " << SDL_GetCurrentVideoDriver() << std::endl;
 
 
         SDL_Window* window = NULL;
         window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);
-        assert(window != NULL);
-        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-
-            return -1;
-        }
-
         if (window == NULL) {
-
+            const char* error = SDL_GetError();
+            std::cout << error << std::endl;
             SDL_Quit();
             return -1;
         }
