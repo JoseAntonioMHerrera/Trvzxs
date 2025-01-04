@@ -18,6 +18,7 @@
 #include "affine.h"
 //#include "displayTimer.h"
 
-MODEL_VIEW_PROJECTION updateUniformBuffers(GraphicSwapchain* dsm);
+MODEL_VIEW_PROJECTION updateUniformBuffers(GraphicSwapchain* dsm, float deltaTime);
 
-int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos);
+int createUniformBuffersMapped(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos);
+int createDeltaTimeUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos);

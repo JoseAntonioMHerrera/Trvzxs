@@ -144,8 +144,9 @@ void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
 
 void createCommandBuffer(GraphicPipelineToSurface *gdp, VkDevice *device, size_t framesInFlight){
     gdp->commandLen = framesInFlight;
+    gdp->computeP->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
     gdp->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
-    VkCommandBufferAllocateInfo allocInfo = {
+    VkCommandBufferAllocateInfo allocGraphicCommandBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = gdp->commandPool->graphicsCommandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -153,7 +154,38 @@ void createCommandBuffer(GraphicPipelineToSurface *gdp, VkDevice *device, size_t
         .pNext = VK_NULL_HANDLE,
     };
 
-    if (vkAllocateCommandBuffers(*device, &allocInfo, gdp->commandBuffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(*device, &allocGraphicCommandBufferInfo, gdp->commandBuffer) != VK_SUCCESS) {
+
+        exit(0);
+    }
+}
+
+void createCommandBufferWithCompute(GraphicPipelineToSurface *gdp, VkDevice *device, size_t framesInFlight){
+    gdp->commandLen = framesInFlight;
+    gdp->computeP->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
+    gdp->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
+    VkCommandBufferAllocateInfo allocGraphicCommandBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = gdp->commandPool->graphicsCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = gdp->maxFrames,
+        .pNext = VK_NULL_HANDLE,
+    };
+
+    VkCommandBufferAllocateInfo allocComputeCommandBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = gdp->commandPool->computeCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = gdp->maxFrames,
+        .pNext = VK_NULL_HANDLE,
+    };
+
+    if (vkAllocateCommandBuffers(*device, &allocGraphicCommandBufferInfo, gdp->commandBuffer) != VK_SUCCESS) {
+
+        exit(0);
+    }
+
+    if (vkAllocateCommandBuffers(*device, &allocComputeCommandBufferInfo, gdp->computeP->commandBuffer) != VK_SUCCESS) {
 
         exit(0);
     }

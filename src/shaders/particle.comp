@@ -1,0 +1,38 @@
+#version 450
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+// Define the particle structure
+struct Particle {
+    vec3 position;
+    vec3 velocity;
+    vec4 color;
+};
+
+// Input particles buffer
+layout(std140, binding = 2) readonly buffer ParticleSSBOIn {
+    Particle particlesIn[];
+};
+
+// Output particles buffer
+layout(std140, binding = 3) buffer ParticleSSBOOut {
+    Particle particlesOut[];
+};
+
+// Delta time uniform
+layout(std140, binding = 4) uniform UBODeltaTime {
+    float deltaTime;
+};
+
+void main() {
+    // Get the current particle index
+    uint index = gl_GlobalInvocationID.x;
+
+    // Read input particle
+    Particle particleIn = particlesIn[index];
+
+    // Update position using velocity and delta time
+    particlesOut[index].position = particleIn.position + particleIn.velocity * deltaTime * 0.009;
+    particlesOut[index].velocity = particleIn.velocity;
+    particlesOut[index].color = particleIn.color;
+}

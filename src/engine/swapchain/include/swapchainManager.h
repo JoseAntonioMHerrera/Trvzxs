@@ -18,7 +18,7 @@ VkSurfaceFormatKHR* chooseSwapSurfaceFormat(VkSurfaceFormatKHR* availableFormats
 
 VkPresentModeKHR chooseSwapPresentMode(VkPresentModeKHR* availablePresentModes, uint8_t availableModesCount, VkPresentModeKHR mode);
 
-void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *displayM,SDL_Window* window);
+void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *displayM, GraphicPipelineToSurface* gps, SDL_Window* window);
 
 void cleanupSwapChain(LogicalDevice *ld, DisplayManager *dm);
 

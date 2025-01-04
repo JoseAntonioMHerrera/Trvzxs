@@ -32,11 +32,11 @@ extern "C" {
     #include "scene.h"
 };
 #include <chrono>
-
+// TODO move this to central display
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
 const int MARGIN = 20;
-const double TARGET_FPS = 200.0;  // Assuming 60Hz refresh rate
+const double TARGET_FPS = 60.0;  // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
 
 
@@ -110,13 +110,14 @@ Uint32 frameStart, frameTime;
 int fps = 0;
 int frameCount = 0;
 float avgFPS = 0.0f;
-
+    std::cout << "ESTO QUE MIERDA ES" << std::endl;
     uint32_t running = 1;
     bool resizing = 0;
     SDL_Event event;
     int initialMouseX, initialMouseY;
     int initialWidth, initialHeight;
     double lastFrameTime = getCurrentTime();
+    engine->firstFrameInitialPass();
         while (running) {
             double currentTime = getCurrentTime();
             double deltaTime = currentTime - lastFrameTime;
@@ -178,7 +179,7 @@ float avgFPS = 0.0f;
         if(!resizing) {
              if (deltaTime >= FRAME_TIME) {
         // Render and present frame
-                    engine->metaDrawFrame(window);
+                    engine->metaDrawFrame(window, (float)deltaTime);
 
         lastFrameTime = currentTime;
 

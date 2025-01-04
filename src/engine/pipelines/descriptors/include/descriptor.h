@@ -19,5 +19,5 @@
 #include <time.h>
 
 void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp);
-void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp, Texture2D* texture);
+void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphic, Texture2D* texture);
 void createDescriptorSetLayout(LogicalDevice *ld, GraphicPipelineToSurface* gdp, uint32_t maxFrames);

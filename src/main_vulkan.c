@@ -314,16 +314,37 @@ void destroyDebugCallbackForVulkan(VkInstance* instance, VkDebugUtilsMessengerEX
 
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void * pUserData){
+static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void * pUserData){
 
+    // Get severity level as string
+    const char* severity = "UNKNOWN";
+    if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) severity = "VERBOSE";
+    if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) severity = "INFO";
+    if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) severity = "WARNING";
+    if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) severity = "ERROR";
 
+    // Feature detection
+    if (strstr(pCallbackData->pMessage, "GPU-Assisted") != NULL) {
+        printf("[FEATURE DETECT] GPU-Assisted Validation is active | %s: %s\n",
+               severity, pCallbackData->pMessage);
+    }
+    if (strstr(pCallbackData->pMessage, "Synchronization Validation") != NULL) {
+        printf("[FEATURE DETECT] Synchronization Validation is active | %s: %s\n",
+               severity, pCallbackData->pMessage);
+    }
+    if (strstr(pCallbackData->pMessage, "Best Practices") != NULL) {
+        printf("[FEATURE DETECT] Best Practices Validation is active | %s: %s\n",
+               severity, pCallbackData->pMessage);
+    }
 
-
-
-    for(uint32_t i =0; i <= pCallbackData->objectCount; i++) {
-
-
-
+    // General message output with formatting based on severity
+    if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        fprintf(stderr, "[%s] %s | msgIDName: %s | msgIDNumber: %d | message: %s\n",
+                severity,
+                messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT ? "Validation" : "Performance",
+                pCallbackData->pMessageIdName,
+                pCallbackData->messageIdNumber,
+                pCallbackData->pMessage);
     }
 
 
@@ -438,6 +459,42 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
 
     //Probamos con la configuracion de SDL
 
+uint32_t extensionCountDeb = 0;
+VkExtensionProperties* extensions = NULL;
+
+// First call to get the number of extensions
+VkResult result = vkEnumerateInstanceExtensionProperties(NULL, &extensionCountDeb, NULL);
+if (result != VK_SUCCESS) {
+    printf("Failed to get extension count\n");
+    return;
+}
+
+// Allocate memory for extensions
+extensions = malloc(extensionCountDeb * sizeof(VkExtensionProperties));
+if (extensions == NULL) {
+    printf("Memory allocation failed\n");
+    return;
+}
+
+// Second call to get the actual extension properties
+result = vkEnumerateInstanceExtensionProperties(NULL, &extensionCountDeb, extensions);
+if (result != VK_SUCCESS) {
+    printf("Failed to enumerate extensions\n");
+    free(extensions);
+    return;
+}
+
+// Print extensions
+for (uint32_t i = 0; i < extensionCountDeb; i++) {
+    printf("Extension name: %s, Version: %d\n",
+           extensions[i].extensionName,
+           extensions[i].specVersion);
+}
+
+
+
+
+
     uint32_t extensionCount = 0;
     SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, NULL);
     printf("SELECCINOADAS %d extensiones de SDL\n", extensionCount);
@@ -453,7 +510,7 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
     extensionNames[extensionCount++] = extensionsToSelect[3];
         extensionNames[extensionCount++] = extensionsToSelect[4];*/
         printf("SELECCINOADAS %d extensiones\n", extensionCount);
-    /*VkValidationFeatureEnableEXT enables[] = {
+    VkValidationFeatureEnableEXT enables[] = {
         VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
         VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
         VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
@@ -465,7 +522,7 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
         .enabledValidationFeatureCount = sizeof(enables) / sizeof(enables[0]),
         .pEnabledValidationFeatures = enables,
         .pNext = NULL,
-    };*/
+    };
 
     //VkInstance instance;
     VkInstanceCreateInfo instance_info = {
@@ -475,7 +532,7 @@ void createInstance(VkInstance** instance, SDL_Window* window) {
         .ppEnabledLayerNames = (const char *const *)actual_layers_selected,
         .enabledExtensionCount = extensionCount,
         .ppEnabledExtensionNames = (const char *const *) extensionNames,
-        .pNext = NULL,
+        .pNext = &validationFeatures,
     };
     printf("JUSTO ANTES DEL VKCREATEINSTANCE\n");
     //TODO: Para asegurar portabilidad entre sistemas con sdl, leer la direccion de la propia funcion vkGetInstanceProdAddr

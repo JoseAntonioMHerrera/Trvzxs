@@ -1,7 +1,7 @@
 #include "uniformBuffer.h"
 
 
-MODEL_VIEW_PROJECTION updateUniformBuffers(GraphicSwapchain* dsm) {
+MODEL_VIEW_PROJECTION updateUniformBuffers(GraphicSwapchain* dsm, float deltaTime) {
 
     static struct timespec startTime;
     static int initialized = 0;
@@ -34,14 +34,14 @@ MODEL_VIEW_PROJECTION updateUniformBuffers(GraphicSwapchain* dsm) {
     return ubo;
 }
 
-int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos) {
+int createUniformBuffersMapped(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos) {
 
     assert(ubos);
 
 
     VkDeviceSize bufferSize = sizeof(MODEL_VIEW_PROJECTION);
 
-    ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ld->displayManager->graphicPipeline->maxFrames);
+    ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ubosLen);
 
     uint32_t uniformBuffersLen = ubosLen;
     if(uniformBuffersLen < 1){
@@ -61,5 +61,32 @@ int createUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t u
         vkMapMemory(ld->device, ubos->uniformBuffersMemory[i], 0, bufferSize, 0, &ubos->uniformBuffersMapped[i]);
 
     }
+    printf("EN CREATEUNIFORMBUFFERSMAPPED AL FINAL\n");
+    return 1;
+};
+
+int createDeltaTimeUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos) {
+
+    assert(ubos);
+
+    VkDeviceSize bufferSize = sizeof(UboDeltaTime);
+
+    uint32_t uniformBuffersLen = ubosLen;
+    if(uniformBuffersLen < 1){
+        uniformBuffersLen = 1;
+    }
+
+    ubos->uniformBuffers = (VkBuffer*) malloc(sizeof(VkBuffer)*uniformBuffersLen);
+    ubos->uniformBuffersMemory = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory)*uniformBuffersLen);
+    ubos->uniformBuffersLen = uniformBuffersLen;
+
+    for (TRVZXS_SIZE i = 0; i < uniformBuffersLen; i++) {
+        createVkBuffer(pd, ld->device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_SHARING_MODE_EXCLUSIVE,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &ubos->uniformBuffers[i],
+        &ubos->uniformBuffersMemory[i]);
+    }
+
+    printf("EN CREATEUNIFORMBUFFERS AL FINAL\n");
     return 1;
 };

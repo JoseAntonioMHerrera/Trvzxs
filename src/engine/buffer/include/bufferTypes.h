@@ -6,5 +6,15 @@ typedef struct UniformBufferManager {
     uint32_t uniformBuffersLen;
     VkDeviceMemory *uniformBuffersMemory;
     void** uniformBuffersMapped;
-} UniformBufferManager
-;
+} UniformBufferManager;
+
+
+typedef struct SSBOBufferManager {
+    VkBuffer *buffers;
+    uint32_t buffersLen;
+    VkDeviceMemory *buffersMemory;
+    void** buffersMapped;
+
+    VkBuffer readbackBuffer;
+    VkDeviceMemory readBackBufferMemory;
+} SSBOBufferManager;
