@@ -4,26 +4,12 @@
 #include "bufferTypes.h"
 #include "textureManagerTypes.h"
 #include "scene.h"
-typedef struct CommandPools {
-    VkCommandPool transferCommandPool;
-    VkCommandPool graphicsCommandPool;
-    // Add other command pools as needed
-} CommandPools;
-typedef struct DeviceBufferManager {
-    VkBuffer *buffer;
-    VkDeviceMemory *bufferMemory;
-    size_t bufferLen;
-    VkBuffer *indexBuffer;
-    VkDeviceMemory *indexBufferMemory;
-    size_t indexLen;
-    size_t stagingLen;
-    VkBuffer *stagingBuffer;
-    VkDeviceMemory *stagingBufferMemory;
-    UniformBufferManager *ubo;
-
-} DeviceBufferManager;
+#include "computePipeline.h"
 
 
+typedef struct DeviceBufferManager DeviceBufferManager;
+typedef struct CommandPools CommandPools;
+typedef struct ComputePipeline ComputePipeline;
 typedef struct TextureManager {
     Texture2D* p_texture;
     VkDescriptorSet *descriptorSet;
@@ -46,26 +32,34 @@ typedef struct GraphicPipelineToSurface {
     // SWAPCHAIN //
     GraphicSwapchain *swapchain;
 
-    // DESCRIPTORS
+    // DESCRIPTORS //
     VkDescriptorSetLayout dsl;
     VkDescriptorPool descriptorPool;
     VkDescriptorSet* descriptorSet;
+
     // COMMANDS //
     CommandPools *commandPool;
     VkCommandBuffer *commandBuffer;
 
 
-    // ATTACHTMENTS
+    // ATTACHTMENTS //
     VkVertexInputBindingDescription *objectIBD;
     size_t objectIBDLen;
     VkVertexInputAttributeDescription *objectIAD;
     size_t objectIADLen;
+
     // SYNC //
     VkSemaphore *renderEndFlag;
     VkSemaphore *imgViewSemaphore;
     VkFence *inFlightFence;
-    // SHADERS
+
+    // SHADERS //
     VkShaderModule *vertShader;
     VkShaderModule *fragShader;
     VkShaderModule *geomShader;
+
+    // Compute pipeline for graphics operations
+
+    ComputePipeline* computeP;
+
 } GraphicPipelineToSurface;

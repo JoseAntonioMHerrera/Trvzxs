@@ -12,6 +12,31 @@
 #include "commandBuffer.h"
 #include <string.h>
 
+typedef struct CommandPools CommandPools;
+
+typedef struct DeviceBufferManager {
+    VkBuffer *buffer;
+    VkDeviceMemory *bufferMemory;
+    size_t bufferLen;
+
+    // Index Buffer
+    VkBuffer *indexBuffer;
+    VkDeviceMemory *indexBufferMemory;
+    size_t indexLen;
+
+    // Staging Buffer
+    size_t stagingLen;
+    VkBuffer *stagingBuffer;
+    VkDeviceMemory *stagingBufferMemory;
+
+    //UniformBuffers
+    UniformBufferManager *ubo;
+
+    //SSBO prefered use
+    SSBOBufferManager *ssbos;
+
+} DeviceBufferManager;
+
 void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkMemoryPropertyFlags properties,
                     VkBuffer* buffer, VkDeviceMemory* bufferMemory);
 

@@ -8,8 +8,9 @@
 #define MAX_FRAMES_IN_FLIGHT 2
 
 void  drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp,
-VkDevice device, SDL_Window *window);
-
+GraphicPipelineToSurface *particleGraphics, VkDevice device, SDL_Window *window, float deltaTime);
+void firstFrameInitialPassCompute(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp,
+GraphicPipelineToSurface *particleGraphics, VkDevice device);
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp);
 
 void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* window);

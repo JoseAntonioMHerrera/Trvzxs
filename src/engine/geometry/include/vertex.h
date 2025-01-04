@@ -2,16 +2,27 @@
 #include <stdint.h>
 #include "cglm.h"
 #include "numberTypes.h"
-typedef struct GEOM_VERTEX_POSITION {
-    float x;
-    float y;
-    float z;
+typedef union GEOM_VERTEX_POSITION {
+    struct {
+        float x;
+        float y;
+        float z;
+    };
+    float data[3];
 } GEOM_VERTEX_POSITION;
 
+typedef union GEOM_VERTEX_VELOCITY {
+    struct {
+        float x;
+        float y;
+        float z;
+    };
+    float data[3];
+} GEOM_VERTEX_VELOCITY;
 typedef struct GEOM_VERTEX_COLOR_RGBA {
     float r;
-    float b;
     float g;
+    float b;
     float a;
 } GEOM_VERTEX_COLOR_RGBA;
 
@@ -28,7 +39,7 @@ typedef struct GEOM_VERTEX_NORMAL {
 } GEOM_VERTEX_NORMAL;
 
 typedef struct GEOM_VERTEX {
-    struct GEOM_VERTEX_POSITION point;
+    union GEOM_VERTEX_POSITION point;
     struct GEOM_VERTEX_NORMAL normal;  // Added normal
     struct GEOM_VERTEX_COLOR_RGBA color;
     struct GEOM_VERTEX_TEXT_COORD textCoords;
