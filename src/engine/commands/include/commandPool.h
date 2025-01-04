@@ -7,10 +7,17 @@
 #include "compilerMacros.h"
 #include "numberTypes.h"
 #include "miscTypes.h"
-#include "deviceManagment.h"
-#include "geometryPipelineTypes.h"
+#include "physicalDevice.h"
 #include <string.h> //TODO revisar memcpy de aqui
 
- void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
-
- void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
+typedef struct GraphicPipelineToSurface GraphicPipelineToSurface;
+typedef struct ComputePipeline ComputePipeline;
+typedef struct CommandPools {
+    VkCommandPool transferCommandPool;
+    VkCommandPool graphicsCommandPool;
+    VkCommandPool computeCommandPool;
+    // Add other command pools as needed
+} CommandPools;
+void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
+void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
+void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, ComputePipeline *compP);

@@ -75,8 +75,13 @@ void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage
 }
 
 void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImageTiling tiling, VkImageLayout imageLayout, VkImageUsageFlags imageUsage,
-     VkMemoryPropertyFlags memoryTypeNeeded, CommonImage *commonImage, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples) {
+     VkMemoryPropertyFlags memoryTypeNeeded, CommonImage *commonImage, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples,
+     VkSharingMode sharingMode) {
 
+
+    uint32_t queueFamilyIndexCount = sharingMode == VK_SHARING_MODE_CONCURRENT ? 2 : 1;
+    uint32_t concurrentQueueAccess[] = {pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.computeFamily};
+    uint32_t exclusiveQueueAccess[] = {pd->queueFamilyIndices.graphicsFamily};
 
     VkImageCreateInfo imageInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -90,9 +95,11 @@ void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImage
         .tiling = tiling,
         .initialLayout = imageLayout,
         .usage = imageUsage,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .sharingMode = sharingMode,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .samples = numSamples,
+        .queueFamilyIndexCount = queueFamilyIndexCount,
+        .pQueueFamilyIndices = queueFamilyIndexCount > 1 ? concurrentQueueAccess : exclusiveQueueAccess,
         .flags = 0, // Optional
     };
 
@@ -153,7 +160,7 @@ void createDepthImageResources(PhysicalDevice* pd, LogicalDevice *ld, GraphicSwa
     dispM->depthImage.common = malloc(sizeof(*dispM->depthImage.common));
     createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    dispM->depthImage.common, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1);
+    dispM->depthImage.common, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_EXCLUSIVE);
 
     dispM->depthImage.common->imageView = createImageView(dispM, ld->device, format,dispM->depthImage.common->image, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
@@ -273,12 +280,14 @@ VkSampleCountFlagBits getMaxUsableSampleCount(PhysicalDevice* phyDevice) {
 }
 
 void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, GraphicSwapchain *dsm){
+        printf("INI createMSSAACOLORRESOURCES\n");
     dsm->msaaColorRes = malloc(sizeof(*dsm->msaaColorRes));
     VkFormat colorFormat = dsm->currentSurfaceFormat->format;
     dsm->msaaColorRes->numSamples = getMaxUsableSampleCount(pd);
+    printf("ANTES DE LLAMAR A CREACTEVKIMAGE EN MSAA COLOR RESOURCES\n");
     createVkImage(device, pd, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-     dsm->msaaColorRes, dsm->currentExtent2D.width, dsm->currentExtent2D.height, 1,  dsm->msaaColorRes->numSamples);
+     dsm->msaaColorRes, dsm->currentExtent2D.width, dsm->currentExtent2D.height, 1,  dsm->msaaColorRes->numSamples, VK_SHARING_MODE_EXCLUSIVE);
     dsm->msaaColorRes->imageView = createImageView(dsm, device, colorFormat, dsm->msaaColorRes->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
@@ -286,9 +295,10 @@ void createMsaaDepthResources(VkDevice device, PhysicalDevice* pd, GraphicSwapch
     dsm->msaaDepthRes = malloc(sizeof(*dsm->msaaDepthRes));
     VkFormat depthFormat = findDepthImageFormat(pd->gpu);
     dsm->msaaDepthRes->numSamples = getMaxUsableSampleCount(pd);
+    printf("ANTES DE LLAMAR A CREACTEVKIMAGE EN MSAA DEPTH RESOURCES\n");
     createVkImage(device, pd, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        dsm->msaaDepthRes, dsm->currentExtent2D.width, dsm->currentExtent2D.height, 1,  dsm->msaaDepthRes->numSamples);
+        dsm->msaaDepthRes, dsm->currentExtent2D.width, dsm->currentExtent2D.height, 1,  dsm->msaaDepthRes->numSamples, VK_SHARING_MODE_EXCLUSIVE);
     dsm->msaaDepthRes->imageView = createImageView(dsm, device, depthFormat, dsm->msaaDepthRes->image, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 }

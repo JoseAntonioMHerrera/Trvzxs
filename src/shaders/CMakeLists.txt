@@ -4,8 +4,8 @@ find_package(SPIRV-Tools CONFIG REQUIRED)
 find_package(unofficial-shaderc CONFIG REQUIRED)
 # Set the path to glslc compiler
 # Find glslc compiler from shaderc
-find_program(GLSLC glslc 
-    HINTS 
+find_program(GLSLC glslc
+    HINTS
     "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/shaderc"
     "${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/shaderc"
 )
@@ -19,6 +19,9 @@ endif()
 set(SHADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/triangle.frag"
     "${CMAKE_CURRENT_SOURCE_DIR}/triangle.vert"
+    "${CMAKE_CURRENT_SOURCE_DIR}/particle.frag"
+    "${CMAKE_CURRENT_SOURCE_DIR}/particle.vert"
+    "${CMAKE_CURRENT_SOURCE_DIR}/particle.comp"
     # Add more shaders as needed
 )
 
@@ -38,7 +41,7 @@ foreach(SHADER ${SHADERS})
 
     add_custom_command(
         OUTPUT ${SPIRV}
-        COMMAND ${GLSLC} -o ${SPIRV} ${SHADER}
+        COMMAND ${GLSLC} -g -o ${SPIRV} ${SHADER}
         DEPENDS ${SHADER}
         COMMENT "Compiling shader ${SHADER_NAME}"
     )

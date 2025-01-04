@@ -8,11 +8,13 @@ extern "C" {
     #include "main_vulkan.h"
     #include "vertex.h"
     #include "buffer.h"
+    #include "ssboBuffer.h"
     #include "swapchainManager.h"
     #include "image.h"
     #include "commandPool.h"
     #include "deviceManagment.h"
     #include "geometryPipelineTypes.h"
+    #include "computePipeline.h"
     #include "textureManager.h"
     #include "descriptor.h"
     #include "scene.h"
@@ -46,14 +48,44 @@ class MetaEngine {
         VkInstance **instance =  (VkInstance**) malloc(sizeof(VkInstance*));
         createInstance(&dm->instance, window);
         std::cout << "RETORNO CREATEINSTANCE" << '\n';
-        DisplayManager *dispM = (DisplayManager*) malloc(sizeof(DisplayManager));
-        dispM->graphicPipeline = (GraphicPipelineToSurface*) malloc(sizeof(*dispM->graphicPipeline));
-        dispM->graphicPipeline->swapchain = (GraphicSwapchain*) malloc(sizeof(*dispM->graphicPipeline->swapchain));
-        GraphicSwapchain *dsm = (GraphicSwapchain*) dispM->graphicPipeline->swapchain;
 
-        GraphicPipelineToSurface *gdp = dispM->graphicPipeline;
-        DeviceBufferManager *devicebm;
+
+        // DISPLAY MANAGER
+
+        std::cout << "WOOP" << std::endl;
+        DisplayManager *dispM = (DisplayManager*) malloc(sizeof(DisplayManager));
+        dispM->graphicsPipelineLen = 2;
+        dispM->graphicPipeline = (GraphicPipelineToSurface*) malloc(sizeof(*dispM->graphicPipeline)* dispM->graphicsPipelineLen);
+
+        std::cout << "WOOP" << std::endl;
+        // PIPELINES
+        GraphicPipelineToSurface *gdp = &dispM->graphicPipeline[0];
+        GraphicPipelineToSurface *particleGraphicPipeline = &dispM->graphicPipeline[1];
+
+        std::cout << "WOOP" << std::endl;
+        dispM->graphicPipeline[0].swapchain = (GraphicSwapchain*) malloc(sizeof(*dispM->graphicPipeline->swapchain));
+        dispM->graphicPipeline[1].computeP = (ComputePipeline*) malloc(sizeof(*dispM->graphicPipeline[1].computeP));
+        std::cout << "WOOP" << std::endl;
+        // SWAPCHAIN
+        GraphicSwapchain *dsm = (GraphicSwapchain*) dispM->graphicPipeline->swapchain;
+        GraphicSwapchain *dsmParticle = dsm;
+        std::cout << "WOOP" << std::endl;
+        // VULKAN BUFFERS
+        DeviceBufferManager *devicebmModelGraphicPipeline;
+        DeviceBufferManager *devicebmMParticleComputePipeline;
+        DeviceBufferManager *devicebmParticleGraphicPipeline;
+        gdp->deviceBuffer = (DeviceBufferManager*) malloc(sizeof(*gdp->deviceBuffer));
+        particleGraphicPipeline->deviceBuffer = (DeviceBufferManager*) malloc(sizeof(*gdp->deviceBuffer));
+        particleGraphicPipeline->computeP->deviceBuffer = (DeviceBufferManager*) malloc(sizeof(*gdp->computeP->deviceBuffer));
+
+        std::cout << "WOOP" << std::endl;
+        // COMMAND POOLS
         gdp->commandPool = (CommandPools*) malloc(sizeof(*gdp->commandPool));
+        particleGraphicPipeline->commandPool = (CommandPools*) malloc(sizeof(*gdp->commandPool));
+        particleGraphicPipeline->computeP->commandPool = particleGraphicPipeline->commandPool;
+
+        std::cout << "WOOP" << std::endl;
+
         gdp->geometry = scene.get()->getStruct();
 
 
@@ -61,8 +93,11 @@ class MetaEngine {
         std::cout << "RETURNED PRINT SCENE" << std::endl;
 
         this->scene = std::move(scene);
+        particleGraphicPipeline->maxFrames = MAX_FRAMES_IN_FLIGHT;
         gdp->maxFrames = MAX_FRAMES_IN_FLIGHT;
         dsm->scImagesLen = gdp->maxFrames;
+        dsmParticle->scImagesLen = particleGraphicPipeline->maxFrames;
+
         createSDLSurface(dispM, dm->instance, window);
         std::cout << "RETORNO CREATESURFACE" << '\n';
 
@@ -73,38 +108,59 @@ class MetaEngine {
         LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
         std::cout << "RETORNO FILLGEOMETRYDATA" << '\n';
         physicalDeviceTest(pd->gpu);
+
         if(VK_FALSE == isDeviceValid(ld->device)){
             throw std::runtime_error("isDeviceValid returns VK_FALSE");
         }
+        createSwapChain(pd, ld, dispM, gdp, window);
+        particleGraphicPipeline->swapchain = gdp->swapchain;
 
-        createSwapChain(pd, ld, dispM, window);
         gdp->maxFrames = dsm->scImagesLen;
+        particleGraphicPipeline->maxFrames = dsmParticle->scImagesLen;
         std::cout << "NUMERO DE FRAMES " << gdp->maxFrames << '\n';
         std::cout << "RETORNO CREATESWAPCHAIN" << '\n';
         createMsaaColorResources(ld->device, pd, dsm);
+        std::cout << "RETORNO msaacolorresources" << '\n';
         createMsaaDepthResources(ld->device, pd, dsm);
-        createRenderPass(pd, dispM->graphicPipeline->swapchain, ld->device, gdp);
+        std::cout << "RETORNO msaadepthresources" << '\n';
+        createDepthImageResources(pd, ld, dispM->graphicPipeline->swapchain);
+        std::cout << "RETORNO DEPTIMAGE" << '\n';
+        createRenderPass(pd, dispM->graphicPipeline[0].swapchain, ld->device, gdp);
+        //TODO refactor the initialization of swapchain data, with default data for depth resources
+        //createParticleRenderPass(pd, particleGraphicPipeline->swapchain, ld->device, particleGraphicPipeline);
+        particleGraphicPipeline->renderPass = gdp->renderPass;
+        //dispM->graphicPipeline[1].renderPass = dispM->graphicPipeline[0].renderPass;
         std::cout << "RETORNO RENDERPASS" << '\n';
         dsm->scImageViewLen = dsm->scImagesLen;
-
+        std::cout << "RETORNO RENDERPASS" << '\n';
 
 
         for(uint32_t i=0; i < ld->displayManager->graphicPipeline->swapchain->scImagesLen; i++){
-            ld->displayManager->graphicPipeline->swapchain->p_scImageView[i] =
+            ld->displayManager->graphicPipeline[0].swapchain->p_scImageView[i] =
             createImageView(dsm, ld->device, dsm->currentSurfaceFormat->format, ld->displayManager->graphicPipeline->swapchain->p_scImages[i], 1, VK_IMAGE_ASPECT_COLOR_BIT);
         }
         std::cout << "RETORNO IMAGEVIEWS" << '\n';
-        createDepthImageResources(pd, ld, dispM->graphicPipeline->swapchain);
+
         createFrameBuffers(dsm,gdp->renderPass, &ld->device);
         std::cout << "RETORNO FRAMEBUFFERS" << '\n';
-        gdp->deviceBuffer = (DeviceBufferManager*) malloc(sizeof(*gdp->deviceBuffer));
-        devicebm = gdp->deviceBuffer;
+
+        devicebmModelGraphicPipeline = gdp->deviceBuffer;
 
         createGraphicsCommandPool(pd,ld->device,gdp);
+        createGraphicsCommandPool(pd,ld->device, particleGraphicPipeline);
+        createTransferQueueCommandPool(pd,ld->device, particleGraphicPipeline);
+        createTransferQueueCommandPool(pd,ld->device, gdp);
+        particleGraphicPipeline->computeP->commandPool = particleGraphicPipeline->commandPool;
+
         std::cout << "RETORNO COMMANDPOOLD" << '\n';
         createTransferQueueCommandPool(pd,ld->device,gdp);
         std::cout << "RETORNO TRANSFERPOOL" << '\n';
+        createComputeQueueCommandPool(pd,ld->device,particleGraphicPipeline->computeP);
+        std::cout << "RETORNO TRANSFERPOOL" << '\n';
         createCommandBuffer(gdp, &ld->device, gdp->maxFrames);
+                std::cout << "RETORNO PRIMER COMMAN BUFFER CREATION" << '\n';
+        createCommandBufferWithCompute(particleGraphicPipeline, &ld->device, gdp->maxFrames);
+                std::cout << "RETORNO PRIMER COMMAN BUFFER CREATION 2" << '\n';
         VkDeviceSize textureSize;
         uint32_t width;
         uint32_t height;
@@ -113,24 +169,46 @@ class MetaEngine {
 
         createTextureImageView(dispM->graphicPipeline->swapchain, ld->device, gdp->texture, gdp->texture->mipLevels);
         std::cout << "RETORNO createTextureImageView" << '\n';
-        devicebm->ubo = (UniformBufferManager*) malloc(sizeof(*(gdp->deviceBuffer->ubo)));
-        createUniformBuffers(pd,ld, gdp->maxFrames, gdp->deviceBuffer->ubo);
-        std::cout << "RETORNO UNIFORMBUFFERS" << '\n';
+        gdp->deviceBuffer->ubo = (UniformBufferManager*) malloc(sizeof(*gdp->deviceBuffer->ubo));
+        particleGraphicPipeline->computeP->deviceBuffer->ubo = (UniformBufferManager*) malloc(sizeof(*gdp->deviceBuffer->ubo));
+        createUniformBuffersMapped(pd,ld, gdp->maxFrames, gdp->deviceBuffer->ubo);
+        std::cout << "RETORNO UNIFORMBUFFERS MAPPED TRANSFORM MATRIX" << '\n';
+        createDeltaTimeUniformBuffers(pd,ld, gdp->maxFrames, particleGraphicPipeline->computeP->deviceBuffer->ubo);
+        std::cout << "RETORNO UNIFORMBUFFERS DELTA TIME" << '\n';
         std::cout << "!!!!!! " << gdp->maxFrames << '\n';
+        particleGraphicPipeline->computeP->deviceBuffer->ssbos = (SSBOBufferManager*) malloc(sizeof(*gdp->deviceBuffer->ssbos));
+        createSSBOBuffers(pd,ld, particleGraphicPipeline->maxFrames, particleGraphicPipeline->computeP->deviceBuffer->ssbos, particleGraphicPipeline->computeP->commandPool);
+        std::cout << "RETORNO SSBOBUFFERS" << '\n';
         createDescriptorPool(gdp->maxFrames, ld->device, gdp);
         createDescriptorSetLayout(ld, gdp, gdp->maxFrames);
         std::cout << "RETORNO SETLAYOUT" << '\n';
         std::cout << "RETORNO DESCRIPTOR POOL" << '\n';
-        createDescriptorSet(gdp->maxFrames, ld->device, gdp, gdp->texture);
+        createDescriptorSet(gdp->maxFrames, ld->device, gdp, particleGraphicPipeline, gdp->texture);
+        std::cout << "RETORNO DESCRIPTOR SET" << '\n';
+        particleGraphicPipeline->dsl = gdp->dsl;
+        particleGraphicPipeline->descriptorPool = gdp->descriptorPool;
+        particleGraphicPipeline->descriptorSet = gdp->descriptorSet;
         std::cout << "RETORNO SETLAYOUT" << '\n';
-        createGraphicsPipeline(gdp, dispM, &ld->device);
+        createModelsGraphicPipeline(gdp, dispM, &ld->device);
+        std::cout << "RETORNO GRAPHIC PIPELINE" << '\n';
+        createParticlesGraphicPipeline(particleGraphicPipeline, dispM, &ld->device);
+        std::cout << "RETORNO PARTICLE GRAPHIC PIPELINE" << '\n';
+        //gdp->computeP = (ComputePipeline*) (sizeof(*gdp->computeP));
+        particleGraphicPipeline->computeP->pipelineLayout = particleGraphicPipeline->pipelineLayout;
         std::cout << "RETORNO GRPAHICSPIPLINE" << '\n';
+        createParticleComputePipeline(particleGraphicPipeline->computeP, ld->device);
+        std::cout << "RETORNO COMPUTEPIPELINE" << '\n';
         std::cout << "RETORNO COMMANDBUFFER" << '\n';
         createSyncObjects(gdp, &ld->device);
+        createSyncObjectsForGraphicAndCompute(particleGraphicPipeline, &ld->device);
         std::cout << "RETORNO SYNC" << '\n';
-
         createGeometryBuffer(pd,ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
         std::cout << "RETORNO GEOMETRYBUFFER" << '\n';
+
+        std::cout << "RETORNO GEOMETRYBUFFER" << '\n';
+        //ssbo particle buffer
+        std::cout << "RETORNO GEOMETRYBUFFER" << '\n';
+
 
         assert(&gdp->geometry->pScene[0]);
         createIndiceBuffer(pd, ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
@@ -144,12 +222,23 @@ class MetaEngine {
         this->vkInstance = MetaObject<VkInstance,void(*)(VkInstance*)>(*instance, freeInstance);
     };
 
-    void metaDrawFrame(SDL_Window* window){
+    void firstFrameInitialPass(){
         DeviceManager* deviceManager = this->deviceManager.getStruct();
+        firstFrameInitialPassCompute(deviceManager->pDevice, deviceManager->lDevice[0],// TODO hay que usar deviceManager->deviceIndex and gpuIndex
+        deviceManager->lDevice[0]->displayManager,
+        &deviceManager->lDevice[0]->displayManager->graphicPipeline[0],
+                &deviceManager->lDevice[0]->displayManager->graphicPipeline[1],
+        deviceManager->lDevice[0]->device);
+    };
+
+    void metaDrawFrame(SDL_Window* window, float deltaTime){
+        DeviceManager* deviceManager = this->deviceManager.getStruct();
+        std::cout << "ESTE ES EL DELTA TIME EN C++ " << deltaTime << std::endl;
         drawFrame(deviceManager->pDevice, deviceManager->lDevice[0],// TODO hay que usar deviceManager->deviceIndex and gpuIndex
         deviceManager->lDevice[0]->displayManager,
-        deviceManager->lDevice[0]->displayManager->graphicPipeline,
-        deviceManager->lDevice[0]->device, window );
+        &deviceManager->lDevice[0]->displayManager->graphicPipeline[0],
+                &deviceManager->lDevice[0]->displayManager->graphicPipeline[1],
+        deviceManager->lDevice[0]->device, window, deltaTime);
         //std::cout << "RETORNAMOS EL CONTROL DESDE DRAW FRAME" << std::endl;
     }
 };

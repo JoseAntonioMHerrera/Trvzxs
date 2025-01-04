@@ -27,6 +27,8 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         .pQueuePriorities = &queuePriority,
         .pNext = NULL,
     };
+    printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
+    printf("Las colas: Compute %d Graphics %d Transfer %d \n", pd->queueFamilyIndices.computeFamily, pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.transferFamily);
 
     VkDeviceQueueCreateInfo queueCreateInfoPresentation = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -43,11 +45,19 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         .pQueuePriorities = &queuePriority,
         .pNext = NULL,
     };
+    VkDeviceQueueCreateInfo queueCreateInfoCompute = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = pd->queueFamilyIndices.computeFamily,
+        .queueCount = 1,
+        .pQueuePriorities = &queuePriority,
+        .pNext = NULL,
+    };
 
-    VkDeviceQueueCreateInfo *queuesCreateInfo = malloc(sizeof(VkDeviceQueueCreateInfo) * 2); // TODO: generalizar
+    VkDeviceQueueCreateInfo *queuesCreateInfo = malloc(sizeof(VkDeviceQueueCreateInfo) * 3); // TODO: generalizar
     //queuesCreateInfo[0] = queueCreateInfoPresentation;
     queuesCreateInfo[0] = queueCreateInfoGraphics;
     queuesCreateInfo[1] = queueCreateInfoTransfer;
+    queuesCreateInfo[2] = queueCreateInfoCompute;
 
     VkPhysicalDeviceFeatures deviceFeatures = {
         .samplerAnisotropy = VK_TRUE,
@@ -58,7 +68,7 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
     VkDeviceCreateInfo createLogicalDeviceInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pQueueCreateInfos = queuesCreateInfo,
-        .queueCreateInfoCount = 2,
+        .queueCreateInfoCount = 3,
         .pEnabledFeatures = &deviceFeatures,
         .ppEnabledExtensionNames = &logicalDeviceExtensionNames,
         .enabledExtensionCount = 1,
@@ -72,9 +82,11 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
     ld->queueManager.graphicsQueue = malloc(sizeof(*ld->queueManager.graphicsQueue));
     ld->queueManager.transferQueue = malloc(sizeof(*ld->queueManager.transferQueue));
     ld->queueManager.presentQueue = malloc(sizeof(*ld->queueManager.presentQueue));
+    ld->queueManager.computeQueue = malloc(sizeof(*ld->queueManager.computeQueue));
     vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.graphicsFamily, 0, ld->queueManager.graphicsQueue);
     vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.presentFamily, 0, ld->queueManager.presentQueue);
     vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.transferFamily, 0, ld->queueManager.transferQueue);
+    vkGetDeviceQueue(ld->device, pd->queueFamilyIndices.computeFamily, 0, ld->queueManager.computeQueue);
 
 }
 
@@ -85,6 +97,7 @@ void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamil
     queuesIndices->graphicsFamily = DEFAULT_QUEUE_INDEX_VALUE;
     queuesIndices->transferFamily = DEFAULT_QUEUE_INDEX_VALUE;
     queuesIndices->presentFamily = DEFAULT_QUEUE_INDEX_VALUE;
+    queuesIndices->computeFamily = DEFAULT_QUEUE_INDEX_VALUE;
 
     uint32_t currentLessOptimalGraphicQueueIndice = DEFAULT_QUEUE_INDEX_VALUE;
     uint32_t currentLessOptimalTransferQueueIndice = DEFAULT_QUEUE_INDEX_VALUE;
@@ -102,7 +115,7 @@ void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamil
 
                 queuesIndices->graphicsFamily = i;
                 queuesIndices->presentFamily = i;
-                presentSupport = SDL_FALSE;
+                presentSupport = VK_FALSE;
             }else{
 
                 currentLessOptimalGraphicQueueIndice = i;
@@ -127,7 +140,10 @@ void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamil
                 presentSupport = VK_FALSE;
 
             }
-        }else if(queuesIndices->transferFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->presentFamily != DEFAULT_QUEUE_INDEX_VALUE){
+        }else if((properties[i].queueFlags & VK_QUEUE_COMPUTE_BIT ) == VK_QUEUE_COMPUTE_BIT && queuesIndices->computeFamily == DEFAULT_QUEUE_INDEX_VALUE){
+                queuesIndices->computeFamily = i;
+        }
+        else if(queuesIndices->computeFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->transferFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->presentFamily != DEFAULT_QUEUE_INDEX_VALUE){
             return;
         }
     }
@@ -140,8 +156,11 @@ void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamil
     if(queuesIndices->transferFamily == DEFAULT_QUEUE_INDEX_VALUE)
         queuesIndices->transferFamily = currentLessOptimalTransferQueueIndice;
 
+
+    printf("SELECCIONADAS %d (GRAPHICS) AND %d (COMPUTE)\n", queuesIndices->graphicsFamily, queuesIndices->computeFamily);
+
     // Panic if no queues selected
-    assert(queuesIndices->presentFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->transferFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE);
+    assert(queuesIndices->presentFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->computeFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->transferFamily != DEFAULT_QUEUE_INDEX_VALUE && queuesIndices->graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE);
 }
 
 void initPhysicalDeviceQueues(PhysicalDevice* pd){

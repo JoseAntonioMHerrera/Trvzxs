@@ -2,6 +2,27 @@
 #include <math.h>
 #include "vertex.h"
 #include "string.h"
+#include "primitives.h"
+
+void printParticle(const GEOM_PARTICLE* particle){
+    printf("Particle Data:\n");
+    printf("Position: (x: %.4f, y: %.4f, z: %.4f)\n",
+        particle->position.x,
+        particle->position.y,
+        particle->position.z);
+
+    printf("Velocity: (x: %.4f, y: %.4f, z: %.4f)\n",
+        particle->velocity.x,
+        particle->velocity.y,
+        particle->velocity.z);
+
+    printf("Color: (r: %.4f, g: %.4f, b: %.4f, a: %.4f)\n",
+        particle->color.r,
+        particle->color.g,
+        particle->color.b,
+        particle->color.a);
+    printf("------------------------\n");
+}
 // Helper function to create a vertex
 GEOM_VERTEX* create_vertex(float x, float y, float z, float r, float g, float b, float u, float v) {
     GEOM_VERTEX *vertex = malloc(sizeof(GEOM_VERTEX));
@@ -185,185 +206,3 @@ GEOM_VERTEX vertices[8] = {
     //print_cube(cube);
     return cube;
 }
-/*
-GEOM_OBJECT* create_cube(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
-    GEOM_OBJECT* cube = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
-    cube->dataLen = 24; // 6 faces * 4 vertices per face
-    cube->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
-    cube->indicesLen = 36; // 6 faces * 2 triangles * 3 vertices each
-    cube->indices = (uint32_t*)malloc(sizeof(uint32_t) * cube->indicesLen);
-    cube->vertexOffset = 24;
-
-    float s = size / 2.0f;
-    float cx = globalCoords->x;
-    float cy = globalCoords->y;
-    float cz = globalCoords->z;
-
-    // Define vertices (counter-clockwise winding when viewed from outside)
-    GEOM_VERTEX vertices[24] = {
-        // Front face (z = +s)
-        {cx - s, cy - s, cz + s, 0, 0, 1, 0, 1}, // 0: Bottom-left
-        {cx - s, cy + s, cz + s, 0, 1, 1, 0, 0}, // 1: Top-left
-        {cx + s, cy + s, cz + s, 1, 1, 1, 1, 0}, // 2: Top-right
-        {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1}, // 3: Bottom-right
-
-        // Back face (z = -s)
-        {cx + s, cy - s, cz - s, 0, 0, 0, 0, 1}, // 4: Bottom-left
-        {cx + s, cy + s, cz - s, 0, 1, 0, 0, 0}, // 5: Top-left
-        {cx - s, cy + s, cz - s, 1, 1, 0, 1, 0}, // 6: Top-right
-        {cx - s, cy - s, cz - s, 1, 0, 0, 1, 1}, // 7: Bottom-right
-
-        // Top face (y = +s)
-        {cx - s, cy + s, cz - s, 0, 0, 0, 0, 1}, // 8: Back-left
-        {cx - s, cy + s, cz + s, 0, 1, 0, 0, 0}, // 9: Front-left
-        {cx + s, cy + s, cz + s, 1, 1, 0, 1, 0}, // 10: Front-right
-        {cx + s, cy + s, cz - s, 1, 0, 0, 1, 1}, // 11: Back-right
-
-        // Bottom face (y = -s)
-        {cx - s, cy - s, cz - s, 0, 1, 1, 0, 0}, // 12: Back-left
-        {cx - s, cy - s, cz + s, 0, 0, 1, 0, 1}, // 13: Front-left
-        {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1}, // 14: Front-right
-        {cx + s, cy - s, cz - s, 1, 1, 1, 1, 0}, // 15: Back-right
-
-        // Right face (x = +s)
-        {cx + s, cy - s, cz - s, 0, 0, 1, 0, 1}, // 16: Bottom-back
-        {cx + s, cy + s, cz - s, 0, 1, 1, 0, 0}, // 17: Top-back
-        {cx + s, cy + s, cz + s, 1, 1, 1, 1, 0}, // 18: Top-front
-        {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1}, // 19: Bottom-front
-
-        // Left face (x = -s)
-        {cx - s, cy - s, cz + s, 0, 0, 0, 0, 1}, // 20: Bottom-front
-        {cx - s, cy + s, cz + s, 0, 1, 0, 0, 0}, // 21: Top-front
-        {cx - s, cy + s, cz - s, 1, 1, 0, 1, 0}, // 22: Top-back
-        {cx - s, cy - s, cz - s, 1, 0, 0, 1, 1}  // 23: Bottom-back
-    };
-
-    // Copy vertices to cube data
-    memcpy(cube->data, vertices, sizeof(vertices));
-
-    // Define indices for all 6 faces (counter-clockwise winding)
-    uint32_t indices[] = {
-        0, 1, 2,  2, 3, 0,    // Front face
-        4, 5, 6,  6, 7, 4,    // Back face
-        8, 9, 10, 10, 11, 8,  // Top face
-        12, 13, 14, 14, 15, 12, // Bottom face
-        16, 17, 18, 18, 19, 16, // Right face
-        20, 21, 22, 22, 23, 20  // Left face
-    };
-
-    // Copy indices to cube
-    memcpy(cube->indices, indices, sizeof(indices));
-
-    return cube;
-}*/
-/*
-GEOM_OBJECT* create_cube(const GEOM_VERTEX* const globalCoords, uint32_t size) {
-    GEOM_OBJECT* cube = malloc(sizeof(GEOM_OBJECT));
-    cube->dataLen = 8; // 8 vertices for a cube
-    cube->data = malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
-    cube->indicesLen = 36; // 6 faces * 2 triangles * 3 vertices each
-    cube->indices = malloc(sizeof(uint32_t) * cube->indicesLen);
-    cube->vertexOffset = 8;
-
-    float s = size / 2;
-
-    //Front face
-    cube->data[4] = *create_vertex(-s + offset, -s + offset,  s + offset, 0, 0, 1, 0, 0);
-    cube->data[5] = *create_vertex( s + offset, -s + offset,  s + offset, 1, 0, 1, 2, 0);
-    cube->data[6] = *create_vertex( s + offset,  s + offset,  s + offset, 1, 1, 1, 2, 2);
-    cube->data[7] = *create_vertex(-s + offset,  s + offset,  s + offset, 0, 1, 1, 0, 2);
-
-    cube->data[0] = *create_vertex(-s + offset, -s + offset, -s + offset, 0, 0, 0, 0, 0);
-    cube->data[1] = *create_vertex( s + offset, -s + offset, -s + offset, 1, 0, 0, 2, 0);
-    cube->data[2] = *create_vertex( s + offset,  s + offset, -s + offset, 1, 1, 0, 2, 2);
-    cube->data[3] = *create_vertex(-s + offset,  s + offset, -s + offset, 0, 1, 0, 0, 2);
-
-
-
-    // Define indices for all 6 faces
-    uint32_t indices[] = {
-        4, 5, 6, 6, 7, 4, // Front face
-        0, 3, 2, 2, 1, 0, // Back face
-        3, 7, 6, 6, 2, 3, // Top face
-        0, 1, 5, 5, 4, 0, // Bottom face
-        1, 2, 6, 6, 5, 1, // Right face
-        0, 4, 7, 7, 3, 0  // Left face
-    };
-
-    for (int i = 0; i < cube->indicesLen; i++) {
-        cube->indices[i] = indices[i];
-    }
-
-    return cube;
-}*/
-/*
-// Pyramid
-GEOM_OBJECT* create_pyramid(float base_size, float height) {
-    GEOM_OBJECT* pyramid = malloc(sizeof(GEOM_OBJECT));
-    pyramid->dataLen = 5; // 4 vertices for base + 1 for top
-    pyramid->data = malloc(sizeof(GEOM_VERTEX) * pyramid->dataLen);
-    pyramid->indicesLen = 18; // 6 triangles * 3 vertices each
-    pyramid->indices = malloc(sizeof(TRVZXS_SIZE) * pyramid->indicesLen);
-
-    float s = base_size / 2;
-    float h = height / 2;
-
-    // Base vertices
-    pyramid->data[0] = create_vertex(-s, -h, -s, 1, 0, 0, 0, 0);
-    pyramid->data[1] = create_vertex( s, -h, -s, 0, 1, 0, 1, 0);
-    pyramid->data[2] = create_vertex( s, -h,  s, 0, 0, 1, 1, 1);
-    pyramid->data[3] = create_vertex(-s, -h,  s, 1, 1, 0, 0, 1);
-
-    // Top vertex
-    pyramid->data[4] = create_vertex(0, h, 0, 1, 1, 1, 0.5, 0.5);
-
-    TRVZXS_SIZE indices[] = {
-        0, 1, 2,  0, 2, 3,  // Base
-        0, 4, 1,            // Side 1
-        1, 4, 2,            // Side 2
-        2, 4, 3,            // Side 3
-        3, 4, 0             // Side 4
-    };
-
-    for (int i = 0; i < pyramid->indicesLen; i++) {
-        pyramid->indices[i] = indices[i];
-    }
-
-    return pyramid;
-}
-
-// Rhomboid
-GEOM_OBJECT* create_rhomboid(float width, float height, float depth, float skew) {
-    GEOM_OBJECT* rhomboid = malloc(sizeof(GEOM_OBJECT));
-    rhomboid->dataLen = 8; // 8 vertices
-    rhomboid->data = malloc(sizeof(GEOM_VERTEX) * rhomboid->dataLen);
-    rhomboid->indicesLen = 36; // 6 faces * 2 triangles * 3 vertices each
-    rhomboid->indices = malloc(sizeof(TRVZXS_SIZE) * rhomboid->indicesLen);
-
-    float w = width / 2, h = height / 2, d = depth / 2;
-
-    // Vertices
-    rhomboid->data[0] = create_vertex(-w, -h, -d, 1, 0, 0, 0, 0);
-    rhomboid->data[1] = create_vertex( w, -h, -d, 0, 1, 0, 1, 0);
-    rhomboid->data[2] = create_vertex( w+skew,  h, -d, 0, 0, 1, 1, 1);
-    rhomboid->data[3] = create_vertex(-w+skew,  h, -d, 1, 1, 0, 0, 1);
-    rhomboid->data[4] = create_vertex(-w, -h,  d, 1, 0, 1, 0, 0);
-    rhomboid->data[5] = create_vertex( w, -h,  d, 0, 1, 1, 1, 0);
-    rhomboid->data[6] = create_vertex( w+skew,  h,  d, 1, 1, 1, 1, 1);
-    rhomboid->data[7] = create_vertex(-w+skew,  h,  d, 0.5, 0.5, 0.5, 0, 1);
-
-    TRVZXS_SIZE indices[] = {
-        0, 1, 2, 2, 3, 0,  // Front face
-        4, 7, 6, 6, 5, 4,  // Back face
-        0, 3, 7, 7, 4, 0,  // Left face
-        1, 5, 6, 6, 2, 1,  // Right face
-        3, 2, 6, 6, 7, 3,  // Top face
-        0, 4, 5, 5, 1, 0   // Bottom face
-    };
-
-    for (int i = 0; i < rhomboid->indicesLen; i++) {
-        rhomboid->indices[i] = indices[i];
-    }
-
-    return rhomboid;
-}*/

@@ -1,5 +1,8 @@
 #include "buffer.h"
 
+
+// TODO when the time comes, update the behaviour of staging buffers of buffer creation functions
+
 void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkMemoryPropertyFlags properties,
                     VkBuffer* buffer, VkDeviceMemory* bufferMemory) {
 
@@ -96,6 +99,4 @@ void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, DeviceBufferMan
 
     vkDestroyBuffer(ld->device, *dbm->stagingBuffer, VK_NULL_HANDLE);
     vkFreeMemory(ld->device, *dbm->stagingBufferMemory, VK_NULL_HANDLE);
-
-
 }
