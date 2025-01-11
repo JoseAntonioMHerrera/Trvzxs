@@ -63,15 +63,15 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         .samplerAnisotropy = VK_TRUE,
     };
     // TODO: moverlo a una funcion o fichero para configuracion de dispositivo y dispositivo logico
-    const char* logicalDeviceExtensionNames = VK_KHR_SWAPCHAIN_EXTENSION_NAME; //TODO: mover las extensiones del device a otro lado
+    const char* logicalDeviceExtensionNames[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME}; //TODO: mover las extensiones del device a otro lado
     //Logical device
     VkDeviceCreateInfo createLogicalDeviceInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pQueueCreateInfos = queuesCreateInfo,
         .queueCreateInfoCount = 3,
         .pEnabledFeatures = &deviceFeatures,
-        .ppEnabledExtensionNames = &logicalDeviceExtensionNames,
-        .enabledExtensionCount = 1,
+        .ppEnabledExtensionNames = logicalDeviceExtensionNames,
+        .enabledExtensionCount = 3,
         .pNext = NULL,
     };
 
@@ -312,6 +312,19 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
     dm->deviceIndex = bestCandidateIndex;
     dm->lDevice[dm->deviceIndex] = malloc(sizeof(**dm->lDevice));
 
+    /*uint32_t extensionCount = 0;
+    vkEnumerateDeviceExtensionProperties(*dm->pDevice->gpu, NULL, &extensionCount, NULL);
+    VkExtensionProperties* availableExtensions = malloc(sizeof(VkExtensionProperties) * extensionCount);
+    vkEnumerateDeviceExtensionProperties(*dm->pDevice->gpu, NULL, &extensionCount, availableExtensions);
+
+    for (uint32_t i = 0; i < extensionCount; i++) {
+        if (strcmp(availableExtensions[i].extensionName, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME) == 0) {
+            printf("Depth stencil resolve extension is available!\n");
+            break;
+        }
+    }
+    free(availableExtensions);
+    exit(0);*/
     // We instance the logical device for the candidate selected by his index (in the future, we we'll need more than one logicaldevice per gpu)
 
     dm->lDevice[dm->deviceIndex]->displayManager = dispM;

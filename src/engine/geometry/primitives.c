@@ -39,6 +39,79 @@ GEOM_VERTEX* create_vertex(float x, float y, float z, float r, float g, float b,
 
     return vertex;
 }
+
+GEOM_OBJECT* create_plane(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
+   const float TILE_SIZE = 3.0f;
+
+   // Calculate number of tiles in each dimension
+   int num_tiles = (int)(size / TILE_SIZE);
+
+   // Calculate number of vertices and indices needed
+   int num_vertices_per_side = num_tiles + 1;
+   int total_vertices = num_vertices_per_side * num_vertices_per_side;
+   int total_indices = num_tiles * num_tiles * 6; // 2 triangles per tile, 3 vertices per triangle
+
+   // Create and initialize the GEOM_OBJECT
+   GEOM_OBJECT* plane = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
+   plane->dataLen = total_vertices;
+   plane->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * plane->dataLen);
+   plane->indicesLen = total_indices;
+   plane->indices = (uint32_t*)malloc(sizeof(uint32_t) * plane->indicesLen);
+   plane->vertexOffset = total_vertices;
+
+   // Starting coordinates (top-left corner of plane)
+   float start_x = globalCoords->x - size / 2.0f;
+   float start_y = globalCoords->y - size / 2.0f;
+   float z = globalCoords->z;
+
+   // Generate vertices
+   for (int row = 0; row < num_vertices_per_side; row++) {
+       for (int col = 0; col < num_vertices_per_side; col++) {
+           int idx = row * num_vertices_per_side + col;
+
+           // Position
+           plane->data[idx].point.x = start_x + col * TILE_SIZE;
+           plane->data[idx].point.y = start_y + row * TILE_SIZE;
+           plane->data[idx].point.z = z;
+
+           // Normal (pointing up Z axis)
+           plane->data[idx].normal.x = 0.0f;
+           plane->data[idx].normal.y = 0.0f;
+           plane->data[idx].normal.z = 1.0f;
+
+           // Texture coordinates (normalized from 0 to 1)
+           plane->data[idx].textCoords.u = (float)col / num_tiles;
+           plane->data[idx].textCoords.v = (float)row / num_tiles;
+           plane->data[idx].textCoords.w = 0.0f;
+
+           // Default color (white)
+           plane->data[idx].color.r = 1.0f;
+           plane->data[idx].color.g = 1.0f;
+           plane->data[idx].color.b = 1.0f;
+           plane->data[idx].color.a = 1.0f;
+       }
+   }
+
+   // Generate indices for triangles
+   int index = 0;
+   for (int row = 0; row < num_tiles; row++) {
+       for (int col = 0; col < num_tiles; col++) {
+           int vertex_idx = row * num_vertices_per_side + col;
+
+           // First triangle of tile
+           plane->indices[index++] = vertex_idx;                          // Bottom left
+           plane->indices[index++] = vertex_idx + num_vertices_per_side;  // Top left
+           plane->indices[index++] = vertex_idx + 1;                      // Bottom right
+
+           // Second triangle of tile
+           plane->indices[index++] = vertex_idx + 1;                      // Bottom right
+           plane->indices[index++] = vertex_idx + num_vertices_per_side;  // Top left
+           plane->indices[index++] = vertex_idx + num_vertices_per_side + 1; // Top right
+       }
+   }
+
+   return plane;
+}
 /*
 GEOM_OBJECT* create_grid(int numPoints, float padding) {
     GEOM_OBJECT* grid = malloc(sizeof(GEOM_OBJECT));

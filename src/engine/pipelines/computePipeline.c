@@ -148,7 +148,7 @@ void recordParticleCommandBuffer(ComputePipeline* computeP, PhysicalDevice* pd, 
         1,
         &copyRegion
     );
-    debugParticles(computeP, ld->device);
+    //debugParticles(computeP, ld->device);
     vkEndCommandBuffer(computeP->commandBuffer[imageIndex]);
 
 }
