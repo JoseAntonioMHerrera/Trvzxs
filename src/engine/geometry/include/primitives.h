@@ -7,6 +7,7 @@ GEOM_OBJECT* create_rhomboid(float width, float height, float depth, float skew)
 GEOM_OBJECT* create_cube(const GEOM_VERTEX_POSITION* const global, uint32_t size);
 GEOM_OBJECT* create_quad(const GEOM_VERTEX_POSITION* const global, uint32_t size);
 GEOM_OBJECT* create_grid(GEOM_OBJECT**geometry, int numPoints, float padding);
+GEOM_OBJECT* create_plane(const GEOM_VERTEX_POSITION* const global, uint32_t size);
 
 
 // Primitive log functions

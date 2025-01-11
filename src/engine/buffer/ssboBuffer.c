@@ -15,6 +15,11 @@ float random_float_range(float min, float max) {
     return min + random_float() * (max - min);
 }
 
+int random_int_range(int min, int max) {
+    return min + rand() % (max - min + 1);
+}
+
+
 int createSSBOBuffers(PhysicalDevice *pd, LogicalDevice *ld, uint32_t ssbosLen, SSBOBufferManager *ssbos, CommandPools* commandPool) {
 
     assert(ssbos);
@@ -36,16 +41,16 @@ int createSSBOBuffers(PhysicalDevice *pd, LogicalDevice *ld, uint32_t ssbosLen, 
         float theta = random_float_range(0.0f, 1.0f) * GLM_PI * 2;
         float x = r * cos(theta) * WINDOW_HEIGHT/WINDOW_WIDTH;
         float y = r * sin(theta);
-        float z = 0;
+        float z = -0.6;
 
         glm_vec3_copy((vec3){x, y, z}, particles[particleIndex].position.data);
 
         glm_normalize_to(particles[particleIndex].position.data, particles[particleIndex].velocity.data);
 
         particles[particleIndex].color = (GEOM_VERTEX_COLOR_RGBA) {
-                                            r: (uint32_t)random_float_range(0,255) ,
-                                            g: (uint32_t)random_float_range(0,255),
-                                            b: (uint32_t)random_float_range(0,255),
+                                            r: (uint32_t)random_int_range(0,255) ,
+                                            g: (uint32_t)random_int_range(0,180),
+                                            b: (uint32_t)random_int_range(0,61),
                                             a: 1.0f
                                         };
 
