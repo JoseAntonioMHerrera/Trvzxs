@@ -15,6 +15,7 @@ enum class PRIMITIVE_TYPE {
     QUAD,
     TRIANGLE,
     SPHERE,
+    PLANE,
     MODEL
 };
 template <typename T>
@@ -49,6 +50,10 @@ public:
              case PRIMITIVE_TYPE::QUAD:
 
                 object = create_quad(globalCoord, size);
+            // Add other cases for different primitives
+            break;
+                case PRIMITIVE_TYPE::PLANE:
+                object = create_plane(globalCoord, size);
             // Add other cases for different primitives
             break;
         default:

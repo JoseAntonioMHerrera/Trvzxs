@@ -121,11 +121,11 @@ class MetaEngine {
         std::cout << "RETORNO CREATESWAPCHAIN" << '\n';
         createMsaaColorResources(ld->device, pd, dsm);
         std::cout << "RETORNO msaacolorresources" << '\n';
-        createMsaaDepthResources(ld->device, pd, dsm);
-        std::cout << "RETORNO msaadepthresources" << '\n';
-        createDepthImageResources(pd, ld, dispM->graphicPipeline->swapchain);
+        createMsaaDepthResources(ld->device, pd, dsm); // Pipeline grafica de geometria con multisampling
+        std::cout << "RETORNO msaadepthresources" << '\n'; // Pipeline grafica de geometria con multisampling
+        createDepthImageResources(pd, ld, dispM->graphicPipeline->swapchain);// Pipeline grafica de geometria sin multisampling
         std::cout << "RETORNO DEPTIMAGE" << '\n';
-        createRenderPass(pd, dispM->graphicPipeline[0].swapchain, ld->device, gdp);
+        createRenderPass(pd, dispM->graphicPipeline[0].swapchain, ld->device, gdp); // Render pass composicion de una o mas pipeline graficas
         //TODO refactor the initialization of swapchain data, with default data for depth resources
         //createParticleRenderPass(pd, particleGraphicPipeline->swapchain, ld->device, particleGraphicPipeline);
         particleGraphicPipeline->renderPass = gdp->renderPass;
@@ -189,6 +189,10 @@ class MetaEngine {
         particleGraphicPipeline->descriptorPool = gdp->descriptorPool;
         particleGraphicPipeline->descriptorSet = gdp->descriptorSet;
         std::cout << "RETORNO SETLAYOUT" << '\n';
+
+
+
+
         createModelsGraphicPipeline(gdp, dispM, &ld->device);
         std::cout << "RETORNO GRAPHIC PIPELINE" << '\n';
         createParticlesGraphicPipeline(particleGraphicPipeline, dispM, &ld->device);
@@ -202,6 +206,8 @@ class MetaEngine {
         createSyncObjects(gdp, &ld->device);
         createSyncObjectsForGraphicAndCompute(particleGraphicPipeline, &ld->device);
         std::cout << "RETORNO SYNC" << '\n';
+
+
         createGeometryBuffer(pd,ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
         std::cout << "RETORNO GEOMETRYBUFFER" << '\n';
 
@@ -213,6 +219,11 @@ class MetaEngine {
         assert(&gdp->geometry->pScene[0]);
         createIndiceBuffer(pd, ld,gdp->deviceBuffer,gdp->geometry, gdp->commandPool);
         std::cout << "RETORNOs INDICE" << '\n';
+
+
+
+
+
 
         dm->logCallback = createDebugCallbackForVulkan(dm->instance);
         dispM->currentFrame = 0;

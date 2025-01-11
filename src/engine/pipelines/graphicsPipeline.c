@@ -264,10 +264,13 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
 
 }
-
+//TODO: there need to be createRenderPass2 and createRenderPassKHR2 for compatibility
  void createRenderPass(PhysicalDevice *pd, GraphicSwapchain *dsm, VkDevice device, GraphicPipelineToSurface *gdp) {
+
     //TODO make abstractions for resources attachtments and resolvers
-    VkAttachmentDescription colorAttachment = {
+
+    VkAttachmentDescription2 colorAttachment = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
         .format = (dsm->currentSurfaceFormat)->format,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -277,27 +280,32 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
         .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .samples = dsm->msaaColorRes->numSamples,
     };
-        VkAttachmentReference colorAttachmentRef = {
+
+    VkAttachmentReference2 colorAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .attachment = 0,
         .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     };
 
-    VkAttachmentDescription depthAttachment = {
+    VkAttachmentDescription2 depthAttachment = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
         .format = (findDepthImageFormat(pd->gpu)),
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // Change from DONT_CARE
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         .samples = dsm->msaaDepthRes->numSamples,
     };
-    VkAttachmentReference depthAttachmentRef = {
+
+    VkAttachmentReference2 depthAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .attachment = 1,
         .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
 
-    VkAttachmentDescription colorAttachmentResolve = {
+    VkAttachmentDescription2 colorAttachmentResolve = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
         .format = (dsm->currentSurfaceFormat)->format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -308,12 +316,41 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
         .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
     };
 
-    VkAttachmentReference colorAttachmentResolveRef = {
+
+    VkAttachmentReference2 colorAttachmentResolveRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .attachment = 2,
         .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
-    VkAttachmentDescription particleDepthAttachment = {
+    VkAttachmentDescription2 depthResolveAttachment = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = (findDepthImageFormat(pd->gpu)),
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,  // Changed to STORE since we'll use it
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    // Create the depth resolve reference
+    VkAttachmentReference2 depthResolveAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .attachment = 3,
+        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
+  // Create the depth resolve info
+    VkSubpassDescriptionDepthStencilResolve depthResolveInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
+        .pNext = NULL,
+        .depthResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT,  // Or VK_RESOLVE_MODE_MIN_BIT
+        .stencilResolveMode = VK_RESOLVE_MODE_NONE,
+        .pDepthStencilResolveAttachment = &depthResolveAttachmentRef
+    };
+/*    VkAttachmentDescription particleDepthAttachment = {
         .format = (findDepthImageFormat(pd->gpu)),
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -323,33 +360,36 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
         .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         .samples = VK_SAMPLE_COUNT_1_BIT,
     };
+
     VkAttachmentReference particleDepthAttachmentRef = {
         .attachment = 3,
         .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
+*/
 
-
-    VkAttachmentReference pointColorRef = {
+    VkAttachmentReference2 pointColorRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .attachment = 2, // Points draw directly to final color attachment
         .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     };
 
 
-    VkSubpassDescription modelSubpass = {
+    VkSubpassDescription2 modelSubpass = {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
         .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
         .colorAttachmentCount = 1,
         .pColorAttachments = &colorAttachmentRef,
         .pDepthStencilAttachment = &depthAttachmentRef,
         .pResolveAttachments = &colorAttachmentResolveRef,
+        .pNext =&depthResolveInfo,
     };
 
-    VkSubpassDescription particleSubpass = {
+    VkSubpassDescription2 particleSubpass = {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
         .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
         .colorAttachmentCount = 1,
         .pColorAttachments = &pointColorRef,
-        .pDepthStencilAttachment = &particleDepthAttachmentRef,
-        .preserveAttachmentCount = 1,
-        .pPreserveAttachments = &depthAttachmentRef.attachment,
+        .pDepthStencilAttachment = &depthResolveAttachmentRef,
     };
 
 
@@ -363,8 +403,9 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
     dsm->subpassDependency->dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dsm->subpassDependency->dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     dsm->subpassDependency->dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;*/
-    VkSubpassDependency dependencies[2] = {
+    VkSubpassDependency2 dependencies[2] = {
     {   // External -> Subpass 0
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
         .srcSubpass = VK_SUBPASS_EXTERNAL,
         .dstSubpass = 0,
         .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
@@ -385,6 +426,7 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
         .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
     },
     {   // Subpass 0 -> Subpass 1
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
         .srcSubpass = 0,
         .dstSubpass = 1,
         .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
@@ -403,10 +445,10 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
         .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
     }
     };
-    VkAttachmentDescription attatchments[] = {colorAttachment, depthAttachment, colorAttachmentResolve, particleDepthAttachment};
-    VkSubpassDescription subpasses [] = {modelSubpass, particleSubpass};
-    VkRenderPassCreateInfo renderPassInfo = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+    VkAttachmentDescription2 attatchments[] = {colorAttachment, depthAttachment, colorAttachmentResolve, depthResolveAttachment};
+    VkSubpassDescription2 subpasses [] = {modelSubpass, particleSubpass};
+    VkRenderPassCreateInfo2 renderPassInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
         .attachmentCount = 4,
         .pAttachments = attatchments,
         .subpassCount = 2,
@@ -416,7 +458,7 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
     };
 
     gdp->renderPass = malloc(sizeof(*gdp->renderPass));
-    if (vkCreateRenderPass(device, &renderPassInfo, NULL, gdp->renderPass) != VK_SUCCESS) {
+    if (vkCreateRenderPass2(device, &renderPassInfo, NULL, gdp->renderPass) != VK_SUCCESS) {
 
         exit(0);
     }

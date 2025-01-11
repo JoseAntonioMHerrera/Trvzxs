@@ -96,8 +96,8 @@ std::cout << "Current video driver: " << SDL_GetCurrentVideoDriver() << std::end
         }*/
 
         //scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::CUBE, &global, 3)));
-        //GEOM_VERTEX_POSITION* cubeOrigin = new GEOM_VERTEX_POSITION{0, 0, 0};
-        //scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::QUAD, cubeOrigin, cubeSize)));
+        GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
+        //scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
 
         scene->addModel(std::move(Model<GEOM_OBJECT>(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj"))));
         scene->init();
