@@ -20,4 +20,4 @@ typedef struct CommandPools {
 } CommandPools;
 void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
 void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
-void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, ComputePipeline *compP);
+void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);

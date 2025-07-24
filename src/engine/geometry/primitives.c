@@ -3,6 +3,7 @@
 #include "vertex.h"
 #include "string.h"
 #include "primitives.h"
+#include "model.h"
 
 void printParticle(const GEOM_PARTICLE* particle){
     printf("Particle Data:\n");
@@ -40,145 +41,93 @@ GEOM_VERTEX* create_vertex(float x, float y, float z, float r, float g, float b,
     return vertex;
 }
 
-GEOM_OBJECT* create_plane(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
-   const float TILE_SIZE = 3.0f;
+Model3D* create_plane(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
+    const float TILE_SIZE = 3.0f;
 
-   // Calculate number of tiles in each dimension
-   int num_tiles = (int)(size / TILE_SIZE);
+    // Calculate number of tiles in each dimension
+    int num_tiles = (int)(size / TILE_SIZE);
 
-   // Calculate number of vertices and indices needed
-   int num_vertices_per_side = num_tiles + 1;
-   int total_vertices = num_vertices_per_side * num_vertices_per_side;
-   int total_indices = num_tiles * num_tiles * 6; // 2 triangles per tile, 3 vertices per triangle
+    // Calculate number of vertices and indices needed
+    int num_vertices_per_side = num_tiles + 1;
+    int total_vertices = num_vertices_per_side * num_vertices_per_side;
+    int total_indices = num_tiles * num_tiles * 6; // 2 triangles per tile, 3 vertices per triangle
 
-   // Create and initialize the GEOM_OBJECT
-   GEOM_OBJECT* plane = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
-   plane->dataLen = total_vertices;
-   plane->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * plane->dataLen);
-   plane->indicesLen = total_indices;
-   plane->indices = (uint32_t*)malloc(sizeof(uint32_t) * plane->indicesLen);
-   plane->vertexOffset = total_vertices;
+    // Create and initialize the Model3D
+    Model3D* model = (Model3D*)malloc(sizeof(Model3D));
 
-   // Starting coordinates (top-left corner of plane)
-   float start_x = globalCoords->x - size / 2.0f;
-   float start_y = globalCoords->y - size / 2.0f;
-   float z = globalCoords->z;
+    // Initialize meshManager with a single mesh
+    model->meshManager.pMesh = (Mesh3D*)malloc(sizeof(Mesh3D));
+    model->meshManager.meshesLen = 1;
+    model->meshManager.totalMeshVerticesLen = total_vertices;
 
-   // Generate vertices
-   for (int row = 0; row < num_vertices_per_side; row++) {
-       for (int col = 0; col < num_vertices_per_side; col++) {
-           int idx = row * num_vertices_per_side + col;
+    // Initialize the single mesh
+    model->meshManager.pMesh->pVertice = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * total_vertices);
+    model->meshManager.pMesh->verticesLen = total_vertices;
 
-           // Position
-           plane->data[idx].point.x = start_x + col * TILE_SIZE;
-           plane->data[idx].point.y = start_y + row * TILE_SIZE;
-           plane->data[idx].point.z = z;
+    // Initialize indices array
+    model->indices.items = (uint32_t*)malloc(sizeof(uint32_t) * total_indices);
+    model->indices.itemsLen = total_indices;
 
-           // Normal (pointing up Z axis)
-           plane->data[idx].normal.x = 0.0f;
-           plane->data[idx].normal.y = 0.0f;
-           plane->data[idx].normal.z = 1.0f;
+    // Set defaults
+    model->vertexOffset = 0;
+    model->indiceOffset = 0;
+    model->instanceCount = 1;
+    model->pChild = NULL;
+    model->childLen = 0;
 
-           // Texture coordinates (normalized from 0 to 1)
-           plane->data[idx].textCoords.u = (float)col / num_tiles;
-           plane->data[idx].textCoords.v = (float)row / num_tiles;
-           plane->data[idx].textCoords.w = 0.0f;
+    // Starting coordinates (top-left corner of plane)
+    float start_x = globalCoords->x - size / 2.0f;
+    float start_y = globalCoords->y - size / 2.0f;
+    float z = globalCoords->z;
 
-           // Default color (white)
-           plane->data[idx].color.r = 1.0f;
-           plane->data[idx].color.g = 1.0f;
-           plane->data[idx].color.b = 1.0f;
-           plane->data[idx].color.a = 1.0f;
-       }
-   }
+    // Generate vertices
+    for (int row = 0; row < num_vertices_per_side; row++) {
+        for (int col = 0; col < num_vertices_per_side; col++) {
+            int idx = row * num_vertices_per_side + col;
 
-   // Generate indices for triangles
-   int index = 0;
-   for (int row = 0; row < num_tiles; row++) {
-       for (int col = 0; col < num_tiles; col++) {
-           int vertex_idx = row * num_vertices_per_side + col;
+            // Position
+            model->meshManager.pMesh->pVertice[idx].point.x = start_x + col * TILE_SIZE;
+            model->meshManager.pMesh->pVertice[idx].point.y = start_y + row * TILE_SIZE;
+            model->meshManager.pMesh->pVertice[idx].point.z = z;
 
-           // First triangle of tile
-           plane->indices[index++] = vertex_idx;                          // Bottom left
-           plane->indices[index++] = vertex_idx + num_vertices_per_side;  // Top left
-           plane->indices[index++] = vertex_idx + 1;                      // Bottom right
+            // Normal (pointing up Z axis)
+            model->meshManager.pMesh->pVertice[idx].normal.x = 0.0f;
+            model->meshManager.pMesh->pVertice[idx].normal.y = 0.0f;
+            model->meshManager.pMesh->pVertice[idx].normal.z = 1.0f;
 
-           // Second triangle of tile
-           plane->indices[index++] = vertex_idx + 1;                      // Bottom right
-           plane->indices[index++] = vertex_idx + num_vertices_per_side;  // Top left
-           plane->indices[index++] = vertex_idx + num_vertices_per_side + 1; // Top right
-       }
-   }
+            // Texture coordinates (normalized from 0 to 1)
+            model->meshManager.pMesh->pVertice[idx].textCoords.u = (float)col / num_tiles;
+            model->meshManager.pMesh->pVertice[idx].textCoords.v = (float)row / num_tiles;
+            model->meshManager.pMesh->pVertice[idx].textCoords.w = 0.0f;
 
-   return plane;
-}
-/*
-GEOM_OBJECT* create_grid(int numPoints, float padding) {
-    GEOM_OBJECT* grid = malloc(sizeof(GEOM_OBJECT));
-    int numVertices = numPoints * numPoints;
-    int numIndices = (numPoints - 1) * (numPoints - 1) * 6; // 2 triangles per quad
-
-    grid->dataLen = numVertices;
-    grid->data = malloc(sizeof(GEOM_VERTEX) * numVertices);
-    grid->indicesLen = numIndices;
-    grid->indices = malloc(sizeof(TRVZXS_SIZE) * numIndices);
-
-    // Create vertices with texture coordinates
-    for (int y = 0; y < numPoints; ++y) {
-        for (int x = 0; x < numPoints; ++x) {
-            float xpos = x * padding;
-            float ypos = y * padding;
-
-            // Normalize texture coordinates to cover [0, 1] range
-            float u = (float)x / (numPoints - 1); // Horizontal coordinate in texture space
-            float v = (float)y / (numPoints - 1); // Vertical coordinate in texture space
-
-            // Create vertex with position and texture coordinates
-            grid->data[y * numPoints + x] = create_vertex(xpos, ypos, 0.0f, 1.0f, 1.0f, 1.0f, u, v);
+            // Default color (white)
+            model->meshManager.pMesh->pVertice[idx].color.r = 1.0f;
+            model->meshManager.pMesh->pVertice[idx].color.g = 1.0f;
+            model->meshManager.pMesh->pVertice[idx].color.b = 1.0f;
+            model->meshManager.pMesh->pVertice[idx].color.a = 1.0f;
         }
     }
 
-    // Create indices and assign texture coordinates for each quad
+    // Generate indices for triangles
     int index = 0;
-    for (int y = 0; y < numPoints - 1; ++y) {
-        for (int x = 0; x < numPoints - 1; ++x) {
-            int topLeft = y * numPoints + x;
-            int topRight = topLeft + 1;
-            int bottomLeft = (y + 1) * numPoints + x;
-            int bottomRight = bottomLeft + 1;
+    for (int row = 0; row < num_tiles; row++) {
+        for (int col = 0; col < num_tiles; col++) {
+            int vertex_idx = row * num_vertices_per_side + col;
 
-            // Define texture coordinates for each vertex
-            float u0 = (float)x / (numPoints - 1);
-            float v0 = (float)y / (numPoints - 1);
-            float u1 = (float)(x + 1) / (numPoints - 1);
-            float v1 = (float)(y + 1) / (numPoints - 1);
+            // First triangle of tile
+            model->indices.items[index++] = vertex_idx;                          // Bottom left
+            model->indices.items[index++] = vertex_idx + num_vertices_per_side;  // Top left
+            model->indices.items[index++] = vertex_idx + 1;                      // Bottom right
 
-            // Define indices for two triangles per quad (counter-clockwise winding order)
-            grid->indices[index++] = topLeft;
-            grid->indices[index++] = bottomLeft;
-            grid->indices[index++] = topRight;
-
-            grid->indices[index++] = topRight;
-            grid->indices[index++] = bottomLeft;
-            grid->indices[index++] = bottomRight;
-
-            // Ensure each vertex has correct texture coordinates
-            grid->data[topLeft].textCoords.u = u0;
-            grid->data[topLeft].textCoords.v = v0;
-
-            grid->data[topRight].textCoords.u = u1;
-            grid->data[topRight].textCoords.v = v0;
-
-            grid->data[bottomLeft].textCoords.u = u0;
-            grid->data[bottomLeft].textCoords.v = v1;
-
-            grid->data[bottomRight].textCoords.u = u1;
-            grid->data[bottomRight].textCoords.v = v1;
+            // Second triangle of tile
+            model->indices.items[index++] = vertex_idx + 1;                      // Bottom right
+            model->indices.items[index++] = vertex_idx + num_vertices_per_side;  // Top left
+            model->indices.items[index++] = vertex_idx + num_vertices_per_side + 1; // Top right
         }
     }
 
-    return grid;
-}*/
+    return model;
+}
 
 void print_cube(const GEOM_OBJECT* cube) {
     printf("Cube Information:\n");
@@ -201,13 +150,28 @@ void print_cube(const GEOM_OBJECT* cube) {
 }
 // Cube
 
-GEOM_OBJECT* create_quad(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
-    GEOM_OBJECT* quad = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
-    quad->dataLen = 4; // 8 vertices for a cube
-    quad->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * quad->dataLen);
-    quad->indicesLen = 6; // 6 faces * 2 triangles * 3 vertices each
-    quad->indices = (uint32_t*)malloc(sizeof(uint32_t) * quad->indicesLen);
-    quad->vertexOffset = 4;
+Model3D* create_quad(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
+    Model3D* model = (Model3D*)malloc(sizeof(Model3D));
+
+    // Initialize meshManager with a single mesh
+    model->meshManager.pMesh = (Mesh3D*)malloc(sizeof(Mesh3D));
+    model->meshManager.meshesLen = 1;
+    model->meshManager.totalMeshVerticesLen = 4;  // 4 vertices for a quad
+
+    // Initialize the single mesh
+    model->meshManager.pMesh->pVertice = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * 4);
+    model->meshManager.pMesh->verticesLen = 4;
+
+    // Initialize indices array
+    model->indices.items = (uint32_t*)malloc(sizeof(uint32_t) * 6);  // 6 indices for 2 triangles
+    model->indices.itemsLen = 6;
+
+    // Set defaults
+    model->vertexOffset = 0;
+    model->indiceOffset = 0;
+    model->instanceCount = 1;
+    model->pChild = NULL;
+    model->childLen = 0;
 
     float s = size / 2.0f;
     float cx = globalCoords->x;
@@ -215,34 +179,49 @@ GEOM_OBJECT* create_quad(const GEOM_VERTEX_POSITION* const globalCoords, uint32_
     float cz = globalCoords->z;
 
     // Define vertices
-GEOM_VERTEX vertices[4] = {
-    {cx - s, cy - s, cz - s, 0, 0, 0, 0, 0, 0}, // 0: Left  Bottom Back
-    {cx + s, cy - s, cz - s, 1, 0, 0, 1, 1, 0}, // 1: Right Bottom Back
-    {cx + s, cy + s, cz - s, 1, 1, 0, 1, 1, 1}, // 2: Right Top    Back
-    {cx - s, cy + s, cz - s, 0, 1, 0, 0, 0, 1}, // 3: Left  Top    Back
-};
+    GEOM_VERTEX vertices[4] = {
+        {cx - s, cy - s, cz - s, 0, 0, 0, 0, 0, 0}, // 0: Left  Bottom Back
+        {cx + s, cy - s, cz - s, 1, 0, 0, 1, 1, 0}, // 1: Right Bottom Back
+        {cx + s, cy + s, cz - s, 1, 1, 0, 1, 1, 1}, // 2: Right Top    Back
+        {cx - s, cy + s, cz - s, 0, 1, 0, 0, 0, 1}, // 3: Left  Top    Back
+    };
 
-    // Copy vertices to cube data
-    memcpy(quad->data, vertices, sizeof(vertices));
+    // Copy vertices to mesh
+    memcpy(model->meshManager.pMesh->pVertice, vertices, sizeof(vertices));
 
-    // Define indices for all 6 faces
+    // Define indices for the quad
     uint32_t indices[] = {
         0, 3, 2, 0, 2, 1, // Back face
     };
 
-    // Copy indices to cube
-    memcpy(quad->indices, indices, sizeof(indices));
-    //print_cube(cube);
-    return quad;
+    // Copy indices to model
+    memcpy(model->indices.items, indices, sizeof(indices));
+
+    return model;
 }
 
-GEOM_OBJECT* create_cube(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
-    GEOM_OBJECT* cube = (GEOM_OBJECT*)malloc(sizeof(GEOM_OBJECT));
-    cube->dataLen = 8; // 8 vertices for a cube
-    cube->data = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * cube->dataLen);
-    cube->indicesLen = 36; // 6 faces * 2 triangles * 3 vertices each
-    cube->indices = (uint32_t*)malloc(sizeof(uint32_t) * cube->indicesLen);
-    cube->vertexOffset = 8;
+Model3D* create_cube(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size) {
+    Model3D* model = (Model3D*)malloc(sizeof(Model3D));
+
+    // Initialize meshManager with a single mesh
+    model->meshManager.pMesh = (Mesh3D*)malloc(sizeof(Mesh3D));
+    model->meshManager.meshesLen = 1;
+    model->meshManager.totalMeshVerticesLen = 8;  // 8 vertices for cube
+
+    // Initialize the single mesh
+    model->meshManager.pMesh->pVertice = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * 8);
+    model->meshManager.pMesh->verticesLen = 8;
+
+    // Initialize indices array
+    model->indices.items = (uint32_t*)malloc(sizeof(uint32_t) * 36);  // 6 faces * 2 triangles * 3 vertices
+    model->indices.itemsLen = 36;
+
+    // Set defaults
+    model->vertexOffset = 0;
+    model->indiceOffset = 0;
+    model->instanceCount = 1;
+    model->pChild = NULL;
+    model->childLen = 0;
 
     float s = size / 2.0f;
     float cx = globalCoords->x;
@@ -250,19 +229,19 @@ GEOM_OBJECT* create_cube(const GEOM_VERTEX_POSITION* const globalCoords, uint32_
     float cz = globalCoords->z;
 
     // Define vertices
-GEOM_VERTEX vertices[8] = {
-    {cx - s, cy - s, cz - s, 0, 0, 0, 0, 0, 0}, // 0: Left  Bottom Back
-    {cx + s, cy - s, cz - s, 1, 0, 0, 1, 1, 0}, // 1: Right Bottom Back
-    {cx + s, cy + s, cz - s, 1, 1, 0, 1, 1, 1}, // 2: Right Top    Back
-    {cx - s, cy + s, cz - s, 0, 1, 0, 0, 0, 1}, // 3: Left  Top    Back
-    {cx - s, cy - s, cz + s, 0, 0, 1, 0, 0, 0}, // 4: Left  Bottom Front
-    {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1, 0}, // 5: Right Bottom Front
-    {cx + s, cy + s, cz + s, 1, 1, 1, 1, 1, 1}, // 6: Right Top    Front
-    {cx - s, cy + s, cz + s, 0, 1, 1, 0, 0, 1}  // 7: Left  Top    Front
-};
+    GEOM_VERTEX vertices[8] = {
+        {cx - s, cy - s, cz - s, 0, 0, 0, 0, 0, 0}, // 0: Left  Bottom Back
+        {cx + s, cy - s, cz - s, 1, 0, 0, 1, 1, 0}, // 1: Right Bottom Back
+        {cx + s, cy + s, cz - s, 1, 1, 0, 1, 1, 1}, // 2: Right Top    Back
+        {cx - s, cy + s, cz - s, 0, 1, 0, 0, 0, 1}, // 3: Left  Top    Back
+        {cx - s, cy - s, cz + s, 0, 0, 1, 0, 0, 0}, // 4: Left  Bottom Front
+        {cx + s, cy - s, cz + s, 1, 0, 1, 1, 1, 0}, // 5: Right Bottom Front
+        {cx + s, cy + s, cz + s, 1, 1, 1, 1, 1, 1}, // 6: Right Top    Front
+        {cx - s, cy + s, cz + s, 0, 1, 1, 0, 0, 1}  // 7: Left  Top    Front
+    };
 
-    // Copy vertices to cube data
-    memcpy(cube->data, vertices, sizeof(vertices));
+    // Copy vertices to mesh
+    memcpy(model->meshManager.pMesh->pVertice, vertices, sizeof(vertices));
 
     // Define indices for all 6 faces
     uint32_t indices[] = {
@@ -274,8 +253,121 @@ GEOM_VERTEX vertices[8] = {
         0, 4, 7, 7, 3, 0  // Left face
     };
 
-    // Copy indices to cube
-    memcpy(cube->indices, indices, sizeof(indices));
-    //print_cube(cube);
-    return cube;
+    // Copy indices to model
+    memcpy(model->indices.items, indices, sizeof(indices));
+
+    return model;
+}
+
+Model3D* create_sphere(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t radius, uint32_t segments) {
+    // Calculate vertex and index counts
+    uint32_t num_rings = segments;
+    uint32_t num_sectors = segments;
+    uint32_t num_vertices = (num_rings + 1) * (num_sectors + 1);
+    uint32_t num_indices = num_rings * num_sectors * 6;
+
+    Model3D* model = (Model3D*)malloc(sizeof(Model3D));
+
+    // Initialize meshManager with a single mesh
+    model->meshManager.pMesh = (Mesh3D*)malloc(sizeof(Mesh3D));
+    model->meshManager.meshesLen = 1;
+    model->meshManager.totalMeshVerticesLen = num_vertices;
+
+    // Initialize the single mesh
+    model->meshManager.pMesh->pVertice = (GEOM_VERTEX*)malloc(sizeof(GEOM_VERTEX) * num_vertices);
+    model->meshManager.pMesh->verticesLen = num_vertices;
+
+    // Initialize indices array
+    model->indices.items = (uint32_t*)malloc(sizeof(uint32_t) * num_indices);
+    model->indices.itemsLen = num_indices;
+
+    // Set defaults
+    model->vertexOffset = 0;
+    model->indiceOffset = 0;
+    model->instanceCount = 1;
+    model->pChild = NULL;
+    model->childLen = 0;
+
+    float cx = globalCoords->x;
+    float cy = globalCoords->y;
+    float cz = globalCoords->z;
+
+    // Generate vertices
+    uint32_t vertex_index = 0;
+    for(uint32_t ring = 0; ring <= num_rings; ring++) {
+        float theta = ring * GLM_PI / num_rings;
+        float sin_theta = sinf(theta);
+        float cos_theta = cosf(theta);
+
+        for(uint32_t sector = 0; sector <= num_sectors; sector++) {
+            float phi = sector * 2 * GLM_PI / num_sectors;
+            float sin_phi = sinf(phi);
+            float cos_phi = cosf(phi);
+
+            // Position
+            float x = cx + radius * sin_theta * cos_phi;
+            float y = cy + radius * sin_theta * sin_phi;
+            float z = cz + radius * cos_theta;
+
+            // Normal (normalized position from center)
+            float nx = sin_theta * cos_phi;
+            float ny = sin_theta * sin_phi;
+            float nz = cos_theta;
+
+            // UV coordinates
+            float u = (float)sector / num_sectors;
+            float v = (float)ring / num_rings;
+
+            GEOM_VERTEX* vertex = &model->meshManager.pMesh->pVertice[vertex_index];
+
+            // Position
+            vertex->point.x = x;
+            vertex->point.y = y;
+            vertex->point.z = z;
+
+            // Normal
+            vertex->normal.x = nx;
+            vertex->normal.y = ny;
+            vertex->normal.z = nz;
+
+            // Texture coordinates
+            vertex->textCoords.u = u;
+            vertex->textCoords.v = v;
+            vertex->textCoords.w = 0.0f;
+
+            // Default color (white)
+            vertex->color.r = 1.0f;
+            vertex->color.g = 1.0f;
+            vertex->color.b = 1.0f;
+            vertex->color.a = 1.0f;
+
+            vertex_index++;
+        }
+    }
+
+    // Generate indices
+    uint32_t index = 0;
+    for(uint32_t ring = 0; ring < num_rings; ring++) {
+        uint32_t ring_start = ring * (num_sectors + 1);
+        uint32_t next_ring_start = (ring + 1) * (num_sectors + 1);
+
+        for(uint32_t sector = 0; sector < num_sectors; sector++) {
+            uint32_t current = ring_start + sector;
+            uint32_t next = current + 1;
+            uint32_t next_ring = next_ring_start + sector;
+            uint32_t next_ring_next = next_ring + 1;
+
+            // First triangle
+            model->indices.items[index++] = current;
+            model->indices.items[index++] = next_ring;
+            model->indices.items[index++] = next;
+
+            // Second triangle
+            model->indices.items[index++] = next;
+            model->indices.items[index++] = next_ring;
+            model->indices.items[index++] = next_ring_next;
+        }
+    }
+
+    return model;
 }

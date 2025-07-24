@@ -23,3 +23,4 @@ void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *disp
 void cleanupSwapChain(LogicalDevice *ld, DisplayManager *dm);
 
 void recreateSwapChain(PhysicalDevice *pd, LogicalDevice* ld, SDL_Window *window);
+void createRenderPass(PhysicalDevice *pd, GraphicSwapchain *dsm, VkDevice device, GraphicPipelineToSurface *gdp);

@@ -28,7 +28,7 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         .pNext = NULL,
     };
     printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
-    printf("Las colas: Compute %d Graphics %d Transfer %d \n", pd->queueFamilyIndices.computeFamily, pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.transferFamily);
+    printf("Las colas: Compute %d Graphics %d Transfer %d Present %d \n", pd->queueFamilyIndices.computeFamily, pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.transferFamily, pd->queueFamilyIndices.presentFamily);
 
     VkDeviceQueueCreateInfo queueCreateInfoPresentation = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -36,7 +36,7 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         .queueCount = 1,
         .pQueuePriorities = &queuePriority,
         .pNext = NULL,
-    };
+    };    printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
 
     VkDeviceQueueCreateInfo queueCreateInfoTransfer = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -44,24 +44,25 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         .queueCount = 1,
         .pQueuePriorities = &queuePriority,
         .pNext = NULL,
-    };
+    };    printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
     VkDeviceQueueCreateInfo queueCreateInfoCompute = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .queueFamilyIndex = pd->queueFamilyIndices.computeFamily,
         .queueCount = 1,
         .pQueuePriorities = &queuePriority,
         .pNext = NULL,
-    };
+    };    printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
 
     VkDeviceQueueCreateInfo *queuesCreateInfo = malloc(sizeof(VkDeviceQueueCreateInfo) * 3); // TODO: generalizar
     //queuesCreateInfo[0] = queueCreateInfoPresentation;
     queuesCreateInfo[0] = queueCreateInfoGraphics;
     queuesCreateInfo[1] = queueCreateInfoTransfer;
     queuesCreateInfo[2] = queueCreateInfoCompute;
-
+    printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
     VkPhysicalDeviceFeatures deviceFeatures = {
         .samplerAnisotropy = VK_TRUE,
-    };
+        .independentBlend = VK_TRUE,
+    };    printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
     // TODO: moverlo a una funcion o fichero para configuracion de dispositivo y dispositivo logico
     const char* logicalDeviceExtensionNames[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME}; //TODO: mover las extensiones del device a otro lado
     //Logical device
@@ -74,11 +75,12 @@ void initDeviceQueues(PhysicalDevice * const pd, LogicalDevice * const ld){
         .enabledExtensionCount = 3,
         .pNext = NULL,
     };
-
+    printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
     if (vkCreateDevice(*pd->gpu, &createLogicalDeviceInfo, NULL, &ld->device) != VK_SUCCESS) {
-
+        printf("ESTO QUE ESSSS\n");
         exit(1);
     }
+        printf("LAS COLLLLAAAAAAAAAAAAAAAAAAAAAAAS\n");
     ld->queueManager.graphicsQueue = malloc(sizeof(*ld->queueManager.graphicsQueue));
     ld->queueManager.transferQueue = malloc(sizeof(*ld->queueManager.transferQueue));
     ld->queueManager.presentQueue = malloc(sizeof(*ld->queueManager.presentQueue));
@@ -264,33 +266,40 @@ bool isDeviceSuitable(PhysicalDevice* pd, LogicalDevice* ld){
     return pd->queueFamilyIndices.graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE;
 }
 void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* dispM){
-
+    printf("Flag 1 initDeviceManager\n");
     uint32_t supportedGpuLen = 0;
     VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, NULL);
+    printf("Flag 1 initDeviceManager\n");
 
     assert(supportedGpuLen >= 1);
     assert(vkEnumPhysDevcResult == VK_SUCCESS);
 
+    printf("Flag 1 initDeviceManager\n");
 
     dm->phyDeviceLen = supportedGpuLen;
     dm->deviceLen = supportedGpuLen;
     dm->pDevice = malloc(sizeof(*dm->pDevice) * supportedGpuLen);
     dm->lDevice = malloc(sizeof(*dm->lDevice) * supportedGpuLen);
 
+    printf("Flag 1 initDeviceManager\n");
 
     VkPhysicalDevice* pdCandidates = malloc(sizeof(VkPhysicalDevice) * supportedGpuLen);
+    printf("Flag 1 initDeviceManager\n");
 
     vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, pdCandidates);
     assert(vkEnumPhysDevcResult == VK_SUCCESS);
+    printf("Flag 1 initDeviceManager\n");
 
     uint32_t bestCandidateIndex = 0;
     uint32_t bestCandidateFit = 0;
     VkPhysicalDeviceProperties bestCandidateProperties;
     VkPhysicalDeviceFeatures bestCandidateFeatures;
+    printf("Flag 1 initDeviceManager\n");
 
     FOR(i, 0, supportedGpuLen, 1) {
 
 
+    printf("Flag 1 initDeviceManager\n");
 
         VkPhysicalDeviceProperties deviceProperties;
         VkPhysicalDeviceFeatures deviceFeatures;
@@ -302,12 +311,15 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
             bestCandidateIndex = i;
         };
     }
+    printf("Flag 1 initDeviceManager\n");
 
 
         // We init the best available device
     dm->pDevice->gpu = &pdCandidates[bestCandidateIndex]; //TODO: change gpu type from VkPHysicalDEvice* to dereferenced type
     vkGetPhysicalDeviceProperties((*dm->pDevice->gpu), &(dm->pDevice->gpuProperties) );
     dm->gpuIndex = bestCandidateIndex;
+        printf("Flag 1 initDeviceManager\n");
+
      // We set the index of the logical device and gpu selected ()
     dm->deviceIndex = bestCandidateIndex;
     dm->lDevice[dm->deviceIndex] = malloc(sizeof(**dm->lDevice));
@@ -326,12 +338,14 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
     free(availableExtensions);
     exit(0);*/
     // We instance the logical device for the candidate selected by his index (in the future, we we'll need more than one logicaldevice per gpu)
+    printf("Flag 1 initDeviceManager\n");
 
     dm->lDevice[dm->deviceIndex]->displayManager = dispM;
     initPhysicalDeviceQueues(&(dm->pDevice[dm->gpuIndex]));
     PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
     LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
 
+    printf("Flag 1 initDeviceManager\n");
 
     if(!isDeviceSuitable(&dm->pDevice[bestCandidateIndex], dm->lDevice[bestCandidateIndex])){
 
@@ -344,10 +358,13 @@ void initDeviceManager(VkInstance *instance, DeviceManager *dm, DisplayManager* 
             free(pdCandidates[i]);
         }
     }*/
+    printf("Flag 2 initDeviceManager\n");
 
     //getMatchingQueueIndices(pd, ld, pd->queueFamilyProperties, pd->queueFamilyCount, &pd->queueFamilyIndices);
 
     initDeviceQueues(&dm->pDevice[dm->gpuIndex], dm->lDevice[dm->deviceIndex]);
+        printf("Flag 2 initDeviceManager\n");
+
 }
 
 /*

@@ -145,6 +145,7 @@ VkFormat findSupportedFormat(VkPhysicalDevice *physicalDevice, VkFormat* candida
     return VK_FORMAT_UNDEFINED;
 }
 
+// Todo: una misma funcion apra encontrar los formatos de imagenes
 VkFormat findDepthImageFormat (VkPhysicalDevice *physicalDevice) {
     VkFormat candidateFormats[3] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
     return findSupportedFormat(physicalDevice,
@@ -152,6 +153,26 @@ VkFormat findDepthImageFormat (VkPhysicalDevice *physicalDevice) {
         3,
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    );
+}
+
+VkFormat findGeometryBufferFormat(VkPhysicalDevice *physicalDevice) {
+    VkFormat candidateFormats[] = {VK_FORMAT_R32G32B32A32_SFLOAT};
+    return findSupportedFormat(physicalDevice,
+        candidateFormats,
+        3,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
+    );
+}
+
+VkFormat findNormalsBufferFormat(VkPhysicalDevice *physicalDevice) {
+    VkFormat candidateFormats[2] = {VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16_SFLOAT};
+    return findSupportedFormat(physicalDevice,
+        candidateFormats,
+        3,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
     );
 }
 
@@ -163,6 +184,26 @@ void createDepthImageResources(PhysicalDevice* pd, LogicalDevice *ld, GraphicSwa
     dispM->depthImage.common, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_EXCLUSIVE);
 
     dispM->depthImage.common->imageView = createImageView(dispM, ld->device, format,dispM->depthImage.common->image, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
+}
+
+void createGeometryBufferResources(PhysicalDevice* pd, LogicalDevice *ld, GraphicSwapchain* dispM) {
+    VkFormat format = (findGeometryBufferFormat(pd->gpu));
+    dispM->gBuffer = malloc(sizeof(*dispM->gBuffer));
+    createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    dispM->gBuffer, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_EXCLUSIVE);
+
+    dispM->gBuffer->imageView = createImageView(dispM, ld->device, format,dispM->gBuffer->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void createNormalsBufferResources(PhysicalDevice* pd, LogicalDevice *ld, GraphicSwapchain* dispM) {
+    VkFormat format = (findNormalsBufferFormat(pd->gpu));
+    dispM->nBuffer = malloc(sizeof(*dispM->nBuffer));
+    createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    dispM->nBuffer, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_EXCLUSIVE);
+
+    dispM->nBuffer->imageView = createImageView(dispM, ld->device, format,dispM->nBuffer->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, CommandPools* commandPool, VkQueue queue, VkImage image, uint32_t textWidth, uint32_t textHeight, uint32_t mipLevels, VkFormat imageFormat){
@@ -280,10 +321,11 @@ VkSampleCountFlagBits getMaxUsableSampleCount(PhysicalDevice* phyDevice) {
 }
 
 void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, GraphicSwapchain *dsm){
-        printf("INI createMSSAACOLORRESOURCES\n");
+    printf("INI createMSSAACOLORRESOURCES\n");
     dsm->msaaColorRes = malloc(sizeof(*dsm->msaaColorRes));
     VkFormat colorFormat = dsm->currentSurfaceFormat->format;
-    dsm->msaaColorRes->numSamples = getMaxUsableSampleCount(pd);
+    // dsm->msaaColorRes->numSamples = getMaxUsableSampleCount(pd);
+    dsm->msaaColorRes->numSamples = VK_SAMPLE_COUNT_1_BIT;
     printf("ANTES DE LLAMAR A CREACTEVKIMAGE EN MSAA COLOR RESOURCES\n");
     createVkImage(device, pd, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -294,7 +336,8 @@ void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, GraphicSwapch
 void createMsaaDepthResources(VkDevice device, PhysicalDevice* pd, GraphicSwapchain *dsm){
     dsm->msaaDepthRes = malloc(sizeof(*dsm->msaaDepthRes));
     VkFormat depthFormat = findDepthImageFormat(pd->gpu);
-    dsm->msaaDepthRes->numSamples = getMaxUsableSampleCount(pd);
+    // dsm->msaaDepthRes->numSamples = getMaxUsableSampleCount(pd);
+    dsm->msaaDepthRes->numSamples = VK_SAMPLE_COUNT_1_BIT;
     printf("ANTES DE LLAMAR A CREACTEVKIMAGE EN MSAA DEPTH RESOURCES\n");
     createVkImage(device, pd, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,

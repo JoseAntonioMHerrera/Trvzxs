@@ -5,7 +5,6 @@ typedef struct MODEL_VIEW_PROJECTION {
     mat4 view;
     mat4 proj;
 } MODEL_VIEW_PROJECTION;
-
 typedef struct UboDeltaTime {
     float deltaTime;
 } UboDeltaTime;

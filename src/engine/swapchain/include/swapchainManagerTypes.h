@@ -28,9 +28,13 @@ typedef struct GraphicSwapchain {
     CommonImage* msaaColorRes;
     CommonImage* msaaDepthRes;
 
+    // G-Buffer
+    CommonImage* gBuffer;
+    CommonImage* nBuffer;
+    DepthBufferImage depthImage;
+
     uint32_t scImageViewLen;
     VkImageView p_scImageView[4];
-    DepthBufferImage depthImage;
     VkSurfaceFormatKHR *currentSurfaceFormat;
     SwapChainSupportDetails *swapChainSupportDetails;
     VkSubpassDependency *subpassDependency;

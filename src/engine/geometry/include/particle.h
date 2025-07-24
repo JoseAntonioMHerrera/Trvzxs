@@ -1,6 +1,6 @@
 #pragma once
 #include "vertex.h"
-
+#include "array.h"
 typedef struct GEOM_PARTICLE {
     union GEOM_VERTEX_POSITION position;
     float pad;
@@ -9,6 +9,17 @@ typedef struct GEOM_PARTICLE {
     struct GEOM_VERTEX_COLOR_RGBA color;
 } GEOM_PARTICLE;
 
+typedef struct ParticleGroup {
+    uint32_t particleLen;
+    uint32_t particleMaxLen;
+    GEOM_PARTICLE *pParticle;
+} ParticleGroup;
+
+
+typedef struct ParticleGroupManager {
+    ArrayUint32_t offsets;
+    ParticleGroup* pParticleGroup;
+    uint32_t particleGroupLen;
+}ParticleGroupManager;
 #define PARTICLE_VERT_SHADER "shaders/bin/particle.vert.spv\0"
 #define PARTICLE_FRAG_SHADER "shaders/bin/particle.frag.spv\0"
-//const uint32_t PARTICLE_COUNT = 10000;
