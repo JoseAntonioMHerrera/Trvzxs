@@ -40,10 +40,16 @@ typedef struct GEOM_VERTEX_NORMAL {
 
 typedef struct GEOM_VERTEX {
     union GEOM_VERTEX_POSITION point;
-    struct GEOM_VERTEX_NORMAL normal;  // Added normal
     struct GEOM_VERTEX_COLOR_RGBA color;
     struct GEOM_VERTEX_TEXT_COORD textCoords;
+    struct GEOM_VERTEX_NORMAL normal;  // Added normal
 } GEOM_VERTEX;
+
+typedef struct GEOM_VERTEX_G_BUFFER {
+    union GEOM_VERTEX_POSITION geometry;
+    union GEOM_VERTEX_POSITION normals;
+    struct GEOM_VERTEX_COLOR_RGBA albedo;
+} GEOM_VERTEX_G_BUFFER;
 
 typedef struct GEOM_OBJECT {
 

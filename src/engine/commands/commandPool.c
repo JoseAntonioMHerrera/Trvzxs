@@ -23,14 +23,14 @@ void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, Graphic
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
         .queueFamilyIndex = pd->queueFamilyIndices.transferFamily,
     };
-
+    printf("UQsE\n");
     //gdp->commandPool->transferCommandPool = malloc(sizeof(*gdp->commandPool->transferCommandPool));
     if (vkCreateCommandPool(device, &transferPoolInfo, VK_NULL_HANDLE, &(gdp->commandPool->transferCommandPool)) != VK_SUCCESS) {
 
         exit(0);
     }
 }
-void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, ComputePipeline* computeP){
+void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface* gdp){
         VkCommandPoolCreateInfo computePoolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
@@ -38,7 +38,7 @@ void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, ComputeP
     };
 
 //    compP->commandPool->transferCommandPool = malloc(sizeof(*compP->commandPool->transferCommandPool));
-    if (vkCreateCommandPool(device, &computePoolInfo, VK_NULL_HANDLE, &(computeP->commandPool->computeCommandPool)) != VK_SUCCESS) {
+    if (vkCreateCommandPool(device, &computePoolInfo, VK_NULL_HANDLE, &(gdp->commandPool->computeCommandPool)) != VK_SUCCESS) {
 
         exit(0);
     }

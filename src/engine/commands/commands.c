@@ -143,9 +143,14 @@ void copyBuffer(LogicalDevice *ld, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
 }
 
 void createCommandBuffer(GraphicPipelineToSurface *gdp, VkDevice *device, size_t framesInFlight){
+    printf("HOLAHOLA\n");
     gdp->commandLen = framesInFlight;
-    gdp->computeP->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
+        printf("HOLAHOLA\n");
+        printf("HOLAHOLA\n");
+
     gdp->commandBuffer = malloc(sizeof(VkCommandBuffer)* gdp->commandLen);
+    printf("HOLAHOLA\n");
+
     VkCommandBufferAllocateInfo allocGraphicCommandBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = gdp->commandPool->graphicsCommandPool,
@@ -153,11 +158,15 @@ void createCommandBuffer(GraphicPipelineToSurface *gdp, VkDevice *device, size_t
         .commandBufferCount = gdp->maxFrames,
         .pNext = VK_NULL_HANDLE,
     };
+    printf("HOLAHOLA\n");
 
     if (vkAllocateCommandBuffers(*device, &allocGraphicCommandBufferInfo, gdp->commandBuffer) != VK_SUCCESS) {
+    printf("HOLAHOLA\n");
 
         exit(0);
     }
+    printf("HOLAHOLA\n");
+
 }
 
 void createCommandBufferWithCompute(GraphicPipelineToSurface *gdp, VkDevice *device, size_t framesInFlight){

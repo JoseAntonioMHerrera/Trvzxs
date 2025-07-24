@@ -22,7 +22,7 @@ typedef struct DeviceBufferManager {
     // Index Buffer
     VkBuffer *indexBuffer;
     VkDeviceMemory *indexBufferMemory;
-    size_t indexLen;
+    size_t* indexLen;
 
     // Staging Buffer
     size_t stagingLen;
@@ -40,8 +40,12 @@ typedef struct DeviceBufferManager {
 void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkMemoryPropertyFlags properties,
                     VkBuffer* buffer, VkDeviceMemory* bufferMemory);
 
-void createIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager *dbm, SCENE *objects,
+void createGeometryIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager *dbm, SCENE *scene,
                                       CommandPools* commandPool);
 
-void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, DeviceBufferManager *dbm, SCENE *objects,
+void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, DeviceBufferManager *dbm, SCENE *scene,
+                                        CommandPools* commandPool);
+void createLightVolumeIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager *dbm, SCENE *scene,
+                                      CommandPools* commandPool);
+void createLightVolumeVertexBuffer(PhysicalDevice *pd, LogicalDevice *ld, DeviceBufferManager *dbm, SCENE *scene,
                                         CommandPools* commandPool);

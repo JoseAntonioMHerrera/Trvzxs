@@ -30,6 +30,7 @@ extern "C" {
     #include "descriptor.h"
     #include "textureManager.h"
     #include "scene.h"
+    #include "model.h"
 };
 #include <chrono>
 // TODO move this to central display
@@ -75,8 +76,8 @@ std::cout << "Current video driver: " << SDL_GetCurrentVideoDriver() << std::end
             SDL_Quit();
             return -1;
         }
-        std::unique_ptr<Scene<SCENE, Model, GEOM_OBJECT>> scene = std::make_unique<Scene<SCENE, Model, GEOM_OBJECT>>(Scene<SCENE, Model, GEOM_OBJECT>(sceneDeletor));
-      const float cubeSize = 3.0f;
+        auto scene = std::make_unique<Scene>(Scene());
+        const float cubeSize = 3.0f;
         const float spacing = 3.0f;
         const float totalSize = cubeSize + spacing;
         /*const int dimensions = 1000;
@@ -94,14 +95,20 @@ std::cout << "Current video driver: " << SDL_GetCurrentVideoDriver() << std::end
                 }
             }
         }*/
-
-        //scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::CUBE, &global, 3)));
-        GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
+        LightVolume* light = static_cast<LightVolume*>(malloc(sizeof(LightVolume)));
+        GEOM_VERTEX_POSITION* cubeLightPosition = new GEOM_VERTEX_POSITION{0, 0, 0};
+        light->model = *create_cube(cubeLightPosition, 10);
+        printLightVolume(light);
+        scene->addLight(light);
+        //GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
         //scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
 
-        scene->addModel(std::move(Model<GEOM_OBJECT>(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj"))));
+        scene->addModel(load_obj_to_geom_object(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj")));
+        scene->addModel(create_cube(cubeLightPosition, 5));
+        scene->initInstanceDataStub();
         scene->init();
-        MetaEngine<SCENE, Model, GEOM_OBJECT> *engine =  new MetaEngine<SCENE, Model, GEOM_OBJECT>(window, std::move(scene));
+        std::cout << "QUE??????\n";
+        MetaEngine*engine =  new MetaEngine(window, std::move(scene));
 
         // Add these variables at the beginning of your main function or in your game class
 TTF_Font* font = nullptr;

@@ -19,8 +19,15 @@ typedef struct GraphicPipelineToSurface {
     uint32_t maxFrames;
 
     size_t commandLen;
+
+    //Render pass info
+
+    uint32_t subpassLen;
+    uint32_t attachtmentLen;
+    uint32_t dependenciesLen;
+
     VkRenderPass* renderPass;
-    SCENE* geometry;
+    SCENE* scene;
     Texture2D* texture;
     DeviceBufferManager *deviceBuffer;
 

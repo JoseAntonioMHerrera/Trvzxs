@@ -2,7 +2,7 @@
 #include "displayManager.h"
 #include "computePipeline.h"
 #include "particle.h"
-
+#include "camera.h"
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp){
 
     for (size_t i = 0; i < gdp->maxFrames; i++) {
@@ -124,8 +124,8 @@ void updateSSBODescriptorSets(
     vkUpdateDescriptorSets(device, 2, descriptorWrites, 0, VK_NULL_HANDLE);
 }
 
-void drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* particleGraphics,
-VkDevice device, SDL_Window *window, float deltaTime) {
+void drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics,
+VkDevice device, SDL_Window *window, float deltaTime, Camera3D camera) {
     printf("NEW DELTATIME %f", deltaTime);
     printf("MECAGOENTODO\n");
             printf("MECAGOENTODO\n");
@@ -167,9 +167,7 @@ printf("Fence: %p\n", particleGraphics->computeP->computeInFlightFence[dm->curre
     //printf("DRAW FRAME: frame %d: Fence %p\n", dm->currentFrame, gdp->inFlightFence[dm->currentFrame]);
     //printf("END DRAW FRAME LOG\n");
     vkWaitForFences(device, 1, &gdp->inFlightFence[dm->currentFrame], VK_TRUE, UINT64_MAX);
-        updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames);
-    //printf("DRAW FRAME FLAG 1\n");
-    //printf("LETS DRAW FRAME %d\n", dm->currentFrame);
+    updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames);
     uint32_t imageIndex = dm->currentFrame;
     //printf("IMAGE INDEX VALE %u", imageIndex);
     uint32_t aquireImageIndex = dm->currentFrame;
@@ -196,20 +194,22 @@ printf("Fence: %p\n", particleGraphics->computeP->computeInFlightFence[dm->curre
         //printf("FALLA A LA HORA DE ADQUIRIR LA SIGUIENTE IMAGEN\n");
         exit(1);
     }
-//printf("DRAW FRAME FLAG 1\n");
-    recordGraphicsCommandBuffer(gdp, particleGraphics, dm, dm->currentFrame, pd);
+    //printf("DRAW FRAME FLAG 1\n");
+    recordGraphicsCommandBuffer(gdp, particleGraphics, lightGraphics, dm, dm->currentFrame, pd);
     // 4. End Command Buffer Recording
     if (vkEndCommandBuffer(gdp->commandBuffer[dm->currentFrame]) != VK_SUCCESS) {
         printf("failed to record command buffer!");
     }
     // GRAPHICS QUEUE SUBMIT INFO
     printf("HEMOS RETORNADO DE GRAPHIOS COMMAND RECORDING AND RENDER PASS\n");
-    MODEL_VIEW_PROJECTION ubo = updateUniformBuffers(dm->graphicPipeline->swapchain, deltaTime);
+    MODEL_VIEW_PROJECTION*  ubo = updateUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
         printf("HEMOS RETORNADO DEL UPTADE THE UNIFORM BUFFER PROJECTION\n");
+
     VkSemaphore waitSemaphores[] = {gdp->imgViewSemaphore[dm->currentFrame], particleGraphics->computeP->computeEndSemaphore[dm->currentFrame]};
             printf("WAIT SEMAPHORES\n");
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
                 printf("WAIT STAGES\n");
+
     VkSemaphore signalSemaphores[] = {gdp->renderEndFlag[dm->currentFrame]}; // Hay que comprobar si estoy sincronizando bien particulas compute y graphic,
                 printf("SIGNAL SEMAPHORES\n");
 //printf("DRAW FRAME FLAG 1\n");
@@ -225,7 +225,7 @@ printf("Fence: %p\n", particleGraphics->computeP->computeInFlightFence[dm->curre
     };
     printf("HEMOS PASADO graphicsQUEUESUBMITINFO\n");
 
-    memcpy(gdp->deviceBuffer->ubo->uniformBuffersMapped[dm->currentFrame], &ubo, sizeof(ubo));
+    memcpy(gdp->deviceBuffer->ubo->uniformBuffersMapped[dm->currentFrame], &ubo, sizeof(ubo) * dm->graphicPipeline[0].scene->sceneInstancesLen);
     //ComputePipeline* computeP, LogicalDevice* ld, VkPipelineLayout layout, VkDescriptorSet descriptorSet, uint32_t imageIndex, float deltaTime
 printf("HEMOS PASADO EL MEMCPY DEL UBO MAPPED TO GPU\n");
     // GRAPHIC SUBMIT WORKLOAD

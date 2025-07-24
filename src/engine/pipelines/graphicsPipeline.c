@@ -1,5 +1,7 @@
 #include "graphicsPipeline.h"
 #include "particle.h"
+#include "light.h"
+
 #define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
 
@@ -71,7 +73,7 @@ void createSyncObjectsForGraphicAndCompute(GraphicPipelineToSurface *gp, VkDevic
 
 }
 
-void fillParticleBindingDescriptions(VkVertexInputBindingDescription **objectIBD, VkVertexInputRate inputRate, size_t stride){
+void fillParticleVertexBindingDescriptions(VkVertexInputBindingDescription **objectIBD, VkVertexInputRate inputRate, size_t stride){
 
     *objectIBD = malloc(sizeof(VkVertexInputBindingDescription));
     (*objectIBD)->binding = 0;
@@ -81,7 +83,7 @@ void fillParticleBindingDescriptions(VkVertexInputBindingDescription **objectIBD
 
 }
 
-void fillParticleInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD, uint32_t viadLen) { // MOVE  object input attribute description to each primitive
+void fillParticleVertexInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD, uint32_t viadLen) { // MOVE  object input attribute description to each primitive
     *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription)*viadLen);
     // GEOM_OBJECT coordinates
 
@@ -100,20 +102,20 @@ void fillParticleInputAttributeDescription(VkVertexInputAttributeDescription **o
 
 
 
- void recordGraphicsCommandBuffer(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* particleGraphics, DisplayManager* dm, uint32_t imageIndex, PhysicalDevice* pd) {
+ void recordGraphicsCommandBuffer(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* particleGraphics,
+ GraphicPipelineToSurface* lightGraphics, DisplayManager* dm, uint32_t imageIndex, PhysicalDevice* pd) {
     VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0, // Optional
         .pInheritanceInfo = NULL, // Optional
     };
 
-
-
-
     if (vkBeginCommandBuffer(gdp->commandBuffer[imageIndex], &beginInfo) != VK_SUCCESS) {
 
     }
-    // Acquire ownership in graphics queue
+
+
+    // TODO generalizar el recuperar los recursos de distintas fuentes
     VkBufferMemoryBarrier acquireBarrier = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
         .srcAccessMask = 0,  // No access needed for acquire
@@ -134,7 +136,7 @@ void fillParticleInputAttributeDescription(VkVertexInputAttributeDescription **o
         1, &acquireBarrier,
         0, NULL
     );
-    startRenderPass(gdp, particleGraphics, dm, dm->graphicPipeline->swapchain->p_framebuffers[imageIndex]);
+    startRenderPass(gdp, particleGraphics, lightGraphics, dm, dm->graphicPipeline->swapchain->p_framebuffers[imageIndex]);
 
 }
 
@@ -154,7 +156,7 @@ void fillParticleInputAttributeDescription(VkVertexInputAttributeDescription **o
     return shaderModule;
 }
 
-void fillObjectBindingDescriptions(VkVertexInputBindingDescription **objectIBD, VkVertexInputRate inputRate, size_t stride){
+void fillModelVertexBindingDescriptions(VkVertexInputBindingDescription **objectIBD, VkVertexInputRate inputRate, size_t stride){
 
     *objectIBD = malloc(sizeof(VkVertexInputBindingDescription));
     (*objectIBD)->binding = 0;
@@ -164,7 +166,7 @@ void fillObjectBindingDescriptions(VkVertexInputBindingDescription **objectIBD, 
 
 }
 
-void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD, uint32_t viadLen) { // MOVE  object input attribute description to each primitive
+void fillModelVertexInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD, uint32_t viadLen) { // MOVE  object input attribute description to each primitive
     *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription)*viadLen);
     // GEOM_OBJECT coordinates
 
@@ -189,7 +191,41 @@ void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription **obj
 }
 
 
-void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* particleGraphics,DisplayManager *dm, VkFramebuffer swapchainFramebuffer){
+void fillLightVolumeBindingDescriptions(VkVertexInputBindingDescription **objectIBD, VkVertexInputRate inputRate, size_t stride){
+
+    *objectIBD = malloc(sizeof(VkVertexInputBindingDescription));
+    (*objectIBD)->binding = 0;
+    (*objectIBD)->stride = stride;
+    (*objectIBD)->inputRate = inputRate;
+
+
+}
+
+void fillLightVolumeVertexInputAttributeDescription(VkVertexInputAttributeDescription **objectsIAD, uint32_t viadLen) { // MOVE  object input attribute description to each primitive
+    *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription)*viadLen);
+    // GEOM_OBJECT coordinates
+
+    (*objectsIAD)[0].binding = 0;
+    (*objectsIAD)[0].location = 0;
+    (*objectsIAD)[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    (*objectsIAD)[0].offset = offsetof(GEOM_VERTEX_G_BUFFER, geometry);
+
+    (*objectsIAD)[1].binding = 0;
+    (*objectsIAD)[1].location = 1;
+    (*objectsIAD)[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    (*objectsIAD)[1].offset = offsetof(GEOM_VERTEX_G_BUFFER, normals);
+
+    (*objectsIAD)[2].binding = 0;
+    (*objectsIAD)[2].location = 2;
+    (*objectsIAD)[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+    (*objectsIAD)[2].offset = offsetof(GEOM_VERTEX_G_BUFFER, albedo);
+
+}
+
+void  startRenderPass(GraphicPipelineToSurface *gdp,
+                      GraphicPipelineToSurface* particleGraphics,
+                        GraphicPipelineToSurface* lightGraphics,
+                    DisplayManager *dm, VkFramebuffer swapchainFramebuffer){
     VkRenderPassBeginInfo renderPassInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = *gdp->renderPass,
@@ -214,7 +250,6 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
     // Models vertex
     const VkBuffer localBuffer[] = {*gdp->deviceBuffer->buffer};
 
-    //updatePushConstants(gdp->commandBuffer[imageIndex], gdp->pipelineLayout);
     vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipeline);
 
     VkViewport viewport = {
@@ -234,17 +269,63 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
     };
 
     vkCmdSetScissor(gdp->commandBuffer[dm->currentFrame], 0, 1, &scissor);
-
+    // MODEL SUBPASS
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
                             0, 1, &gdp->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
     vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, localBuffer, offsets);
-    vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    // Model vertex draw call
-    vkCmdDrawIndexed(gdp->commandBuffer[dm->currentFrame], gdp->geometry->totalIndicesLen, 1, 0, 0, 0); //TODO numero de indices a dibujar
+    const SCENE *sceneModels = gdp->scene;
+    vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    for(int indexModel = 0; indexModel < sceneModels->modelsManager.modelLen; indexModel++){
+        printf("WOOOOOOOOOOOOOOOOW\n");
+        // Model vertex draw call
+        vkCmdDrawIndexed(
+            gdp->commandBuffer[dm->currentFrame],
+            sceneModels->modelsManager.pModel[indexModel].indices.itemsLen,
+            sceneModels->modelsManager.pModel[indexModel].instanceCount,
+            sceneModels->modelsManager.pModel[indexModel].indiceOffset,
+            sceneModels->modelsManager.pModel[indexModel].vertexOffset,
+            sceneModels->modelsManager.instanceOffset.items[indexModel]
+        ); //TODO numero de indices a dibujar
+    }
+
         printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+
+    // LIGHT SUBPASS
     vkCmdNextSubpass(gdp->commandBuffer[dm->currentFrame], VK_SUBPASS_CONTENTS_INLINE);
         printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+
+    vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *lightGraphics->pipeline);
+    vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            *gdp->pipelineLayout,0, 1, &lightGraphics->descriptorSet[dm->currentFrame],
+                            0, VK_NULL_HANDLE);
+
+    vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, lightGraphics->deviceBuffer->buffer, offsets);
+    const SCENE *sceneLightVolumes = lightGraphics->scene;
+    vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *lightGraphics->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    for(int indexLight = 0; indexLight < sceneLightVolumes->lightManager.lightLen; indexLight++){
+        // Model vertex draw call
+        printf("WYAYasasa\n");
+        printf("vkCmdDrawIndexed - Light[%u]: indexCount=%u, instanceCount=%u, firstIndex=%u, vertexOffset=%u, firstInstance=%u\n",
+       indexLight,
+       sceneLightVolumes->lightManager.pLight[indexLight].model.indices.itemsLen,
+       sceneLightVolumes->lightManager.pLight[indexLight].model.instanceCount,
+       sceneLightVolumes->lightManager.pLight[indexLight].model.indiceOffset,
+       sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
+       sceneLightVolumes->lightManager.instanceOffset.items[indexLight]
+);
+        vkCmdDrawIndexed(
+            gdp->commandBuffer[dm->currentFrame],
+            sceneLightVolumes->lightManager.pLight[indexLight].model.indices.itemsLen,
+            sceneLightVolumes->lightManager.pLight[indexLight].model.instanceCount,
+            sceneLightVolumes->lightManager.pLight[indexLight].model.indiceOffset,
+            sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
+            sceneLightVolumes->lightManager.instanceOffset.items[indexLight]
+        ); //TODO numero de indices a dibujar
+    }
+
+    // PARTICLE SUBPASS
+    vkCmdNextSubpass(gdp->commandBuffer[dm->currentFrame], VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *particleGraphics->pipeline);
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
                             0, 1, &particleGraphics->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
@@ -259,212 +340,12 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
     vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 1, 1, particleBuffer, particleOffsets);
     printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
     // Particle vertex draw call
-    vkCmdDraw(gdp->commandBuffer[dm->currentFrame], 1024, 1, 0, 0);
+    //                              vkCmdDraw(gdp->commandBuffer[dm->currentFrame], 1024, 1, 0, 0);
     printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
 
 }
-//TODO: there need to be createRenderPass2 and createRenderPassKHR2 for compatibility
- void createRenderPass(PhysicalDevice *pd, GraphicSwapchain *dsm, VkDevice device, GraphicPipelineToSurface *gdp) {
 
-    //TODO make abstractions for resources attachtments and resolvers
-
-    VkAttachmentDescription2 colorAttachment = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-        .format = (dsm->currentSurfaceFormat)->format,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .samples = dsm->msaaColorRes->numSamples,
-    };
-
-    VkAttachmentReference2 colorAttachmentRef = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
-        .attachment = 0,
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-
-    VkAttachmentDescription2 depthAttachment = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-        .format = (findDepthImageFormat(pd->gpu)),
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // Change from DONT_CARE
-        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .samples = dsm->msaaDepthRes->numSamples,
-    };
-
-    VkAttachmentReference2 depthAttachmentRef = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
-        .attachment = 1,
-        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-
-    VkAttachmentDescription2 colorAttachmentResolve = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-        .format = (dsm->currentSurfaceFormat)->format,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    };
-
-
-    VkAttachmentReference2 colorAttachmentResolveRef = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
-        .attachment = 2,
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-    };
-
-    VkAttachmentDescription2 depthResolveAttachment = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-        .format = (findDepthImageFormat(pd->gpu)),
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,  // Changed to STORE since we'll use it
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-    };
-
-    // Create the depth resolve reference
-    VkAttachmentReference2 depthResolveAttachmentRef = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
-        .attachment = 3,
-        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-
-  // Create the depth resolve info
-    VkSubpassDescriptionDepthStencilResolve depthResolveInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
-        .pNext = NULL,
-        .depthResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT,  // Or VK_RESOLVE_MODE_MIN_BIT
-        .stencilResolveMode = VK_RESOLVE_MODE_NONE,
-        .pDepthStencilResolveAttachment = &depthResolveAttachmentRef
-    };
-/*    VkAttachmentDescription particleDepthAttachment = {
-        .format = (findDepthImageFormat(pd->gpu)),
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-    };
-
-    VkAttachmentReference particleDepthAttachmentRef = {
-        .attachment = 3,
-        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-*/
-
-    VkAttachmentReference2 pointColorRef = {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
-        .attachment = 2, // Points draw directly to final color attachment
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-
-
-    VkSubpassDescription2 modelSubpass = {
-        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachmentRef,
-        .pDepthStencilAttachment = &depthAttachmentRef,
-        .pResolveAttachments = &colorAttachmentResolveRef,
-        .pNext =&depthResolveInfo,
-    };
-
-    VkSubpassDescription2 particleSubpass = {
-        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &pointColorRef,
-        .pDepthStencilAttachment = &depthResolveAttachmentRef,
-    };
-
-
-    // TODO MANAGE SUBPASS TREE
-
-    /*dsm->subpassDependency = malloc(sizeof(VkSubpassDependency)); //TODO this subpassDependency doesnt need to be  a pointer
-    dsm->subpassDependency->srcSubpass = VK_SUBPASS_EXTERNAL;
-    dsm->subpassDependency->dstSubpass = 0;
-    dsm->subpassDependency->srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dsm->subpassDependency->srcAccessMask = 0;
-    dsm->subpassDependency->dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dsm->subpassDependency->dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    dsm->subpassDependency->dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;*/
-    VkSubpassDependency2 dependencies[2] = {
-    {   // External -> Subpass 0
-        .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-        .srcSubpass = VK_SUBPASS_EXTERNAL,
-        .dstSubpass = 0,
-        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-                        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
-                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,        // Add for layout transition
-        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,          // Add for layout transition
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT |
-                        VK_ACCESS_SHADER_READ_BIT |
-                        VK_ACCESS_MEMORY_WRITE_BIT,                 // Add for layout transition
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-                        VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-                        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-                        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                        VK_ACCESS_MEMORY_READ_BIT,                  // Add for layout transition
-        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-    },
-    {   // Subpass 0 -> Subpass 1
-        .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-        .srcSubpass = 0,
-        .dstSubpass = 1,
-        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                        VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
-                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,      // Add for layout transition
-        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,         // Add for layout transition
-        .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-                        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-                        VK_ACCESS_MEMORY_WRITE_BIT,                // Add for layout transition
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-                        VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-                        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-                        VK_ACCESS_MEMORY_READ_BIT,                 // Add for layout transition
-        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-    }
-    };
-    VkAttachmentDescription2 attatchments[] = {colorAttachment, depthAttachment, colorAttachmentResolve, depthResolveAttachment};
-    VkSubpassDescription2 subpasses [] = {modelSubpass, particleSubpass};
-    VkRenderPassCreateInfo2 renderPassInfo = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
-        .attachmentCount = 4,
-        .pAttachments = attatchments,
-        .subpassCount = 2,
-        .pSubpasses = subpasses,
-        .dependencyCount = 2,
-        .pDependencies = dependencies,
-    };
-
-    gdp->renderPass = malloc(sizeof(*gdp->renderPass));
-    if (vkCreateRenderPass2(device, &renderPassInfo, NULL, gdp->renderPass) != VK_SUCCESS) {
-
-        exit(0);
-    }
-
-
-}
 /*
  void createParticleRenderPass(PhysicalDevice *pd, GraphicSwapchain *dsm, VkDevice device, GraphicPipelineToSurface *gdp) {
     //TODO make abstractions for resources attachtments and resolvers
@@ -611,9 +492,9 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
 
     // MODELS VERTEX INPUT
     gdp->objectIADLen = 3;
-    fillObjectInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
+    fillModelVertexInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
     gdp->objectIBDLen = 1;
-    fillObjectBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_VERTEX));
+    fillModelVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_VERTEX));
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -682,23 +563,24 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
         .pNext = VK_NULL_HANDLE,
     };
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachment = {
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-        .blendEnable = VK_TRUE,
-        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE, // Optional
-        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO, // Optional
-        .colorBlendOp = VK_BLEND_OP_ADD, // Optional
-        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE, // Optional
-        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO, // Optional
-        .alphaBlendOp = VK_BLEND_OP_ADD, // Optional
+    VkPipelineColorBlendAttachmentState colorBlendAttachment[2] = {
+        {
+            .blendEnable = VK_FALSE,
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+        },
+        {
+            .blendEnable = VK_FALSE,
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+        }
     };
 
+    uint32_t colorBlendAttachmentCount = 2;
     VkPipelineColorBlendStateCreateInfo colorBlending = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .logicOpEnable = VK_FALSE,
         .logicOp = VK_LOGIC_OP_COPY, // Optional
-        .attachmentCount = 1,
-        .pAttachments = &colorBlendAttachment,
+        .attachmentCount = colorBlendAttachmentCount,
+        .pAttachments = colorBlendAttachment,
         .blendConstants[0] = 0.3f, // Optional
         .blendConstants[1] = 0.4f, // Optional
         .blendConstants[2] = 0.5f, // Optional
@@ -706,18 +588,10 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
         .pNext = VK_NULL_HANDLE,
     };
 
-    /*VkPushConstantRange pushConstantRange = {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .offset = 0,
-        .size = sizeof(PushConstantDisplayTimer)
-    }*/;
-
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = gdp->maxFrames, // Optional
         .pSetLayouts = (VkDescriptorSetLayout[]){gdp->dsl, gdp->dsl, gdp->dsl},
-        //.pushConstantRangeCount = 0,
-        //.pPushConstantRanges = &pushConstantRange, // Optional
         .pNext = VK_NULL_HANDLE,
     };
 
@@ -759,7 +633,7 @@ void startRenderPass(GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* pa
 }
 
 
-void createParticlesGraphicPipeline(GraphicPipelineToSurface *gdp, DisplayManager *dm, VkDevice* device) {
+void createParticleGraphicPipeline(GraphicPipelineToSurface *gdp, DisplayManager *dm, VkDevice* device) {
     char** particleVert = (char**) malloc(sizeof(char*));
     char** particleFrag = (char**) malloc(sizeof(char*));
 
@@ -828,15 +702,12 @@ void createParticlesGraphicPipeline(GraphicPipelineToSurface *gdp, DisplayManage
     printf("before INPUTOBJECTS BIDNINGS ETC\n");
     // PARTICLE VERTEX INPUT
     gdp->objectIADLen = 2;
-    fillParticleInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
+    fillParticleVertexInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
     gdp->objectIBDLen = 1;
     printf("middle INPUTOBJECTS BIDNINGS ETC\n");
-    fillParticleBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_PARTICLE));
+    fillParticleVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_PARTICLE));
 
     printf("TRAS INPUTOBJECTS BIDNINGS ETC\n");
-    VkVertexInputAttributeDescription pipelineVIAD[3] = {
-    gdp->objectIAD[0],gdp->objectIAD[0],gdp->objectIAD[0]};
-    VkVertexInputBindingDescription pipelineIBD[1] = {*gdp->objectIBD};
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -968,8 +839,227 @@ void createParticlesGraphicPipeline(GraphicPipelineToSurface *gdp, DisplayManage
         .pDynamicState = &dynamicState,
         .layout = *gdp->pipelineLayout,
         .renderPass = *gdp->renderPass,
-        .subpass = 1,
+        .subpass = 2,
         .pDepthStencilState = &depthStencil,
+        .basePipelineHandle = VK_NULL_HANDLE, // Optional
+        .basePipelineIndex = -1, // Optional
+        .pNext = VK_NULL_HANDLE,
+    };
+    gdp->pipeline = malloc(sizeof(*gdp->pipeline));
+    if (vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, gdp->pipeline) != VK_SUCCESS) {
+
+        exit(1);
+    }
+
+
+}
+
+void createLightVolumeGraphicPipeline(GraphicPipelineToSurface *gdp, DisplayManager *dm, VkDevice* device) {
+    char** lightVert = (char**) malloc(sizeof(char*));
+    char** lightFrag = (char**) malloc(sizeof(char*));
+
+    size_t lightVertSize = 0;
+    size_t lightFragSize = 0;
+
+    readSPVBinaryFile(VOLUMETRIC_LIGHT_VERT_SHADER, lightVert, &lightVertSize);
+    readSPVBinaryFile(VOLUMETRIC_LIGHT_FRAG_SHADER, lightFrag, &lightFragSize);
+    // TODOcrear struct para spv, guarde datos y un hilo los lea y escriba en background
+    assert(lightVertSize > 0);
+    assert(lightFragSize > 0);
+
+
+    gdp->vertShader = createShaderModule(*device, lightVert, lightVertSize);
+    gdp->fragShader = createShaderModule(*device, lightFrag, lightFragSize);
+
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = (*gdp->vertShader),
+        .pName = "main",
+        .pNext = VK_NULL_HANDLE,
+    };
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = (*gdp->fragShader),
+        .pName = "main",
+        .pNext = VK_NULL_HANDLE,
+    };
+
+
+    VkPipelineShaderStageCreateInfo shaderStages[2];
+    shaderStages[0] = vertShaderStageInfo;
+    shaderStages[1] = fragShaderStageInfo;
+
+    VkDynamicState dynamicStates[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+
+    printf("HOLA HOLA PA TI MI COLA\n");
+    uint32_t dynamicStateSize = 2;
+
+    VkPipelineDynamicStateCreateInfo dynamicState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = dynamicStateSize,
+        .pDynamicStates = dynamicStates,
+        .pNext = VK_NULL_HANDLE,
+    };
+
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = VK_COMPARE_OP_GREATER,
+        .depthBoundsTestEnable = VK_FALSE,
+        .minDepthBounds = 0.0f, // Optional
+        .maxDepthBounds = 1.0f, // Optional
+        .stencilTestEnable = VK_FALSE,
+        .front = {}, // Optional
+        .back = {}, // Optional
+    };
+
+    printf("before INPUTOBJECTS BIDNINGS ETC\n");
+    // PARTICLE VERTEX INPUT
+    gdp->objectIADLen = 3;
+    fillLightVolumeVertexInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
+    gdp->objectIBDLen = 1;
+    printf("middle INPUTOBJECTS BIDNINGS ETC\n");
+    fillLightVolumeBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_PARTICLE));
+
+    printf("TRAS INPUTOBJECTS BIDNINGS ETC\n");
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = gdp->objectIBDLen,
+        .pVertexBindingDescriptions = gdp->objectIBD,
+        .vertexAttributeDescriptionCount = gdp->objectIADLen,
+        .pVertexAttributeDescriptions = gdp->objectIAD,
+        .pNext = VK_NULL_HANDLE,
+    };
+    printf("TRAS vertexInputInfo vertexInputInfo vertexInputInfo\n");
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+        .pNext = VK_NULL_HANDLE,
+    };
+    printf("TRAS inputAssembly inputAssembly inputAssembly\n");
+
+
+    VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = (float) dm->graphicPipeline->swapchain->currentExtent2D.width,
+        .height = (float) dm->graphicPipeline->swapchain->currentExtent2D.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent = dm->graphicPipeline->swapchain->currentExtent2D,
+    };
+
+    VkPipelineViewportStateCreateInfo viewportState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor,
+        .pNext = VK_NULL_HANDLE,
+    };
+
+    VkPipelineMultisampleStateCreateInfo multisampling = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .sampleShadingEnable = VK_FALSE,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .minSampleShading = 1.0f, // Optional
+        .pSampleMask = NULL, // Optional
+        .alphaToCoverageEnable = VK_FALSE, // Optional
+        .alphaToOneEnable = VK_FALSE, // Optional
+        .pNext = VK_NULL_HANDLE,
+    };
+    VkPipelineRasterizationStateCreateInfo rasterizer = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .lineWidth = 1.0f,
+        .cullMode = VK_CULL_MODE_NONE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .depthBiasConstantFactor = 0.0f, // Optional
+        .depthBiasClamp = 0.0f, // Optional
+        .depthBiasSlopeFactor = 0.0f, // Optional
+        .pNext = VK_NULL_HANDLE,
+    };
+    printf("TRAS RASTERIZERO\n");
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment[3] = {
+        {
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+            .blendEnable = VK_FALSE,
+        },
+    };
+
+    uint32_t colorBlendAttachmentLen = 1;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY, // Optional
+        .attachmentCount = colorBlendAttachmentLen,
+        .pAttachments = colorBlendAttachment,
+        .blendConstants[0] = 0.3f, // Optional
+        .blendConstants[1] = 0.4f, // Optional
+        .blendConstants[2] = 0.5f, // Optional
+        .blendConstants[3] = 0.0f, // Optional
+        .pNext = VK_NULL_HANDLE,
+    };
+
+    /*VkPushConstantRange pushConstantRange = {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .offset = 0,
+        .size = sizeof(PushConstantDisplayTimer)
+    }*/;
+    printf("befire PIPELINEVLAYOUTRCEWRAT UIVIFP RASTERIZERO\n");
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = gdp->maxFrames, // Optional
+        .pSetLayouts = (VkDescriptorSetLayout[]){gdp->dsl, gdp->dsl, gdp->dsl},
+        //.pushConstantRangeCount = 0,
+        //.pPushConstantRanges = &pushConstantRange, // Optional
+        .pNext = VK_NULL_HANDLE,
+    };
+
+
+    gdp->pipelineLayout = malloc(sizeof(*gdp->pipelineLayout));
+    if (vkCreatePipelineLayout(*device, &pipelineLayoutInfo, NULL, gdp->pipelineLayout) != VK_SUCCESS) {
+
+        exit(1);
+    }
+
+    //createRenderPass(dm->swapchain,*device,gdp);
+
+
+    VkGraphicsPipelineCreateInfo pipelineInfo = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = 2,
+        .pStages = &shaderStages[0],
+        .pVertexInputState = &vertexInputInfo,
+        .pInputAssemblyState = &inputAssembly,
+        .pViewportState = &viewportState,
+        .pRasterizationState = &rasterizer,
+        .pMultisampleState = &multisampling,
+        .pDepthStencilState = &depthStencil, // Optional
+        .pColorBlendState = &colorBlending,
+        .pDynamicState = &dynamicState,
+        .layout = *gdp->pipelineLayout,
+        .renderPass = *gdp->renderPass,
+        .subpass = 1,
         .basePipelineHandle = VK_NULL_HANDLE, // Optional
         .basePipelineIndex = -1, // Optional
         .pNext = VK_NULL_HANDLE,
