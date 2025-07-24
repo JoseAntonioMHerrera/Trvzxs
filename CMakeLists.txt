@@ -7,6 +7,8 @@ endif()
 
 project(renderer LANGUAGES C CXX)
 
+
+
 # Dependencies with vcpkg
 find_package(SDL2 CONFIG REQUIRED)
 find_package(SDL2_ttf CONFIG REQUIRED)
@@ -26,7 +28,8 @@ find_package(Vulkan REQUIRED)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
 add_executable(${PROJECT_NAME})
 # iterate CMakeLists
 add_subdirectory(src)
@@ -37,12 +40,12 @@ target_link_libraries(${PROJECT_NAME}
     $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
     $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
     $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
-    
+
     # Vulkan and related
     Vulkan::Vulkan
     Vulkan::Headers
     GPUOpen::VulkanMemoryAllocator
-    
+
     # SPIR-V and shader compilation
     glslang::glslang
     glslang::SPIRV

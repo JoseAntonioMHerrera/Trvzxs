@@ -18,14 +18,13 @@ enum class PRIMITIVE_TYPE {
     PLANE,
     MODEL
 };
-template <typename T>
-constexpr auto modelDeletor = [](T* obj){ std::cout << "LLAMAMOS AL DELETER DE MODEL"<< std::endl;free(obj->data); free(obj->indices);};
 
-template <typename T>
-class Model : public MetaObject<T, void(*)(T*)> {
+constexpr auto modelDeletor = [](Model3D* obj){ std::cout << "LLAMAMOS AL DELETER DE MODEL"<< std::endl;};
+
+class Model  {
 public:
     // Default constructor
-    Model() : MetaObject<T, void(*)(T*)>() {}
+    /*Model()  {}
 
     // Constructor for loading from file
     explicit Model(const std::string& modelPath) noexcept
@@ -94,5 +93,5 @@ public:
             std::cout << "DESTRUCTOR MODELO" << std::endl;
         }
 
-    };
+    };*/
 };

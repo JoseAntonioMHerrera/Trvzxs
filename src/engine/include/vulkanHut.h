@@ -1,4 +1,4 @@
-#pragma once
+/*#pragma once
 
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL.h>
@@ -15,4 +15,4 @@
 #include "displayManager.h"
 #include "displayTimer.h"
 
-#include "../device/include/deviceManagment.h"
+#include "../device/include/deviceManagment.h"*/

@@ -36,7 +36,9 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineTo
 
 }
 //TODO must receive n textures that will be rendered in screen
-void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphic, Texture2D* texture){
+void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphic,
+                        GraphicPipelineToSurface* lightGraphic,
+                         Texture2D* texture){
     assert(gdp->dsl);
 
     // We allocate one descriptorset for
@@ -56,10 +58,17 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
 
     for (size_t i = 0; i < maxFrames; i++) {
         printf("HOLA HOLA %lu\n", (i - 1 + maxFrames) % maxFrames);
-        VkDescriptorBufferInfo transformUBOInfo = {
-            .buffer = gdp->deviceBuffer->ubo->uniformBuffers[i],
-            .offset = 0,
-            .range = sizeof(MODEL_VIEW_PROJECTION),
+        VkDescriptorBufferInfo transformUBOInfo[2] = {
+            {
+                .buffer = gdp->deviceBuffer->ubo->uniformBuffers[i],
+                .offset = 0,
+                .range = sizeof(MODEL_VIEW_PROJECTION),
+            },
+            {
+                .buffer = lightGraphic->deviceBuffer->ubo->uniformBuffers[i],
+                .offset = 0,
+                .range = sizeof(MODEL_VIEW_PROJECTION),
+            }
         };
 
         VkDescriptorBufferInfo deltaUBOInfo = {
@@ -79,12 +88,19 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
             .offset = 0,
             .range = sizeof(GEOM_PARTICLE)* 1024,
         };
-
-
         VkDescriptorImageInfo imgInfo = {
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .imageView = texture->common->imageView,
             .sampler = texture->sampler,
+        };
+
+        VkDescriptorImageInfo gBuffer = {
+            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .imageView = gdp->swapchain->gBuffer->imageView,
+        };
+        VkDescriptorImageInfo nBuffer = {
+            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .imageView = gdp->swapchain->nBuffer->imageView,
         };
         printf("ADIOS ADIOS\n");
         VkWriteDescriptorSet descriptorWrite[] = {
@@ -94,8 +110,8 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
                 .dstBinding = 0,
                 .dstArrayElement = 0,
                 .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                .descriptorCount = 1,
-                .pBufferInfo = &transformUBOInfo,
+                .descriptorCount = 2,
+                .pBufferInfo = transformUBOInfo,
                 .pImageInfo = VK_NULL_HANDLE, // Optional
                 .pTexelBufferView = VK_NULL_HANDLE, // Optional
             },
@@ -140,19 +156,41 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
                 .pImageInfo = VK_NULL_HANDLE, // Optional
                 .pTexelBufferView = VK_NULL_HANDLE, // Optional
             },
+            {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = gdp->descriptorSet[i],
+                .dstBinding = 5,
+                .dstArrayElement = 0,
+                .descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+                .descriptorCount = 1,
+                .pBufferInfo = VK_NULL_HANDLE,
+                .pImageInfo = &gBuffer, // Optional
+                .pTexelBufferView = VK_NULL_HANDLE, // Optional
+            },
+            {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = gdp->descriptorSet[i],
+                .dstBinding = 6,
+                .dstArrayElement = 0,
+                .descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+                .descriptorCount = 1,
+                .pBufferInfo = VK_NULL_HANDLE,
+                .pImageInfo = &nBuffer, // Optional
+                .pTexelBufferView = VK_NULL_HANDLE, // Optional
+            },
         };
         printf("UPDATE\n");
-        vkUpdateDescriptorSets(device, 5, descriptorWrite, 0, VK_NULL_HANDLE);
+        vkUpdateDescriptorSets(device, 7, descriptorWrite, 0, VK_NULL_HANDLE);
 
     }
 }
 
 void createDescriptorSetLayout(LogicalDevice *ld, GraphicPipelineToSurface* gdp, uint32_t maxFrames){
 
-    VkDescriptorSetLayoutBinding uboTransformMat = {
+    VkDescriptorSetLayoutBinding uboInstanceTransform = {
         .binding = 0,
         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1,
+        .descriptorCount = 2,
         .pImmutableSamplers = VK_NULL_HANDLE,
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
     };
@@ -174,11 +212,11 @@ void createDescriptorSetLayout(LogicalDevice *ld, GraphicPipelineToSurface* gdp,
     };
 
     VkDescriptorSetLayoutBinding currentSSBOLayoutBinding = {
-    .binding = 3,
-    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    .descriptorCount = 1,
-    .pImmutableSamplers = VK_NULL_HANDLE,
-    .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT,
+        .binding = 3,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .pImmutableSamplers = VK_NULL_HANDLE,
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT,
     };
 
     VkDescriptorSetLayoutBinding uboDeltaTime = {
@@ -189,12 +227,27 @@ void createDescriptorSetLayout(LogicalDevice *ld, GraphicPipelineToSurface* gdp,
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
     };
 
-    VkDescriptorSetLayoutBinding bindings[] = {uboTransformMat, samplerLayoutBinding, previousSSBOLayoutBinding, currentSSBOLayoutBinding, uboDeltaTime};
+    VkDescriptorSetLayoutBinding gBufferBinding = {
+        .binding = 5,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+        .pImmutableSamplers = VK_NULL_HANDLE,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+    };
+    VkDescriptorSetLayoutBinding nBufferBinding = {
+        .binding = 6,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+        .pImmutableSamplers = VK_NULL_HANDLE,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+    };
+
+    VkDescriptorSetLayoutBinding bindings[] = {uboInstanceTransform, samplerLayoutBinding, previousSSBOLayoutBinding, currentSSBOLayoutBinding, uboDeltaTime, gBufferBinding, nBufferBinding};
 
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 5,
+        .bindingCount = 7,
         .pBindings = bindings,
         .pNext = VK_NULL_HANDLE,
         .flags = 0,

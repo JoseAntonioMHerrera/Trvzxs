@@ -10,6 +10,8 @@ find_package(glslang CONFIG REQUIRED)
 find_package(SPIRV-Tools CONFIG REQUIRED)
 find_package(unofficial-shaderc CONFIG REQUIRED)
 
+target_compile_options(engine_mod PRIVATE -g)
+
 target_include_directories(engine_mod PUBLIC
     buffer/include
     device/include
@@ -82,12 +84,12 @@ target_link_libraries(engine_mod
     $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
     $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
     $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
-    
+
     # Vulkan and related
     Vulkan::Vulkan
     Vulkan::Headers
     GPUOpen::VulkanMemoryAllocator
-    
+
     # SPIR-V and shader compilation
     glslang::glslang
     glslang::SPIRV

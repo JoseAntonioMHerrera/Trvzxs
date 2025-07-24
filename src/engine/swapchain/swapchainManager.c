@@ -28,6 +28,279 @@ VkImageView createImageView(GraphicSwapchain *dsm, VkDevice device, VkFormat for
     return imageView;
 }
 
+void createRenderPass(PhysicalDevice *pd, GraphicSwapchain *dsm, VkDevice device, GraphicPipelineToSurface *gdp) {
+
+    //TODO make abstractions for resources attachtments and resolvers
+    printf("CREAMOS EL RENDER PASS CON %d\n", dsm->msaaColorRes->numSamples);
+    // COLOR ATTACHTMENT WITH MSAA ENABLED (N SAMPLES)
+    VkAttachmentDescription2 colorAttachment = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = (dsm->currentSurfaceFormat)->format,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .samples = dsm->msaaColorRes->numSamples,
+    };
+    // MODELS COLOR ATTACHTMENT REF
+    VkAttachmentReference2 colorAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+    // 1 SAMPLE DEPTH ATTACHTMENT
+    VkAttachmentDescription2 depthAttachment = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = (findDepthImageFormat(pd->gpu)),
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // Change from DONT_CARE
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+    };
+    // MODELS DEPTH ATTACHTMENT REF
+    VkAttachmentReference2 depthAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .attachment = 1,
+        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
+    // COLOR ATTACHTMENT RESOLVE
+    /*VkAttachmentDescription2 colorAttachmentResolve = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = (dsm->currentSurfaceFormat)->format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    };
+
+    // COLOR ATTACHTMENT RESOLVE REF (MODELS WITH MSAA RESOLVE TO 1 SAMPLE) G-BUFFER,
+    VkAttachmentReference2 colorAttachmentResolveRef[3] = {
+        {
+
+            .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+            .attachment = 2,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+            .attachment = VK_ATTACHMENT_UNUSED,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+            .attachment = VK_ATTACHMENT_UNUSED,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        }
+    };*/
+
+    // DEPTH RESOLVE IMAGE N SAMPLES -> 1 SAMPLE
+
+    /*VkAttachmentDescription2 depthResolveAttachment = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = (findDepthImageFormat(pd->gpu)),
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,  // Changed to STORE since we'll use it
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    // DEPTH RESOLVE REF FOR
+    VkAttachmentReference2 depthResolveAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .attachment = 3,
+        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
+    VkSubpassDescriptionDepthStencilResolve depthResolveInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
+        .pNext = NULL,
+        .depthResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT,
+        .stencilResolveMode = VK_RESOLVE_MODE_NONE,
+        .pDepthStencilResolveAttachment = &depthResolveAttachmentRef
+    };*/
+
+    // PARTICLE COLOR REF ATTACHTMENT
+    VkAttachmentReference2 particleReadColorAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .attachment = 0, // Points draw directly to final color attachment
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    // G-BUFFER (GEOMETRY AND NORMALS)
+    VkAttachmentDescription2 geometryAttachment = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = (findGeometryBufferFormat(pd->gpu)),
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,  // Changed to STORE since we'll use it
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    VkAttachmentReference2 geometryAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .attachment = 2,
+        .layout = VK_IMAGE_LAYOUT_GENERAL,
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    };
+
+    VkAttachmentDescription2 gNormalsAttachment = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = (findNormalsBufferFormat(pd->gpu)),
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,  // Changed to STORE since we'll use it
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // TODO chance of optimization changing the layout to a more specific one like READ_OPTIMAL
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    VkAttachmentReference2 gNormalsAttachmentRef = {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .attachment = 3,
+        .layout = VK_IMAGE_LAYOUT_GENERAL,
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    };
+
+    VkAttachmentReference2 modelColorAttachtmentsRef[] = {geometryAttachmentRef, gNormalsAttachmentRef};
+    VkAttachmentReference2 lightColorAttachtmentsRef[] = {colorAttachmentRef};
+    VkAttachmentReference2 lightInputAttachmentRef[] = {geometryAttachmentRef, gNormalsAttachmentRef};
+    VkAttachmentReference2 particleColorAttachmentsRef[] = {particleReadColorAttachmentRef};
+    uint32_t modelColorAttachmentCount = 2;
+    uint32_t lightColorAttachmentCount = 1;
+    uint32_t lightInputAttachmentCount = 2;
+    uint32_t particleColorAttachmentCount = 1;
+
+    VkSubpassDescription2 modelSubpass = {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = modelColorAttachmentCount,
+        .pColorAttachments = modelColorAttachtmentsRef,
+        .pDepthStencilAttachment = &depthAttachmentRef,
+    };
+
+    VkSubpassDescription2 lightVolumeSubpass = {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = lightColorAttachmentCount,
+        .inputAttachmentCount = lightInputAttachmentCount,
+        .pColorAttachments = lightColorAttachtmentsRef,
+        .pDepthStencilAttachment = &depthAttachmentRef,
+        .pInputAttachments = lightInputAttachmentRef,
+        .pResolveAttachments = NULL,
+        .pNext = NULL,
+    };
+
+        VkSubpassDescription2 particleSubpass = {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = particleColorAttachmentCount,
+        .pColorAttachments = particleColorAttachmentsRef,
+        .pDepthStencilAttachment = &depthAttachmentRef,
+    };
+
+    VkSubpassDependency2 subpassDependencies[] = {
+        {   // External -> Subpass 0
+            .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+            .srcSubpass = VK_SUBPASS_EXTERNAL,
+            .dstSubpass = 0,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,        // Add for layout transition
+            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,          // Add for layout transition
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT |
+                            VK_ACCESS_SHADER_READ_BIT |
+                            VK_ACCESS_MEMORY_WRITE_BIT,                 // Add for layout transition
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                            VK_ACCESS_MEMORY_READ_BIT,                  // Add for layout transition
+            .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+        },
+
+        {   // Subpass 0 -> Subpass 1
+            .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+            .srcSubpass = 0,
+            .dstSubpass = 1,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,      // Add for layout transition
+            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,         // Add for layout transition
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_MEMORY_WRITE_BIT,                // Add for layout transition
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_MEMORY_READ_BIT,                 // Add for layout transition
+            .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+        },
+        {   // Subpass 0 -> Subpass 1
+            .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+            .srcSubpass = 1,
+            .dstSubpass = 2,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,      // Add for layout transition
+            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,         // Add for layout transition
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_MEMORY_WRITE_BIT,                // Add for layout transition
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                            VK_ACCESS_MEMORY_READ_BIT,                 // Add for layout transition
+            .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+        },
+    };
+
+    gdp->attachtmentLen = 4;
+    gdp->subpassLen = 3;
+    gdp->dependenciesLen = 3;
+    VkAttachmentDescription2 attatchments[] = {colorAttachment, depthAttachment, geometryAttachment, gNormalsAttachment};
+    VkSubpassDescription2 subpasses [] = {modelSubpass, lightVolumeSubpass, particleSubpass};
+    VkRenderPassCreateInfo2 renderPassInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
+        .attachmentCount = gdp->attachtmentLen,
+        .pAttachments = attatchments,
+        .subpassCount = gdp->subpassLen,
+        .pSubpasses = subpasses,
+        .dependencyCount = gdp->dependenciesLen,
+        .pDependencies = subpassDependencies,
+    };
+
+    gdp->renderPass = malloc(sizeof(*gdp->renderPass));
+    if (vkCreateRenderPass2(device, &renderPassInfo, NULL, gdp->renderPass) != VK_SUCCESS) {
+
+        exit(0);
+    }
+
+
+}
+
 void createFrameBuffers(GraphicSwapchain *swapManager, VkRenderPass *renderPass, VkDevice* device) {
 
 
@@ -37,16 +310,21 @@ void createFrameBuffers(GraphicSwapchain *swapManager, VkRenderPass *renderPass,
 
     for (uint32_t i = 0; i < swapManager->scImagesLen; i++) {
         VkImageView attachments[] = {
-            swapManager->msaaColorRes->imageView,
-            swapManager->msaaDepthRes->imageView,
             swapManager->p_scImageView[i],
+/*            swapManager->msaaColorRes->imageView,
+            swapManager->msaaDepthRes->imageView,*/
+
             swapManager->depthImage.common->imageView,
+            swapManager->gBuffer->imageView,
+            swapManager->nBuffer->imageView,
         };
+
+        uint32_t attachmentsCount = 4;
 
         VkFramebufferCreateInfo framebufferInfo = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass = *renderPass,
-            .attachmentCount = 4, // TODO abstract attachtments creation with everything, maybe at subpass level
+            .attachmentCount = attachmentsCount, // TODO abstract attachtments creation with everything, maybe at subpass level
             .pAttachments = attachments,
             .width = swapManager->currentExtent2D.width,
             .height = swapManager->currentExtent2D.height,
