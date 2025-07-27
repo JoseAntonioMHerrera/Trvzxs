@@ -6,8 +6,11 @@ bool hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 //TODO refactor this function
-void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) {
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands(ld, commandPool);
+void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels,
+    VkCommandBuffer commandBuffer) {
+
+    if(commandBuffer == VK_NULL_HANDLE)
+        commandBuffer = beginSingleTimeCommands(ld, commandPool);
     VkImageMemoryBarrier barrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .oldLayout = oldLayout,
@@ -58,8 +61,12 @@ void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage
 
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    } else {
+    } else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+        barrier.srcAccessMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        barrier.dstAccessMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 
+        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        destinationStage =  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     }
 
     vkCmdPipelineBarrier(
@@ -71,7 +78,8 @@ void transitionImageLayout(LogicalDevice *ld, VkCommandPool commandPool, VkImage
         1, &barrier
     );
 
-    endSingleTimeCommands(commandBuffer, commandPool, *ld->queueManager.graphicsQueue, ld->device);
+    if(commandBuffer == VK_NULL_HANDLE)
+        endSingleTimeCommands(commandBuffer, commandPool, *ld->queueManager.graphicsQueue, ld->device);
 }
 
 void createVkImage(VkDevice device, PhysicalDevice *pd, VkFormat format, VkImageTiling tiling, VkImageLayout imageLayout, VkImageUsageFlags imageUsage,
@@ -191,7 +199,7 @@ void createGeometryBufferResources(PhysicalDevice* pd, LogicalDevice *ld, Graphi
     dispM->gBuffer = malloc(sizeof(*dispM->gBuffer));
     createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    dispM->gBuffer, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_EXCLUSIVE);
+    dispM->gBuffer, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_CONCURRENT);
 
     dispM->gBuffer->imageView = createImageView(dispM, ld->device, format,dispM->gBuffer->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 }
@@ -201,7 +209,7 @@ void createNormalsBufferResources(PhysicalDevice* pd, LogicalDevice *ld, Graphic
     dispM->nBuffer = malloc(sizeof(*dispM->nBuffer));
     createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
     VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    dispM->nBuffer, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_EXCLUSIVE);
+    dispM->nBuffer, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_CONCURRENT);
 
     dispM->nBuffer->imageView = createImageView(dispM, ld->device, format,dispM->nBuffer->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 }

@@ -277,7 +277,7 @@ void  startRenderPass(GraphicPipelineToSurface *gdp,
     const SCENE *sceneModels = gdp->scene;
     vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     for(int indexModel = 0; indexModel < sceneModels->modelsManager.modelLen; indexModel++){
-        printf("WOOOOOOOOOOOOOOOOW\n");
+        printf("startRenderPass models iteration\n");
         // Model vertex draw call
         vkCmdDrawIndexed(
             gdp->commandBuffer[dm->currentFrame],
@@ -289,11 +289,11 @@ void  startRenderPass(GraphicPipelineToSurface *gdp,
         ); //TODO numero de indices a dibujar
     }
 
-        printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+    printf("startRenderPass\n");
 
     // LIGHT SUBPASS
     vkCmdNextSubpass(gdp->commandBuffer[dm->currentFrame], VK_SUBPASS_CONTENTS_INLINE);
-        printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+    printf("startRenderPass\n");
 
     vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *lightGraphics->pipeline);
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -305,7 +305,7 @@ void  startRenderPass(GraphicPipelineToSurface *gdp,
     vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *lightGraphics->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     for(int indexLight = 0; indexLight < sceneLightVolumes->lightManager.lightLen; indexLight++){
         // Model vertex draw call
-        printf("WYAYasasa\n");
+    printf("startRenderPass\n");
         printf("vkCmdDrawIndexed - Light[%u]: indexCount=%u, instanceCount=%u, firstIndex=%u, vertexOffset=%u, firstInstance=%u\n",
        indexLight,
        sceneLightVolumes->lightManager.pLight[indexLight].model.indices.itemsLen,
@@ -331,17 +331,17 @@ void  startRenderPass(GraphicPipelineToSurface *gdp,
                             0, 1, &particleGraphics->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
     // DRAW THE PARTICLES
     // Particle vertex buffer offset for draw
-            printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+    printf("startRenderPass\n");
     VkDeviceSize particleOffsets[] = {0};
     //Particle vertex
-            printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+    printf("startRenderPass\n");
     const VkBuffer particleBuffer[] = {particleGraphics->computeP->deviceBuffer->ssbos->buffers[dm->currentFrame]};
-        printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+    printf("startRenderPass\n");
     vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 1, 1, particleBuffer, particleOffsets);
-    printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+    printf("startRenderPass\n");
     // Particle vertex draw call
     //                              vkCmdDraw(gdp->commandBuffer[dm->currentFrame], 1024, 1, 0, 0);
-    printf("WHAT THE FUCKT ITS HAPEENIG NGHERE\n");
+    printf("startRenderPass\n");
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
 
 }
