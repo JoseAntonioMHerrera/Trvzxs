@@ -124,8 +124,8 @@ class MetaEngine {
             throw std::runtime_error("isDeviceValid returns VK_FALSE");
         }
         createSwapChain(pd, ld, dispM, gdp, window);
-        particleGraphicPipeline->swapchain = gdp->swapchain;
-        lightVolumeGraphicPipeline->swapchain = gdp->swapchain;
+        particleGraphicPipeline->swapchain = dsmParticle;
+        lightVolumeGraphicPipeline->swapchain = dsmLightVolume;
 
         gdp->maxFrames = dsm->scImagesLen;
         lightVolumeGraphicPipeline->maxFrames = dsmLightVolume->scImagesLen;
