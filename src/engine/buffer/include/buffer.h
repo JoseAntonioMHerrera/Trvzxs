@@ -14,38 +14,41 @@
 
 typedef struct CommandPools CommandPools;
 
-typedef struct DeviceBufferManager {
-    VkBuffer *buffer;
-    VkDeviceMemory *bufferMemory;
-    size_t bufferLen;
+typedef struct DeviceBufferManager
+{
+    VkBuffer*       buffer;
+    VkDeviceMemory* bufferMemory;
+    size_t          bufferLen;
 
     // Index Buffer
-    VkBuffer *indexBuffer;
-    VkDeviceMemory *indexBufferMemory;
-    size_t* indexLen;
+    VkBuffer*       indexBuffer;
+    VkDeviceMemory* indexBufferMemory;
+    size_t*         indexLen;
 
     // Staging Buffer
-    size_t stagingLen;
-    VkBuffer *stagingBuffer;
-    VkDeviceMemory *stagingBufferMemory;
+    size_t          stagingLen;
+    VkBuffer*       stagingBuffer;
+    VkDeviceMemory* stagingBufferMemory;
 
-    //UniformBuffers
-    UniformBufferManager *ubo;
+    // UniformBuffers
+    UniformBufferManager* pUbo;
+    uint32_t              uboCount;
 
-    //SSBO prefered use
-    SSBOBufferManager *ssbos;
-
+    // SSBO prefered use
+    SSBOBufferManager* ssbos;
+    uint32_t           ssbosCount;
 } DeviceBufferManager;
 
-void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkMemoryPropertyFlags properties,
-                    VkBuffer* buffer, VkDeviceMemory* bufferMemory);
+void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferUsageFlags usage,
+                    VkSharingMode sharingMode, VkMemoryPropertyFlags properties, VkBuffer* buffer,
+                    VkDeviceMemory* bufferMemory);
 
-void createGeometryIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager *dbm, SCENE *scene,
-                                      CommandPools* commandPool);
+void createGeometryIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
+                                CommandPools* commandPool);
 
-void createGeometryBuffer(PhysicalDevice *pd, LogicalDevice *ld, DeviceBufferManager *dbm, SCENE *scene,
-                                        CommandPools* commandPool);
-void createLightVolumeIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager *dbm, SCENE *scene,
-                                      CommandPools* commandPool);
-void createLightVolumeVertexBuffer(PhysicalDevice *pd, LogicalDevice *ld, DeviceBufferManager *dbm, SCENE *scene,
-                                        CommandPools* commandPool);
+void createGeometryBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
+                          CommandPools* commandPool);
+void createLightVolumeIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
+                                    CommandPools* commandPool);
+void createLightVolumeVertexBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
+                                   CommandPools* commandPool);

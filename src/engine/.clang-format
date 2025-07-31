@@ -1,0 +1,12 @@
+# .clang-format
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+BreakBeforeBraces: Allman
+AlignConsecutiveDeclarations: true
+AlignConsecutiveAssignments: true
+SpaceAfterCStyleCast: true
+PointerAlignment: Left
+SortIncludes: Never
