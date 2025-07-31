@@ -3,75 +3,77 @@
 #include "metaEngine.hpp"
 #include "model.hpp"
 #include <SDL_ttf.h>
-extern "C" {
+extern "C"
+{
 
-    #include <SDL_stdinc.h>
-    #include <SDL_vulkan.h>
-    #include <SDL.h>
-    #include <stdint.h>
-    #include <time.h>
-    #include <vulkan/vulkan.h>
-    #include <assert.h>
-    #include "string_helper_macros.h"
-    #include "comparation_helper_macros.h"
-    #include <unistd.h>
-    #include <vulkan/vulkan_core.h>
-    #include "file_functions.h"
-    #include "vertex.h"
-    #include <vulkan/vulkan_core.h>
-    #include "strictDebug.h"
-    #include "main_vulkan.h"
-    #include "cglm.h"
-    #include "graphicsPipeline.h"
-    #include "commandPool.h"
-    #include "displayManager.h"
-    #include "swapchainManager.h"
-    #include "uniformBuffer.h"
-    #include "descriptor.h"
-    #include "textureManager.h"
-    #include "scene.h"
-    #include "model.h"
+#include <SDL_stdinc.h>
+#include <SDL_vulkan.h>
+#include <SDL.h>
+#include <stdint.h>
+#include <time.h>
+#include <vulkan/vulkan.h>
+#include <assert.h>
+#include "string_helper_macros.h"
+#include "comparation_helper_macros.h"
+#include <unistd.h>
+#include <vulkan/vulkan_core.h>
+#include "file_functions.h"
+#include "vertex.h"
+#include <vulkan/vulkan_core.h>
+#include "strictDebug.h"
+#include "main_vulkan.h"
+#include "cglm.h"
+#include "graphicsPipeline.h"
+#include "commandPool.h"
+#include "displayManager.h"
+#include "swapchainManager.h"
+#include "uniformBuffer.h"
+#include "descriptor.h"
+#include "textureManager.h"
+#include "scene.h"
+#include "model.h"
 };
 #include <chrono>
 // TODO move this to central display
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
 const int MARGIN = 20;
-const double TARGET_FPS = 60.0;  // Assuming 60Hz refresh rate
+const double TARGET_FPS = 60.0; // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
 
-
-double getCurrentTime() {
+double getCurrentTime()
+{
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = now.time_since_epoch();
     return std::chrono::duration_cast<std::chrono::duration<double>>(duration).count();
 }
 
+int main()
+{
 
-
-int main() {
-
-    #ifdef NDEBUG
+#ifdef NDEBUG
     std::cout << "Assertions are disabled" << std::endl;
-    #else
+#else
     std::cout << "Assertions are enabled" << std::endl;
-    #endif
+#endif
 
-    try {
-// Before SDL_Init
-SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "x11");
-// Add these checks
-if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-    std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
-    return -1;
-}
-std::cout << "Current video driver: " << SDL_GetCurrentVideoDriver() << std::endl;
+    try
+    {
+        // Before SDL_Init
+        SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "x11");
+        // Add these checks
+        if (SDL_Init(SDL_INIT_VIDEO) < 0)
+        {
+            std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
+            return -1;
+        }
+        std::cout << "Current video driver: " << SDL_GetCurrentVideoDriver() << std::endl;
 
-
-        SDL_Window* window = NULL;
+        SDL_Window *window = NULL;
         window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);
-        if (window == NULL) {
-            const char* error = SDL_GetError();
+        if (window == NULL)
+        {
+            const char *error = SDL_GetError();
             std::cout << error << std::endl;
             SDL_Quit();
             return -1;
@@ -80,81 +82,61 @@ std::cout << "Current video driver: " << SDL_GetCurrentVideoDriver() << std::end
         const float cubeSize = 3.0f;
         const float spacing = 3.0f;
         const float totalSize = cubeSize + spacing;
-        /*const int dimensions = 1000;
-        const int numCubesPerDimension = static_cast<int>(dimensions / totalSize);
-
-        for (int i = 0; i < numCubesPerDimension; ++i) {
-            for (int j = 0; j < numCubesPerDimension; ++j) {
-                for (int k = 0; k < numCubesPerDimension; ++k) {
-                    float x = i * totalSize;
-                    float y = j * totalSize;
-                    float z = k * totalSize;
-                    //std::cout << "VAMOS A AÑADIR EL VERTICE (" << x <<", "<< y << ", "<< z << '\n';
-                    GEOM_VERTEX_POSITION* cubeOrigin = new GEOM_VERTEX_POSITION{x, y, z};
-                    scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::CUBE, cubeOrigin, cubeSize)));
-                }
-            }
-        }*/
-        LightVolume* light = static_cast<LightVolume*>(malloc(sizeof(LightVolume)));
-        GEOM_VERTEX_POSITION* cubeLightPosition = new GEOM_VERTEX_POSITION{0, 0, 0};
+        LightVolume *light = static_cast<LightVolume *>(malloc(sizeof(LightVolume)));
+        GEOM_VERTEX_POSITION *cubeLightPosition = new GEOM_VERTEX_POSITION{0, 0, 0};
         light->model = *create_cube(cubeLightPosition, 10);
         printLightVolume(light);
         scene->addLight(light);
-        //GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
-        //scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
+        scene->initInstanceDataLight(&scene->getVolumetricLight(0), 1);
+        // GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
+        // scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
 
         scene->addModel(load_obj_to_geom_object(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj")));
-        scene->addModel(create_cube(cubeLightPosition, 5));
-        scene->initInstanceDataStub();
+        // scene->addModel(&light->model);
+        scene->initInstanceDataModel(&scene->getModel(0), 1);
         scene->init();
         std::cout << "QUE??????\n";
-        MetaEngine*engine =  new MetaEngine(window, std::move(scene));
+        MetaEngine *engine = new MetaEngine(window, scene.get());
 
         // Add these variables at the beginning of your main function or in your game class
-TTF_Font* font = nullptr;
-SDL_Color textColor = {255, 255, 255, 255}; // White color
-Uint32 frameStart, frameTime;
-int fps = 0;
-int frameCount = 0;
-float avgFPS = 0.0f;
-    std::cout << "ESTO QUE MIERDA ES" << std::endl;
-    uint32_t running = 1;
-    bool resizing = 0;
-    SDL_Event event;
-    int initialMouseX, initialMouseY;
-    int initialWidth, initialHeight;
-    double lastFrameTime = getCurrentTime();
-    engine->firstFrameInitialPass();
-        while (running) {
+        TTF_Font *font = nullptr;
+        SDL_Color textColor = {255, 255, 255, 255}; // White color
+        Uint32 frameStart, frameTime;
+        int fps = 0;
+        int frameCount = 0;
+        float avgFPS = 0.0f;
+        std::cout << "ESTO QUE MIERDA ES" << std::endl;
+        uint32_t running = 1;
+        bool resizing = 0;
+        SDL_Event event;
+        int initialMouseX, initialMouseY;
+        int initialWidth, initialHeight;
+        double lastFrameTime = getCurrentTime();
+        engine->firstFrameInitialPass();
+        while (running)
+        {
             double currentTime = getCurrentTime();
             double deltaTime = currentTime - lastFrameTime;
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event))
+            {
 
-            switch (event.type) {
+                switch (event.type)
+                {
                 case SDL_QUIT:
-
-
-
-
-
-
-
-
-
-
-
 
                     running = 0;
                     break;
                 case SDL_MOUSEBUTTONDOWN:
-                    if (event.button.button == SDL_BUTTON_LEFT) {
+                    if (event.button.button == SDL_BUTTON_LEFT)
+                    {
                         int mouseX = event.button.x;
                         int mouseY = event.button.y;
                         int winWidth, winHeight;
                         SDL_GetWindowSize(window, &winWidth, &winHeight);
 
-                        if (mouseX >= winWidth - MARGIN && mouseY >= winHeight - MARGIN) {
+                        if (mouseX >= winWidth - MARGIN && mouseY >= winHeight - MARGIN)
+                        {
                             resizing = 1;
                             initialMouseX = mouseX;
                             initialMouseY = mouseY;
@@ -164,62 +146,64 @@ float avgFPS = 0.0f;
                     }
                     break;
                 case SDL_MOUSEBUTTONUP:
-                    if (event.button.button == SDL_BUTTON_LEFT) {
+                    if (event.button.button == SDL_BUTTON_LEFT)
+                    {
                         resizing = 0;
                     }
                     break;
                 case SDL_MOUSEMOTION:
-                    if (resizing) {
+                    if (resizing)
+                    {
                         int mouseX = event.motion.x;
                         int mouseY = event.motion.y;
                         int newWidth = initialWidth + (mouseX - initialMouseX);
                         int newHeight = initialHeight + (mouseY - initialMouseY);
-                        if (newWidth > 100 && newHeight > 100) {
+                        if (newWidth > 100 && newHeight > 100)
+                        {
                             SDL_SetWindowSize(window, newWidth, newHeight);
                         }
                     }
                     break;
+                }
             }
-        }
 
-        // Llamada a la función drawFrame
-        if(!resizing) {
-             if (deltaTime >= FRAME_TIME) {
-        // Render and present frame
+            // Llamada a la función drawFrame
+            if (!resizing)
+            {
+                if (deltaTime >= FRAME_TIME)
+                {
+                    // Render and present frame
                     engine->metaDrawFrame(window, (float)deltaTime);
 
-        lastFrameTime = currentTime;
+                    lastFrameTime = currentTime;
 
-        // Frame pacing: Sleep to align with next vsync
-        double sleepTime = FRAME_TIME - (getCurrentTime() - currentTime);
-        if (sleepTime > 0) {
-            sleep(sleepTime);
+                    // Frame pacing: Sleep to align with next vsync
+                    double sleepTime = FRAME_TIME - (getCurrentTime() - currentTime);
+                    if (sleepTime > 0)
+                    {
+                        sleep(sleepTime);
+                    }
+                }
+            }
+
+            // Aquí puedes añadir tus comandos de dibujo
+            //        SDL_RenderPresent(renderer);
         }
     }
-
-
-
-        }
-
-
-
-        // Aquí puedes añadir tus comandos de dibujo
-//        SDL_RenderPresent(renderer);
-    }
-
-    } catch (const std::exception& e) {
+    catch (const std::exception &e)
+    {
         std::cerr << "Error: " << e.what() << std::endl;
     }
-/*
-   try {
-        engineEntryPoint();
-    } catch (const std::exception& e) {
-        std::cerr << "Caught exception: " << e.what() << std::endl;
-        throw;  // Re-throw the exception
-    } catch (...) {
-        std::cerr << "Caught unknown exception" << std::endl;
-        throw;  // Re-throw the exception
-    }*/
+    /*
+       try {
+            engineEntryPoint();
+        } catch (const std::exception& e) {
+            std::cerr << "Caught exception: " << e.what() << std::endl;
+            throw;  // Re-throw the exception
+        } catch (...) {
+            std::cerr << "Caught unknown exception" << std::endl;
+            throw;  // Re-throw the exception
+        }*/
 
     return 0;
 }

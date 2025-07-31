@@ -16,5 +16,5 @@ void main() {
     vec3 correctedColor = pow(texColor.rgb, vec3(1.0 / gamma));
 
     // Set the output color
-    outColor = vec4(correctedColor, texColor.a);
+    outColor = vec4(texColor.r, 0.5, texColor.b, 1.0);
 }
