@@ -1,23 +1,22 @@
-#include <assert.h>
-#include "displayManager.h"
-#include "computePipeline.h"
-#include "particle.h"
 #include "camera.h"
-void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp){
+#include "computePipeline.h"
+#include "displayManager.h"
+#include "particle.h"
+#include <assert.h>
+void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp)
+{
 
-    for (size_t i = 0; i < gdp->maxFrames; i++) {
+    for (size_t i = 0; i < gdp->maxFrames; i++)
+    {
         vkDestroySemaphore(device, gdp->renderEndFlag[i], NULL);
         vkDestroySemaphore(device, gdp->imgViewSemaphore[i], NULL);
         vkDestroyFence(device, gdp->inFlightFence[i], NULL);
     }
-
 }
 
-
-void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* window){
-    SDL_bool result_surface_creation = SDL_Vulkan_CreateSurface(window,
-                                  *instance,
-                                  &dm->surface);
+void createSDLSurface(DisplayManager* dm, VkInstance* instance, SDL_Window* window)
+{
+    SDL_bool result_surface_creation = SDL_Vulkan_CreateSurface(window, *instance, &dm->surface);
     printf("CREATE INSTANCE FLAG 5\n");
     assert(dm->surface);
     assert(*instance);
@@ -25,43 +24,43 @@ void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* wind
     assert(result_surface_creation == SDL_TRUE);
 }
 
-
-void firstFrameInitialPassCompute(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm,
-                                GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* particleGraphics,
-                                VkDevice device) {
+void firstFrameInitialPassCompute(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm,
+                                  GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,
+                                  VkDevice device)
+{
     uint32_t bufferIndex = (dm->currentFrame - 1 + particleGraphics->maxFrames) % particleGraphics->maxFrames;
 
     // Begin command buffer
-    VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-    };
+    VkCommandBufferBeginInfo beginInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                                          .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
 
     // Begin recording
-    if (vkBeginCommandBuffer(particleGraphics->computeP->commandBuffer[bufferIndex], &beginInfo) != VK_SUCCESS) {
+    if (vkBeginCommandBuffer(particleGraphics->computeP->commandBuffer[bufferIndex], &beginInfo) != VK_SUCCESS)
+    {
         printf("Failed to begin recording command buffer!\n");
         return;
     }
 
     // End recording
-    if (vkEndCommandBuffer(particleGraphics->computeP->commandBuffer[bufferIndex]) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(particleGraphics->computeP->commandBuffer[bufferIndex]) != VK_SUCCESS)
+    {
         printf("Failed to end recording command buffer!\n");
         return;
     }
 
     // Submit info
-    VkSubmitInfo initialSubmitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = 0,
-        .pWaitSemaphores = NULL,
-        .pWaitDstStageMask = NULL,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &particleGraphics->computeP->commandBuffer[bufferIndex],
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &particleGraphics->computeP->computeReadySemaphore[bufferIndex]
-    };
+    VkSubmitInfo initialSubmitInfo = {.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                                      .waitSemaphoreCount   = 0,
+                                      .pWaitSemaphores      = NULL,
+                                      .pWaitDstStageMask    = NULL,
+                                      .commandBufferCount   = 1,
+                                      .pCommandBuffers      = &particleGraphics->computeP->commandBuffer[bufferIndex],
+                                      .signalSemaphoreCount = 1,
+                                      .pSignalSemaphores =
+                                          &particleGraphics->computeP->computeReadySemaphore[bufferIndex]};
 
-    if (vkQueueSubmit(*ld->queueManager.computeQueue, 1, &initialSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+    if (vkQueueSubmit(*ld->queueManager.computeQueue, 1, &initialSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+    {
         printf("Failed to submit initial command buffer!\n");
         return;
     }
@@ -72,12 +71,9 @@ void firstFrameInitialPassCompute(PhysicalDevice *pd, LogicalDevice *ld, Display
     printf("END FIRSTFRAMEINITIALPASS\n");
 }
 
-void updateSSBODescriptorSets(
-    VkDevice device,
-    GraphicPipelineToSurface* particleGraphics,
-    uint32_t currentFrame,
-    uint32_t maxFrames
-) {
+void updateSSBODescriptorSets(VkDevice device, GraphicPipelineToSurface* particleGraphics, uint32_t currentFrame,
+                              uint32_t maxFrames)
+{
     // Calculate previous frame index with wraparound
     uint32_t prevFrame = (currentFrame - 1 + maxFrames) % maxFrames;
 
@@ -85,37 +81,37 @@ void updateSSBODescriptorSets(
     VkDescriptorBufferInfo prevSSBOBufferInfo = {
         .buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[prevFrame],
         .offset = 0,
-        .range = sizeof(GEOM_PARTICLE) * 1024,
+        .range  = sizeof(GEOM_PARTICLE) * 1024,
     };
 
     VkDescriptorBufferInfo currentSSBOBufferInfo = {
         .buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[currentFrame],
         .offset = 0,
-        .range = sizeof(GEOM_PARTICLE) * 1024,
+        .range  = sizeof(GEOM_PARTICLE) * 1024,
     };
 
     // Create descriptor write updates for both SSBO bindings
     VkWriteDescriptorSet descriptorWrites[] = {
         {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = particleGraphics->descriptorSet[currentFrame],
-            .dstBinding = 2,  // Previous frame SSBO binding
-            .dstArrayElement = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 1,
-            .pBufferInfo = &prevSSBOBufferInfo,
-            .pImageInfo = VK_NULL_HANDLE,
+            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet           = particleGraphics->descriptorSet[currentFrame],
+            .dstBinding       = 2, // Previous frame SSBO binding
+            .dstArrayElement  = 0,
+            .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount  = 1,
+            .pBufferInfo      = &prevSSBOBufferInfo,
+            .pImageInfo       = VK_NULL_HANDLE,
             .pTexelBufferView = VK_NULL_HANDLE,
         },
         {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = particleGraphics->descriptorSet[currentFrame],
-            .dstBinding = 3,  // Current frame SSBO binding
-            .dstArrayElement = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 1,
-            .pBufferInfo = &currentSSBOBufferInfo,
-            .pImageInfo = VK_NULL_HANDLE,
+            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet           = particleGraphics->descriptorSet[currentFrame],
+            .dstBinding       = 3, // Current frame SSBO binding
+            .dstArrayElement  = 0,
+            .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount  = 1,
+            .pBufferInfo      = &currentSSBOBufferInfo,
+            .pImageInfo       = VK_NULL_HANDLE,
             .pTexelBufferView = VK_NULL_HANDLE,
         },
     };
@@ -124,135 +120,172 @@ void updateSSBODescriptorSets(
     vkUpdateDescriptorSets(device, 2, descriptorWrites, 0, VK_NULL_HANDLE);
 }
 
-void drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp, GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics,
-VkDevice device, SDL_Window *window, float deltaTime, Camera3D camera) {
-    printf("NEW DELTATIME %f", deltaTime);
-    printf("MECAGOENTODO\n");
-            printf("MECAGOENTODO\n");
-    printf("SEMAPHORE PREV FRAME %d, con MAX FRAMES %d\n y CURRENT FRAME %d", (dm->currentFrame - 1 + particleGraphics->maxFrames) % particleGraphics->maxFrames, particleGraphics->maxFrames, dm->currentFrame);
-    VkSemaphore signalComputeSemaphores[] = {particleGraphics->computeP->computeEndSemaphore[dm->currentFrame], particleGraphics->computeP->computeReadySemaphore[dm->currentFrame]};
-    VkPipelineStageFlags waitDstFlagsSemph[] = {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
-    VkSemaphore waitSemaphoresCompute[] = {particleGraphics->computeP->computeReadySemaphore[(dm->currentFrame - 1 + particleGraphics->maxFrames) % particleGraphics->maxFrames]};
+void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, GraphicPipelineToSurface* gdp,
+               GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics, VkDevice device,
+               SDL_Window* window, float deltaTime, Camera3D camera)
+{
+    printf("=== DRAW FRAME START ===\n");
+    printf("Current frame: %d, Delta time: %.4f\n", dm->currentFrame, deltaTime);
 
+    VkSemaphore          signalComputeSemaphores[] = {particleGraphics->computeP->computeEndSemaphore[dm->currentFrame],
+                                                      particleGraphics->computeP->computeReadySemaphore[dm->currentFrame]};
+    VkPipelineStageFlags waitDstFlagsSemph[]       = {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
+    VkSemaphore          waitSemaphoresCompute[]   = {
+        particleGraphics->computeP->computeReadySemaphore[(dm->currentFrame - 1 + particleGraphics->maxFrames) %
+                                                          particleGraphics->maxFrames]};
+
+    printf("Resetting compute fence for frame %d\n", dm->currentFrame);
     vkResetFences(device, 1, &particleGraphics->computeP->computeInFlightFence[dm->currentFrame]);
-            printf("ANTES DEL RECORD WACHIN\n");
-    recordParticleCommandBuffer(particleGraphics->computeP, pd, ld, *particleGraphics->pipelineLayout, &particleGraphics->descriptorSet[dm->currentFrame], dm->currentFrame, deltaTime);
+
+    printf("Recording particle compute command buffer\n");
+    recordParticleCommandBuffer(particleGraphics->computeP, pd, ld, *particleGraphics->pipelineLayout,
+                                &particleGraphics->descriptorSet[dm->currentFrame], dm->currentFrame, deltaTime);
     VkCommandBuffer submitCommandBuffer[] = {(particleGraphics->computeP->commandBuffer[dm->currentFrame])};
     // COMPUTE SUBMIT WORKLOAD
-            //printf("DRAW FRAME FLAG 1\n");
+    printf("Submitting compute queue workload\n");
     VkSubmitInfo computeQueueSubmitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphoresCompute,
-        .pWaitDstStageMask = waitDstFlagsSemph,
-        .commandBufferCount = 1,
-        .pCommandBuffers = submitCommandBuffer,
+        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount   = 1,
+        .pWaitSemaphores      = waitSemaphoresCompute,
+        .pWaitDstStageMask    = waitDstFlagsSemph,
+        .commandBufferCount   = 1,
+        .pCommandBuffers      = submitCommandBuffer,
         .signalSemaphoreCount = 2,
-        .pSignalSemaphores = signalComputeSemaphores,
-        .pNext = NULL,
+        .pSignalSemaphores    = signalComputeSemaphores,
+        .pNext                = NULL,
     };
-                printf("DESPUES DEL RECORD WACHITURRO DEL RECORD WACHIN\n");
-printf("Wait semaphore: %p\n", computeQueueSubmitInfo.pWaitSemaphores);
-printf("Command buffer: %p\n", computeQueueSubmitInfo.pCommandBuffers);
-printf("Fence: %p\n", particleGraphics->computeP->computeInFlightFence[dm->currentFrame]);
-                    printf("DESPUES DEL end singletimecommands\n");
 
-    if (vkQueueSubmit(*ld->queueManager.computeQueue, 1, &computeQueueSubmitInfo, particleGraphics->computeP->computeInFlightFence[dm->currentFrame]) != VK_SUCCESS) {
-        //printf("failed to submit draw command buffer!");
+    if (vkQueueSubmit(*ld->queueManager.computeQueue, 1, &computeQueueSubmitInfo,
+                      particleGraphics->computeP->computeInFlightFence[dm->currentFrame]) != VK_SUCCESS)
+    {
+        printf("ERROR: Failed to submit compute command buffer!\n");
     }
-                    printf("DESPUES DEL submit\n");
-    printf("VAMOS QUE NOS VAMOS EUGENIO\n");
-    vkWaitForFences(device, 1, &particleGraphics->computeP->computeInFlightFence[dm->currentFrame], VK_TRUE, UINT64_MAX);
-        printf("MECAGOENTODO\n");
-    //printf("DRAW FRAME: frame %d: Fence %p\n", dm->currentFrame, gdp->inFlightFence[dm->currentFrame]);
-    //printf("END DRAW FRAME LOG\n");
+    else
+    {
+        printf("Compute queue submitted successfully\n");
+    }
+
+    printf("Waiting for compute fence completion\n");
+    vkWaitForFences(device, 1, &particleGraphics->computeP->computeInFlightFence[dm->currentFrame], VK_TRUE,
+                    UINT64_MAX);
+    printf("Compute fence completed\n");
+
+    printf("Waiting for graphics fence for frame %d\n", dm->currentFrame);
     vkWaitForFences(device, 1, &gdp->inFlightFence[dm->currentFrame], VK_TRUE, UINT64_MAX);
+    printf("Graphics fence completed\n");
+
+    printf("Updating SSBO descriptor sets\n");
     updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames);
-    uint32_t imageIndex = dm->currentFrame;
-    //printf("IMAGE INDEX VALE %u", imageIndex);
+
+    uint32_t imageIndex       = dm->currentFrame;
     uint32_t aquireImageIndex = dm->currentFrame;
-    VkResult nextImageResult = vkAcquireNextImageKHR(device, dm->graphicPipeline->swapchain->VkSwapchain, UINT64_MAX,
-    gdp->imgViewSemaphore[dm->currentFrame], VK_NULL_HANDLE, &aquireImageIndex);
+    printf("Acquiring next swapchain image (index: %u)\n", aquireImageIndex);
 
-    switch(nextImageResult){
-        case VK_SUCCESS:
-            break;
-        case VK_ERROR_OUT_OF_DATE_KHR:
-            printf("QUE ESTA PASANDO AQUI\n");
-            printf("\n\n\n");
-            recreateSwapChain(pd, ld, window);
-            return;
-        default:
-            printf("Error a la hora de leer la siguiente imagen del dispositivo");
-            exit(1);
-    }
-    //printf("BEFORE DRAW FRAME RESET FENCE con INDEX %u\n", dm->currentFrame);
-    vkResetFences(device, 1, &gdp->inFlightFence[dm->currentFrame]);
- //printf("DRAW FRAME FLAG 1\n");
-    if( nextImageResult != VK_SUCCESS){
+    VkResult nextImageResult =
+        vkAcquireNextImageKHR(device, dm->graphicPipeline->swapchain->VkSwapchain, UINT64_MAX,
+                              gdp->imgViewSemaphore[dm->currentFrame], VK_NULL_HANDLE, &aquireImageIndex);
 
-        //printf("FALLA A LA HORA DE ADQUIRIR LA SIGUIENTE IMAGEN\n");
+    printf("Swapchain image acquisition result: %d, acquired index: %u\n", nextImageResult, aquireImageIndex);
+
+    switch (nextImageResult)
+    {
+    case VK_SUCCESS:
+        printf("Swapchain image acquired successfully\n");
+        break;
+    case VK_ERROR_OUT_OF_DATE_KHR:
+        printf("Swapchain out of date - recreating\n");
+        recreateSwapChain(pd, ld, window);
+        return;
+    default:
+        printf("ERROR: Failed to acquire next swapchain image, result: %d\n", nextImageResult);
         exit(1);
     }
-    //printf("DRAW FRAME FLAG 1\n");
-    recordGraphicsCommandBuffer(gdp, particleGraphics, lightGraphics, dm, dm->currentFrame, pd);
-    // 4. End Command Buffer Recording
-    if (vkEndCommandBuffer(gdp->commandBuffer[dm->currentFrame]) != VK_SUCCESS) {
-        printf("failed to record command buffer!");
+
+    printf("Resetting graphics fence for frame %d\n", dm->currentFrame);
+    vkResetFences(device, 1, &gdp->inFlightFence[dm->currentFrame]);
+
+    if (nextImageResult != VK_SUCCESS)
+    {
+        printf("ERROR: Next image result not successful: %d\n", nextImageResult);
+        exit(1);
     }
-    // GRAPHICS QUEUE SUBMIT INFO
-    printf("HEMOS RETORNADO DE GRAPHIOS COMMAND RECORDING AND RENDER PASS\n");
-    MODEL_VIEW_PROJECTION*  ubo = updateUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
-        printf("HEMOS RETORNADO DEL UPTADE THE UNIFORM BUFFER PROJECTION\n");
 
-    VkSemaphore waitSemaphores[] = {gdp->imgViewSemaphore[dm->currentFrame], particleGraphics->computeP->computeEndSemaphore[dm->currentFrame]};
-            printf("WAIT SEMAPHORES\n");
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-                printf("WAIT STAGES\n");
+    printf("Recording graphics command buffer\n");
+    recordGraphicsCommandBuffer(gdp, particleGraphics, lightGraphics, dm, dm->currentFrame, pd);
 
-    VkSemaphore signalSemaphores[] = {gdp->renderEndFlag[dm->currentFrame]}; // Hay que comprobar si estoy sincronizando bien particulas compute y graphic,
-                printf("SIGNAL SEMAPHORES\n");
-//printf("DRAW FRAME FLAG 1\n");
+    printf("Ending command buffer recording\n");
+    if (vkEndCommandBuffer(gdp->commandBuffer[dm->currentFrame]) != VK_SUCCESS)
+    {
+        printf("ERROR: Failed to record command buffer!\n");
+    }
+    else
+    {
+        printf("Command buffer recorded successfully\n");
+    }
+
+    printf("Updating uniform buffers\n");
+    MODEL_VIEW_PROJECTION* uboModels =
+        updateModelUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
+
+    printf("Copying uniform buffer data to GPU (size: %zu bytes)\n",
+           sizeof(uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
+    memcpy(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], &uboModels,
+           sizeof(uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
+
+    MODEL_VIEW_PROJECTION* uboLights =
+        updateLightUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
+    printf("Copying uniform buffer data to GPU (size: %zu bytes)\n",
+           sizeof(uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+    memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], &uboModels,
+           sizeof(uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+    VkSemaphore waitSemaphores[] = {gdp->imgViewSemaphore[dm->currentFrame],
+                                    particleGraphics->computeP->computeEndSemaphore[dm->currentFrame]};
+
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+                                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+    VkSemaphore signalSemaphores[] = {gdp->renderEndFlag[dm->currentFrame]};
+
+    printf("Submitting graphics queue workload\n");
     VkSubmitInfo graphicQueuesubmitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = 2,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &(gdp->commandBuffer[dm->currentFrame]),
+        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount   = 2,
+        .pWaitSemaphores      = waitSemaphores,
+        .pWaitDstStageMask    = waitStages,
+        .commandBufferCount   = 1,
+        .pCommandBuffers      = &(gdp->commandBuffer[dm->currentFrame]),
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signalSemaphores,
+        .pSignalSemaphores    = signalSemaphores,
     };
-    printf("HEMOS PASADO graphicsQUEUESUBMITINFO\n");
 
-    memcpy(gdp->deviceBuffer->ubo->uniformBuffersMapped[dm->currentFrame], &ubo, sizeof(ubo) * dm->graphicPipeline[0].scene->sceneInstancesLen);
-    //ComputePipeline* computeP, LogicalDevice* ld, VkPipelineLayout layout, VkDescriptorSet descriptorSet, uint32_t imageIndex, float deltaTime
-printf("HEMOS PASADO EL MEMCPY DEL UBO MAPPED TO GPU\n");
-    // GRAPHIC SUBMIT WORKLOAD
-    if (vkQueueSubmit(*ld->queueManager.graphicsQueue, 1, &graphicQueuesubmitInfo, gdp->inFlightFence[dm->currentFrame]) != VK_SUCCESS) {
-        //printf("failed to submit draw command buffer!");
+    if (vkQueueSubmit(*ld->queueManager.graphicsQueue, 1, &graphicQueuesubmitInfo,
+                      gdp->inFlightFence[dm->currentFrame]) != VK_SUCCESS)
+    {
+        printf("ERROR: Failed to submit graphics command buffer!\n");
+    }
+    else
+    {
+        printf("Graphics queue submitted successfully\n");
     }
 
     VkSwapchainKHR swapChains[] = {dm->graphicPipeline->swapchain->VkSwapchain};
-//printf("DRAW FRAME FLAG 1\n");
+
+    printf("Presenting frame to swapchain\n");
     VkPresentInfoKHR presentInfo = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapChains,
-        .pImageIndices = &aquireImageIndex,
-        .pResults = NULL,
+        .pWaitSemaphores    = signalSemaphores,
+        .swapchainCount     = 1,
+        .pSwapchains        = swapChains,
+        .pImageIndices      = &aquireImageIndex,
+        .pResults           = NULL,
     };
-//printf("DRAW FRAME FLAG 1\n");
-    vkQueuePresentKHR(*ld->queueManager.presentQueue, &presentInfo);
-    //printf("DM CURRENT FRAME %d \n", dm->currentFrame);
-        //printf("DM MAX FRAME %d \n", gdp->maxFrames);
 
+    VkResult presentResult = vkQueuePresentKHR(*ld->queueManager.presentQueue, &presentInfo);
+    printf("Present result: %d\n", presentResult);
+
+    printf("Frame %d completed, advancing to next frame\n", dm->currentFrame);
     dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
-
-
-
-        //printf("NUEVO FRAME %d\n", dm->currentFrame);
-            //printf("NUEVO FRAME %d\n", dm->currentFrame);
-};
+    printf("New current frame: %d (max frames: %d)\n", dm->currentFrame, gdp->maxFrames);
+    printf("=== DRAW FRAME END ===\n\n");
+}

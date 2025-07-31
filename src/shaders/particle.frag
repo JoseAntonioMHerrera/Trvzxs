@@ -9,5 +9,5 @@ void main() {
     vec3 correctedColor = pow(fragColor.rgb, vec3(1.0 / gamma));
 
     // Set the output color
-    outColor = fragColor;
+    outColor = vec4(1.0, 1.0, 0.0, 1.0);
 }

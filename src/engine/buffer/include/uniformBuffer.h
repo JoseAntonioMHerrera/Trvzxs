@@ -17,10 +17,17 @@
 #include "mat4.h"
 #include "affine.h"
 #include "camera.h"
-//#include "displayTimer.h"
+// #include "displayTimer.h"
 
-MODEL_VIEW_PROJECTION* updateUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene);
+MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene);
+MODEL_VIEW_PROJECTION* updateLightUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene);
+int                    createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, LogicalDevice* ld,
+                                                                              const uint32_t ubosLen, UniformBufferManager* ubos,
+                                                                              uint32_t instancesLen);
+int                    createLightInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, LogicalDevice* ld,
+                                                                              const uint32_t ubosLen, UniformBufferManager* ubos,
+                                                                              uint32_t instancesLen);
 
-int createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos, uint32_t instancesLen);
-int createDeltaTimeUniformBuffers(PhysicalDevice *pd, LogicalDevice *ld, const uint32_t ubosLen, UniformBufferManager *ubos);
+int  createDeltaTimeUniformBuffers(PhysicalDevice* pd, LogicalDevice* ld, const uint32_t ubosLen,
+                                   UniformBufferManager* ubos);
 void freeMappedUniformBufferLocalMemory(mat4** instancedTranformations);

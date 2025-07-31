@@ -12,12 +12,13 @@
 
 typedef struct GraphicPipelineToSurface GraphicPipelineToSurface;
 typedef struct ComputePipeline ComputePipeline;
-typedef struct CommandPools {
+typedef struct CommandPools
+{
     VkCommandPool transferCommandPool;
     VkCommandPool graphicsCommandPool;
     VkCommandPool computeCommandPool;
     // Add other command pools as needed
 } CommandPools;
-void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
-void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
-void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface *gdp);
+void createGraphicsCommandPool(PhysicalDevice *pd, VkDevice device, GraphicPipelineToSurface *gdp);
+void createTransferQueueCommandPool(PhysicalDevice *pd, VkDevice device, GraphicPipelineToSurface *gdp);
+void createComputeQueueCommandPool(PhysicalDevice *pd, VkDevice device, GraphicPipelineToSurface *gdp);
