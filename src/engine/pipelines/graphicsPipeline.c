@@ -187,6 +187,12 @@ void fillModelVertexInputAttributeDescription(VkVertexInputAttributeDescription*
     (*objectsIAD)[2].location = 2;
     (*objectsIAD)[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
     (*objectsIAD)[2].offset   = offsetof(GEOM_VERTEX, textCoords);
+
+    // GEOM_OBJECT colors
+    (*objectsIAD)[3].binding  = 0;
+    (*objectsIAD)[3].location = 3;
+    (*objectsIAD)[3].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    (*objectsIAD)[3].offset   = offsetof(GEOM_VERTEX, normal);
 }
 
 void fillLightVolumeBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,
@@ -499,7 +505,7 @@ void createModelsGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* 
     };
 
     // MODELS VERTEX INPUT
-    gdp->objectIADLen = 3;
+    gdp->objectIADLen = 4;
     fillModelVertexInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
     gdp->objectIBDLen = 1;
     fillModelVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_VERTEX));
