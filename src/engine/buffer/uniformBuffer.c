@@ -32,7 +32,16 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
             // Model matrix: rotate around Z-axis
             glm_mat4_copy(model.pModelInstance[instanceIdx].m, pTransformations[transformationsIdx].model);
             printf("    Model matrix copied from instance %u\n", transformationsIdx);
-            // glm_rotate(ubo.model, time * glm_rad(45.0f), (vec3){0.0f, 1.0f, 0.0f});
+
+            // Print model matrix values
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    printf("Model[%d][%d] = %.6f ", i, j, pTransformations[transformationsIdx].model[i][j]);
+                }
+                printf("\n");
+            }
 
             // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
             vec3 eye    = {1.5f, 1.5f, 1.5f};
@@ -44,6 +53,16 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
             vec4 view;
             glm_lookat(eye, center, up, pTransformations[transformationsIdx].view);
             printf("    View matrix calculated\n");
+
+            // Print view matrix values
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    printf("View[%d][%d] = %.6f ", i, j, pTransformations[transformationsIdx].view[i][j]);
+                }
+                printf("\n");
+            }
 
             // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
             float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
@@ -57,6 +76,17 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
             // Adjust for Vulkan's coordinate system
             pTransformations[transformationsIdx].proj[1][1] *= -1;
             printf("    Vulkan Y-axis flip applied (proj[1][1] *= -1)\n");
+
+            // Print projection matrix values
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    printf("Proj[%d][%d] = %.6f ", i, j, pTransformations[transformationsIdx].proj[i][j]);
+                }
+                printf("\n");
+            }
+
             transformationsIdx++;
             printf("  Model instance %u transformation complete\n", transformationsIdx);
         }
@@ -100,7 +130,16 @@ MODEL_VIEW_PROJECTION* updateLightUniformBuffers(GraphicSwapchain* dsm, float de
             // Model matrix: rotate around Z-axis
             glm_mat4_copy(light.pLightVolumeInstance[instanceIdx].m, pTransformations[transformationsCount].model);
             printf("    Model matrix copied from instance %u\n", transformationsCount);
-            // glm_rotate(ubo.model, time * glm_rad(45.0f), (vec3){0.0f, 1.0f, 0.0f});
+
+            // Print model matrix values
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    printf("Model[%d][%d] = %.6f ", i, j, pTransformations[transformationsCount].model[i][j]);
+                }
+                printf("\n");
+            }
 
             // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
             vec3 eye    = {1.5f, 1.5f, 1.5f};
@@ -112,6 +151,16 @@ MODEL_VIEW_PROJECTION* updateLightUniformBuffers(GraphicSwapchain* dsm, float de
             vec4 view;
             glm_lookat(eye, center, up, pTransformations[transformationsCount].view);
             printf("    View matrix calculated\n");
+
+            // Print view matrix values
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    printf("View[%d][%d] = %.6f ", i, j, pTransformations[transformationsCount].view[i][j]);
+                }
+                printf("\n");
+            }
 
             // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
             float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
@@ -125,6 +174,16 @@ MODEL_VIEW_PROJECTION* updateLightUniformBuffers(GraphicSwapchain* dsm, float de
             // Adjust for Vulkan's coordinate system
             pTransformations[transformationsCount].proj[1][1] *= -1;
             printf("    Vulkan Y-axis flip applied (proj[1][1] *= -1)\n");
+
+            // Print projection matrix values
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    printf("Proj[%d][%d] = %.6f ", i, j, pTransformations[transformationsCount].proj[i][j]);
+                }
+                printf("\n");
+            }
 
             printf("  Model instance %u transformation complete\n", transformationsCount);
         }
@@ -196,6 +255,7 @@ int createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
 
     printf("flag createModelInstanceTransformationsUniformBuffersMapped\n");
     printf("=== UNIFORM BUFFER CREATION COMPLETE ===\n");
+
     return 1;
 }
 
