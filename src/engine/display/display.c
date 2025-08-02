@@ -228,16 +228,16 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         updateModelUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
 
     printf("Copying uniform buffer data to GPU (size: %zu bytes)\n",
-           sizeof(uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
-    memcpy(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], &uboModels,
-           sizeof(uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
+           sizeof(*uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
+    memcpy(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboModels,
+           sizeof(*uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
 
     MODEL_VIEW_PROJECTION* uboLights =
         updateLightUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
     printf("Copying uniform buffer data to GPU (size: %zu bytes)\n",
-           sizeof(uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+           sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
     memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], &uboModels,
-           sizeof(uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+           sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
     VkSemaphore waitSemaphores[] = {gdp->imgViewSemaphore[dm->currentFrame],
                                     particleGraphics->computeP->computeEndSemaphore[dm->currentFrame]};
 
@@ -288,4 +288,9 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
     printf("New current frame: %d (max frames: %d)\n", dm->currentFrame, gdp->maxFrames);
     printf("=== DRAW FRAME END ===\n\n");
+
+    /*    if (dm->currentFrame == 2)
+        {
+            exit(0);
+        }*/
 }

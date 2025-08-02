@@ -3,8 +3,10 @@
 
 layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
+layout(location = 2) in vec4 inNormals;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outNormals;
 layout(binding = 1) uniform sampler2D texSampler;
 
 void main() {
@@ -16,5 +18,6 @@ void main() {
     vec3 correctedColor = pow(texColor.rgb, vec3(1.0 / gamma));
 
     // Set the output color
-    outColor = vec4(texColor.r, 0.5, texColor.b, 1.0);
+    outColor = vec4(correctedColor, texColor.a);
+    outNormals = inNormals;
 }
