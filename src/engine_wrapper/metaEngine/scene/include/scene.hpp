@@ -155,11 +155,18 @@ class Scene
 
 private:
     SCENE *scene_;
+    Camera3D *camera;
 
     std::vector<Model3D> models;
     std::vector<Model3DInstance *> modelsInstances;
+
     std::vector<LightVolume> lights;
     std::vector<LightVolumeInstance *> lightsInstances;
+
+    std::vector<GEOM_VERTEX> particle;
+    std::vector<uint32_t> particleIndices;
+    std::vector<ParticleInstance *> particleInstances;
+    std::vector<ParticleGroup> particleGroups;
 
 public:
     // Default constructor
@@ -240,16 +247,59 @@ public:
     {
         this->lights.push_back(*light);
     }
+    void initParticle()
+    {
+        GEOM_VERTEX v1, v2, v3, v4;
 
+        // Triangle 1: bottom-left, bottom-right, top-left
+        v1.point = {0.0, 0.0, 0.0}; // bottom-right
+        v1.color = {0.0, 0.0, 0.0, 1.0};
+        v1.bary = {1.0, 0.0, 0.0};
+        v2.point = {1.0, 0.0, 0.0}; // bottom-left
+        v2.color = {0.0, 0.0, 0.0, 1.0};
+        v2.bary = {0.0, 1.0, 0.0};
+        v3.point = {0.0, 1.0, 0.0}; // top-left
+        v3.color = {0.0, 0.0, 0.0, 1.0};
+        v3.bary = {0.0, 0.0, 1.0};
+        v4.point = {1.0, 1.0, 0.0}; // top-right
+        v4.color = {0.0, 0.0, 0.0, 1.0};
+        v4.bary = {0.0, 0.0, 1.0};
+
+        this->particle.push_back(v1);
+        this->particle.push_back(v2);
+        this->particle.push_back(v3);
+        this->particle.push_back(v4);
+
+        this->particleIndices.push_back(0); // bottom-left
+        this->particleIndices.push_back(1); // bottom-right
+        this->particleIndices.push_back(2); // top-left
+
+        this->particleIndices.push_back(1); // bottom-right
+        this->particleIndices.push_back(3); // top-right
+        this->particleIndices.push_back(2); // top-left
+    }
+
+    void addParticleGroup(ParticleGroup *particleGroup)
+    {
+        this->particleGroups.push_back(*particleGroup);
+    }
+    void addCamera3D(Camera3D *camera)
+    {
+        this->camera = camera;
+    }
+    Camera3D *getCamera3D()
+    {
+        return this->camera;
+    }
     SCENE *getScene()
     {
         return this->scene_;
     }
-    SCENE *setScene(SCENE *scene)
+    void setScene(SCENE *scene)
     {
         this->scene_ = scene;
     }
-    void initInstanceDataLight(LightVolume *lightVolume, uint32_t instanceCount)
+    void initInstanceDataLight(LightVolume *lightVolume, uint32_t instanceCount, LightVolumeInstance *instanceData)
     {
         printf("DEBUG: initInstanceDataLight START - lightVolume=%p, instanceCount=%u\n", lightVolume, instanceCount);
 
@@ -265,10 +315,11 @@ public:
             printf("DEBUG: Allocated individual lightInstance at %p\n", lightInstance);
 
             assert(lightVolume->pLightVolumeInstance != 0);
-            vec3 position = {0.0f, 3.0f, 0.0f};
-            glm_translate_make(lightInstance->m, position);
-            vec3 scale = {1.0f, 1.0f, 1.0f};
-            glm_scale_make(lightInstance->m, scale);
+            glm_vec4_copy(instanceData[instanceIndex].position, lightInstance->position);
+
+            lightInstance->scale = instanceData[instanceIndex].scale;
+            lightInstance->color = instanceData[instanceIndex].color;
+
             lightVolume->pLightVolumeInstance[instanceIndex] = *lightInstance;
 
             printf("DEBUG: Copied light instance %u to array\n", instanceIndex);
@@ -279,6 +330,35 @@ public:
         printf("DEBUG: initInstanceDataLight END\n");
     }
 
+    void initInstanceDataParticle(ParticleGroup *particleGroup, uint32_t instanceCount, ParticleInstance *instanceData)
+    {
+        printf("DEBUG: initInstanceDataParticle START - particleGroup=%p, instanceCount=%u\n", particleGroup, instanceCount);
+
+        particleGroup->pParticleInstances = (ParticleInstance *)malloc(sizeof(ParticleInstance) * instanceCount);
+        printf("DEBUG: Allocated pParticle array at %p, size=%zu bytes\n",
+               particleGroup->pParticleInstances, sizeof(ParticleInstance) * instanceCount);
+
+        for (uint32_t instanceIndex = 0; instanceIndex < instanceCount; instanceIndex++)
+        {
+
+            ParticleInstance *particleInstance = (ParticleInstance *)malloc(sizeof(ParticleInstance));
+
+            assert(particleGroup->pParticleInstances != 0);
+            particleInstance->position = instanceData[instanceIndex].position;
+
+            particleInstance->color = instanceData[instanceIndex].color;
+            particleInstance->velocity = instanceData[instanceIndex].velocity;
+
+            particleGroup->pParticleInstances[instanceIndex] = *particleInstance;
+        }
+
+        particleGroup->particleInstancesLen = instanceCount;
+
+        free(instanceData);
+
+        printf("DEBUG: initInstanceDataParticle %d END\n", particleGroup->particleInstancesLen);
+    }
+    // TODO adaptar al estilo de initInstanceLightVolumes
     void initInstanceDataModel(Model3D *pModel, uint32_t instanceCount)
     {
         printf("DEBUG: initInstanceDataModel START - pModel=%p, instanceCount=%u\n", pModel, instanceCount);
@@ -291,14 +371,22 @@ public:
         {
             printf("DEBUG: Creating model instance %u/%u\n", instanceIndex, instanceCount);
 
-            Model3DInstance *vikingRoomInstance = (Model3DInstance *)malloc(sizeof(Model3DInstance));
-            printf("DEBUG: Allocated individual vikingRoomInstance at %p\n", vikingRoomInstance);
-
-            vec3 vRPosition = {0.0f, 0.0f, 0.0f};
-            glm_translate_make(vikingRoomInstance->m, vRPosition);
+            Model3DInstance *modelInstance = (Model3DInstance *)malloc(sizeof(Model3DInstance));
+            printf("DEBUG: Allocated individual vikingRoomInstance at %p\n", modelInstance);
+            vec3 vRPosition = {(instanceIndex == 0 ? 5 : 0), (instanceIndex == 0 ? 0 : 0), 0.0f};
+            glm_translate_make(modelInstance->m, vRPosition);
+            // Print model matrix values
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    printf("Model[%d][%d] = %.6f ", i, j, modelInstance->m[i][j]);
+                }
+                printf("\n");
+            }
             vec3 vRScale = {1.0f, 1.0f, 1.0f};
-            glm_scale_make(vikingRoomInstance->m, vRScale);
-            pModel->pModelInstance[instanceIndex] = *vikingRoomInstance;
+            glm_scale(modelInstance->m, vRScale);
+            pModel->pModelInstance[instanceIndex] = *modelInstance;
             printf("DEBUG: Copied model instance %u to array\n", instanceIndex);
         }
         pModel->instanceCount = instanceCount;
@@ -316,7 +404,7 @@ public:
 
         SCENE *scene;
         printf("Initializing scene with %zu models and %zu lights\n", this->models.size(), this->lights.size());
-        initScene(&scene, this->models.size(), this->lights.size());
+        initScene(&scene, this->models.size(), this->lights.size(), this->particle.size(), this->particleGroups.size());
         printf("Scene initialized at address: %p\n", scene);
 
         printf("Filling scene with model data (%zu models)\n", this->models.size());
@@ -326,6 +414,12 @@ public:
         printf("Filling scene with light data (%zu lights)\n", this->lights.size());
         fillSceneWithLightData(scene, this->lights.data(), this->lights.size());
         printf("Light data filled successfully\n");
+
+        printf("Filling scene with particle data (%zu particles)\n", this->lights.size());
+        fillSceneWithParticleData(scene, this->particleGroups.data(), this->particleGroups.size(),
+                                  this->particle.data(), this->particle.size(), this->particleIndices.data(),
+                                  this->particleIndices.size());
+        printf("particle data filled successfully\n");
 
         /*Model3DInstance **modelInstances = this->modelsInstances.data();
         printf("Model instances array address: %p\n", modelInstances);

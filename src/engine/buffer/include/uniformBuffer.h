@@ -20,7 +20,7 @@
 // #include "displayTimer.h"
 
 MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene);
-MODEL_VIEW_PROJECTION* updateLightUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene);
+LightTransformations*  updateLightUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene);
 int                    createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, LogicalDevice* ld,
                                                                               const uint32_t ubosLen, UniformBufferManager* ubos,
                                                                               uint32_t instancesLen);

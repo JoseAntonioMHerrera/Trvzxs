@@ -1,6 +1,7 @@
 #pragma once
 #include "vertex.h"
 #include "model.h"
+#include "camera.h"
 
 typedef struct LightProperties
 {
@@ -10,9 +11,20 @@ typedef struct LightProperties
 } LightProperties;
 typedef struct LightVolumeInstance
 {
-    mat4                   m;
     GEOM_VERTEX_COLOR_RGBA color;
+    vec3                   position; // TODO empaquetar informacion en vec4 estructuras para gpu
+    float                  padding;
+    float                  scale;
+    float                  padding2[3];
 } LightVolumeInstance;
+typedef struct LightTransformations
+{
+    struct MODEL_VIEW_PROJECTION mvp;
+    mat4                         mInverseVP;
+    struct Camera3D              camera;
+    struct LightVolumeInstance   data;
+} LightTransformations;
+
 typedef struct LightVolume
 {
     LightProperties      properties;
