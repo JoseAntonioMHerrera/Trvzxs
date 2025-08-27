@@ -67,7 +67,7 @@ void debugParticles(ComputePipeline* computeP, VkDevice device)
     vkMapMemory(device, computeP->deviceBuffer->ssbos->readBackBufferMemory, 0, VK_WHOLE_SIZE, 0, &data);
 
     // Cast to your particle struct
-    GEOM_PARTICLE* particles = (GEOM_PARTICLE*) data;
+    ParticleInstance* particles = (ParticleInstance*) data;
 
     // Print first few particles
     for (int i = 0; i < 1024; i++)
@@ -81,10 +81,11 @@ void debugParticles(ComputePipeline* computeP, VkDevice device)
     vkUnmapMemory(device, computeP->deviceBuffer->ssbos->readBackBufferMemory);
 }
 
-void recordParticleCommandBuffer(ComputePipeline* computeP, PhysicalDevice* pd, LogicalDevice* ld,
+void recordParticleCommandBuffer(GraphicPipelineToSurface* graphicPipeline, PhysicalDevice* pd, LogicalDevice* ld,
                                  VkPipelineLayout layout, VkDescriptorSet* descriptorSet, uint32_t imageIndex,
                                  float deltaTime)
 {
+    ComputePipeline* computeP           = graphicPipeline->computeP;
     computeP->commandBuffer[imageIndex] = beginSingleTimeCommands(ld, computeP->commandPool->computeCommandPool);
     vkCmdBindPipeline(computeP->commandBuffer[imageIndex], VK_PIPELINE_BIND_POINT_COMPUTE, *computeP->pipeline);
     vkCmdBindDescriptorSets(computeP->commandBuffer[imageIndex], VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1,
@@ -122,9 +123,9 @@ void recordParticleCommandBuffer(ComputePipeline* computeP, PhysicalDevice* pd, 
     vkCmdPipelineBarrier(computeP->commandBuffer[imageIndex], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Remove vertex input bit here
                          0, 0, NULL, 1, &ssboBarrier, 0, NULL);
-
+    // TODO: add preprocessing for switching readbackbuffers debugging
     // Copy to staging buffer
-    VkBufferCopy copyRegion = {.srcOffset = 0, .dstOffset = 0, .size = sizeof(GEOM_PARTICLE) * 1024};
+    VkBufferCopy copyRegion = {.srcOffset = 0, .dstOffset = 0, .size = sizeof(ParticleInstance) * 1024};
 
     vkCmdCopyBuffer(computeP->commandBuffer[imageIndex],
                     computeP->deviceBuffer->ssbos->buffers[imageIndex], // Source: your SSBO

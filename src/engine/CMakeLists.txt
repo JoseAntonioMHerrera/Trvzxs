@@ -75,6 +75,7 @@ target_compile_definitions(engine_mod
   $<$<CONFIG:Debug>:DEBUG>
   $<$<CONFIG:Release>:NDEBUG>
 )
+
 target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS} )
 # Create library target
 target_sources(engine_mod PUBLIC ${ENGINE_SOURCES} ${ENGINE_HEADERS} ${CGLM_HEADERS} ${STB_HEADERS})

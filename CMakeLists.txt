@@ -1,4 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
+
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel;RenderDocDebug" CACHE STRING "" FORCE)
+
 # This needs to be set before the project() call
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"

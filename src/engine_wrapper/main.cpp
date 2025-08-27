@@ -3,6 +3,8 @@
 #include "metaEngine.hpp"
 #include "model.hpp"
 #include <SDL_ttf.h>
+#include <thread>
+#include <random>
 extern "C"
 {
 
@@ -24,6 +26,7 @@ extern "C"
 #include "main_vulkan.h"
 #include "cglm.h"
 #include "graphicsPipeline.h"
+#include "graphicConfiguration.h"
 #include "commandPool.h"
 #include "displayManager.h"
 #include "swapchainManager.h"
@@ -35,11 +38,15 @@ extern "C"
 };
 #include <chrono>
 // TODO move this to central display
-const int WINDOW_WIDTH = 640;
-const int WINDOW_HEIGHT = 480;
 const int MARGIN = 20;
 const double TARGET_FPS = 60.0; // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
+
+// Global variables for camera control
+static int mouseLookActive = 0;
+static float mouseSensitivity = 0.002f;
+static float moveSpeed = 5.0f;
+static int keys[256] = {0}; // Key state array
 
 double getCurrentTime()
 {
@@ -48,13 +55,68 @@ double getCurrentTime()
     return std::chrono::duration_cast<std::chrono::duration<double>>(duration).count();
 }
 
+// Camera movement update (call this in your main loop with deltaTime)
+void updateCamera(Camera3D *camera, float deltaTime)
+{
+    // Calculate movement vectors
+    vec3 forward, right;
+    glm_vec3_sub(camera->center, camera->eye, forward);
+    glm_vec3_normalize(forward);
+    glm_vec3_cross(forward, camera->up, right);
+    glm_vec3_normalize(right);
+
+    vec3 movement = {0.0f, 0.0f, 0.0f};
+    float speed = moveSpeed * deltaTime;
+
+    // WASD movement
+    if (keys[SDL_SCANCODE_W])
+    {
+        // Move forward
+        glm_vec3_muladds(forward, speed, movement);
+    }
+    if (keys[SDL_SCANCODE_S])
+    {
+        // Move backward
+        glm_vec3_muladds(forward, -speed, movement);
+    }
+    if (keys[SDL_SCANCODE_A])
+    {
+        // Move left
+        glm_vec3_muladds(right, -speed, movement);
+    }
+    if (keys[SDL_SCANCODE_D])
+    {
+        // Move right
+        glm_vec3_muladds(right, speed, movement);
+    }
+
+    // Apply movement
+    glm_vec3_add(camera->eye, movement, camera->eye);
+    glm_vec3_add(camera->center, movement, camera->center);
+}
+
+uint32_t getRandomDouble(double max)
+{
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dis(0.0, max);
+    return (uint32_t)dis(gen);
+}
+uint32_t min(uint32_t a, uint32_t b)
+{
+    return a < b ? a : b;
+}
+uint32_t max(uint32_t a, uint32_t b)
+{
+    return a > b ? a : b;
+}
 int main()
 {
 
 #ifdef NDEBUG
     std::cout << "Assertions are disabled" << std::endl;
 #else
-    std::cout << "Assertions are enabled" << std::endl;
+    std::cout << "Assertions arerrr enabled" << std::endl;
 #endif
 
     try
@@ -71,6 +133,9 @@ int main()
 
         SDL_Window *window = NULL;
         window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);
+        MetaEngine *engine = new MetaEngine();
+        engine->initVkInstance(window);
+        //        std::this_thread::sleep_for(std::chrono::seconds(5));
         if (window == NULL)
         {
             const char *error = SDL_GetError();
@@ -82,22 +147,72 @@ int main()
         const float cubeSize = 3.0f;
         const float spacing = 3.0f;
         const float totalSize = cubeSize + spacing;
+        printf("mainCpp\n");
         LightVolume *light = static_cast<LightVolume *>(malloc(sizeof(LightVolume)));
-        GEOM_VERTEX_POSITION *cubeLightPosition = new GEOM_VERTEX_POSITION{0, 0, 0};
-        light->model = *create_cube(cubeLightPosition, 10);
+        GEOM_VERTEX_POSITION *cubeLightPosition = new GEOM_VERTEX_POSITION{0.0, 0.0, 0.0};
+        light->model = *create_cube_no_vertex_optimization(cubeLightPosition, 10);
         printLightVolume(light);
         scene->addLight(light);
-        scene->initInstanceDataLight(&scene->getVolumetricLight(0), 1);
+        ParticleGroup *particleGroup = (ParticleGroup *)malloc(sizeof(ParticleGroup));
+
+        scene->initParticle();
+        uint32_t particleInstancesLen = 1;
+        ParticleInstance *pParticleInstance = (ParticleInstance *)malloc(sizeof(ParticleInstance) * particleInstancesLen);
+        for (uint32_t partInstanceIndex = 0; partInstanceIndex < particleInstancesLen; partInstanceIndex++)
+        {
+            if (partInstanceIndex % 2)
+            {
+                pParticleInstance[partInstanceIndex].position = {1.0, 0.0, 0.0};
+            }
+            else
+            {
+                pParticleInstance[partInstanceIndex].position = {0.0, 1.0, 1.0};
+            }
+            pParticleInstance[partInstanceIndex].velocity.x = max(50, min(50, getRandomDouble(100)));
+            pParticleInstance[partInstanceIndex].velocity.y = max(50, min(50, getRandomDouble(100)));
+            pParticleInstance[partInstanceIndex].velocity.z = max(50, min(50, getRandomDouble(100)));
+
+            pParticleInstance[partInstanceIndex].color.r = max(50, min(50, getRandomDouble(100)));
+            pParticleInstance[partInstanceIndex].color.g = max(50, min(50, getRandomDouble(100)));
+            pParticleInstance[partInstanceIndex].color.b = max(50, min(50, getRandomDouble(100)));
+            pParticleInstance[partInstanceIndex].color.a = max(50, min(50, getRandomDouble(100)));
+        }
+
+        scene->initInstanceDataParticle(particleGroup, particleInstancesLen, pParticleInstance);
+        scene->addParticleGroup(particleGroup);
+        vec3 eye = {1.5f, 1.5f, 1.5f};
+        vec3 center = {0.0f, 0.0f, 0.0f};
+        vec3 up = {0.0f, 0.0f, 1.0f};
+        vec2 screenSize = {WINDOW_WIDTH, WINDOW_HEIGHT};
+        glm_vec2_print(screenSize, stdout);
+        Camera3D *camera = (Camera3D *)malloc(sizeof(*camera));
+        glm_vec3_copy(eye, camera->eye);
+        glm_vec3_copy(center, camera->center);
+        glm_vec3_copy(up, camera->up);
+        glm_vec2_copy(screenSize, camera->screenSize);
+        scene->addCamera3D(camera);
+        LightVolumeInstance lightInstance;
+        vec3 vecPos = {cubeLightPosition->x + 5, cubeLightPosition->y, cubeLightPosition->z};
+        glm_vec3_copy(vecPos, lightInstance.position);
+        lightInstance.color = {0.0, 1.0, 0.0, 1.0};
+        lightInstance.scale = 1.0;
+        LightVolumeInstance lightInstance2;
+        vec3 vecPos2 = {cubeLightPosition->x, cubeLightPosition->y, cubeLightPosition->z};
+        glm_vec3_copy(vecPos2, lightInstance2.position);
+        lightInstance2.color = {1.0, 0.0, 0.0, 1.0};
+        lightInstance2.scale = 1.0;
+        LightVolumeInstance lightinstances[] = {lightInstance, lightInstance2};
+        scene->initInstanceDataLight(&scene->getVolumetricLight(0), 2, lightinstances);
         // GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
         // scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
 
         scene->addModel(load_obj_to_geom_object(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj")));
+
         // scene->addModel(&light->model);
-        scene->initInstanceDataModel(&scene->getModel(0), 1);
+        scene->initInstanceDataModel(&scene->getModel(0), 2);
         scene->init();
         std::cout << "QUE??????\n";
-        MetaEngine *engine = new MetaEngine(window, scene.get());
-
+        engine->bulkInitVulkanWithScene(window, scene.get());
         // Add these variables at the beginning of your main function or in your game class
         TTF_Font *font = nullptr;
         SDL_Color textColor = {255, 255, 255, 255}; // White color
@@ -123,12 +238,10 @@ int main()
 
                 switch (event.type)
                 {
-                case SDL_QUIT:
-
-                    running = 0;
-                    break;
                 case SDL_MOUSEBUTTONDOWN:
-                    if (event.button.button == SDL_BUTTON_LEFT)
+                    switch (event.button.button)
+                    {
+                    case SDL_BUTTON_LEFT:
                     {
                         int mouseX = event.button.x;
                         int mouseY = event.button.y;
@@ -145,24 +258,75 @@ int main()
                         }
                     }
                     break;
-                case SDL_MOUSEBUTTONUP:
-                    if (event.button.button == SDL_BUTTON_LEFT)
-                    {
-                        resizing = 0;
+
+                    case SDL_BUTTON_RIGHT:
+                        // Enable mouse look
+                        mouseLookActive = 1;
+                        SDL_SetRelativeMouseMode(SDL_TRUE);
+                        break;
                     }
                     break;
-                case SDL_MOUSEMOTION:
-                    if (resizing)
+
+                case SDL_MOUSEBUTTONUP:
+                    switch (event.button.button)
                     {
-                        int mouseX = event.motion.x;
-                        int mouseY = event.motion.y;
-                        int newWidth = initialWidth + (mouseX - initialMouseX);
-                        int newHeight = initialHeight + (mouseY - initialMouseY);
-                        if (newWidth > 100 && newHeight > 100)
-                        {
-                            SDL_SetWindowSize(window, newWidth, newHeight);
-                        }
+                    case SDL_BUTTON_RIGHT:
+                        // Disable mouse look
+                        mouseLookActive = 0;
+                        SDL_SetRelativeMouseMode(SDL_FALSE);
+                        break;
                     }
+                    break;
+
+                case SDL_MOUSEMOTION:
+                    if (mouseLookActive)
+                    {
+                        float deltaX = event.motion.xrel * mouseSensitivity;
+                        float deltaY = event.motion.yrel * mouseSensitivity;
+
+                        // Calculate current forward direction
+                        vec3 forward;
+                        glm_vec3_sub(camera->center, camera->eye, forward);
+                        float distance = glm_vec3_norm(forward);
+                        glm_vec3_normalize(forward);
+
+                        // Calculate right vector
+                        vec3 right;
+                        glm_vec3_cross(forward, camera->up, right);
+                        glm_vec3_normalize(right);
+
+                        // Calculate true up vector
+                        vec3 trueUp;
+                        glm_vec3_cross(right, forward, trueUp);
+
+                        // Apply horizontal rotation (yaw)
+                        vec3 rotatedForward;
+                        glm_vec3_rotate(forward, deltaX, camera->up);
+
+                        // Apply vertical rotation (pitch)
+                        glm_vec3_rotate(forward, deltaY, right);
+
+                        // Update center position
+                        glm_vec3_scale(forward, distance, forward);
+                        glm_vec3_add(camera->eye, forward, camera->center);
+                    }
+                    break;
+
+                case SDL_KEYDOWN:
+                    if (event.key.keysym.scancode < 256)
+                    {
+                        keys[event.key.keysym.scancode] = 1;
+                    }
+                    break;
+
+                case SDL_KEYUP:
+                    if (event.key.keysym.scancode < 256)
+                    {
+                        keys[event.key.keysym.scancode] = 0;
+                    }
+                    break;
+                case SDL_QUIT:
+                    exit(0);
                     break;
                 }
             }
@@ -172,6 +336,7 @@ int main()
             {
                 if (deltaTime >= FRAME_TIME)
                 {
+                    updateCamera(scene->getCamera3D(), deltaTime);
                     // Render and present frame
                     engine->metaDrawFrame(window, (float)deltaTime);
 

@@ -3,6 +3,10 @@
 #include "vertex.h"
 #include <assert.h>
 #include "particle.h"
+
+const int WINDOW_WIDTH  = 640;
+const int WINDOW_HEIGHT = 480;
+
 void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp)
 {
     VkDescriptorPoolSize       poolSizes[] = {{
@@ -58,16 +62,17 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
     for (size_t i = 0; i < maxFrames; i++)
     {
         printf("HOLA HOLA %lu\n", (i - 1 + maxFrames) % maxFrames);
-        VkDescriptorBufferInfo transformUBOInfo[2] = {{
-                                                          .buffer = gdp->deviceBuffer->pUbo->uniformBuffers[i],
-                                                          .offset = 0,
-                                                          .range  = sizeof(MODEL_VIEW_PROJECTION),
-                                                      },
-                                                      {
-                                                          .buffer = lightGraphic->deviceBuffer->pUbo->uniformBuffers[i],
-                                                          .offset = 0,
-                                                          .range  = sizeof(MODEL_VIEW_PROJECTION),
-                                                      }};
+        VkDescriptorBufferInfo transformUBOInfo[2] = {
+            {
+                .buffer = gdp->deviceBuffer->pUbo->uniformBuffers[i],
+                .offset = 0,
+                .range  = sizeof(MODEL_VIEW_PROJECTION) * gdp->scene->modelsManager.modelInstanceLen,
+            },
+            {
+                .buffer = lightGraphic->deviceBuffer->pUbo->uniformBuffers[i],
+                .offset = 0,
+                .range  = sizeof(LightTransformations) * lightGraphic->scene->lightManager.lightInstanceCount,
+            }};
 
         VkDescriptorBufferInfo deltaUBOInfo = {
             .buffer = gdp->deviceBuffer->pUbo->uniformBuffers[i],
@@ -78,13 +83,19 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
         VkDescriptorBufferInfo prevSSBOBufferInfo = {
             .buffer = particleGraphic->computeP->deviceBuffer->ssbos->buffers[(i - 1 + maxFrames) % maxFrames],
             .offset = 0,
-            .range  = sizeof(GEOM_PARTICLE) * 1024,
+            .range  = sizeof(ParticleInstance) * particleGraphic->scene->particleManager.particlesInstancesTotalLen,
         };
 
         VkDescriptorBufferInfo currentSSBOBufferInfo = {
             .buffer = particleGraphic->computeP->deviceBuffer->ssbos->buffers[i],
             .offset = 0,
-            .range  = sizeof(GEOM_PARTICLE) * 1024,
+            .range  = sizeof(ParticleInstance) * particleGraphic->scene->particleManager.particlesInstancesTotalLen,
+        };
+
+        VkDescriptorBufferInfo lightPixelReadBack = {
+            .buffer = lightGraphic->deviceBuffer->ssbos->readbackBuffer,
+            .offset = 0,
+            .range  = sizeof(ReadBackBuffer) * WINDOW_WIDTH * WINDOW_HEIGHT,
         };
         VkDescriptorImageInfo imgInfo = {
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -108,8 +119,8 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
                 .dstBinding       = 0,
                 .dstArrayElement  = 0,
                 .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                .descriptorCount  = 2,
-                .pBufferInfo      = transformUBOInfo,
+                .descriptorCount  = 1,
+                .pBufferInfo      = &transformUBOInfo[0],
                 .pImageInfo       = VK_NULL_HANDLE, // Optional
                 .pTexelBufferView = VK_NULL_HANDLE, // Optional
             },
@@ -176,9 +187,31 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
                 .pImageInfo       = &nBuffer,       // Optional
                 .pTexelBufferView = VK_NULL_HANDLE, // Optional
             },
+            {
+                .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet           = gdp->descriptorSet[i],
+                .dstBinding       = 7,
+                .dstArrayElement  = 0,
+                .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount  = 1,
+                .pBufferInfo      = &transformUBOInfo[1],
+                .pImageInfo       = VK_NULL_HANDLE, // Optional
+                .pTexelBufferView = VK_NULL_HANDLE, // Optional
+            },
+            {
+                .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet           = gdp->descriptorSet[i],
+                .dstBinding       = 8,
+                .dstArrayElement  = 0,
+                .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .descriptorCount  = 1,
+                .pBufferInfo      = &lightPixelReadBack,
+                .pImageInfo       = VK_NULL_HANDLE, // Optional
+                .pTexelBufferView = VK_NULL_HANDLE, // Optional
+            },                                      // TODO: add preprocessing for switching readbackbuffers debugging
         };
         printf("UPDATE\n");
-        vkUpdateDescriptorSets(device, 7, descriptorWrite, 0, VK_NULL_HANDLE);
+        vkUpdateDescriptorSets(device, 9, descriptorWrite, 0, VK_NULL_HANDLE);
     }
 }
 
@@ -188,7 +221,7 @@ void createDescriptorSetLayout(LogicalDevice* ld, GraphicPipelineToSurface* gdp,
     VkDescriptorSetLayoutBinding uboInstanceTransform = {
         .binding            = 0,
         .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount    = 2,
+        .descriptorCount    = 1, // TODO! parametrizar, num uniform buffers
         .pImmutableSamplers = VK_NULL_HANDLE,
         .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
     };
@@ -240,13 +273,26 @@ void createDescriptorSetLayout(LogicalDevice* ld, GraphicPipelineToSurface* gdp,
         .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT,
     };
 
+    VkDescriptorSetLayoutBinding uboLightInstanceTransform = {
+        .binding            = 7,
+        .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount    = 1, // TODO! parametrizar, num uniform buffers
+        .pImmutableSamplers = VK_NULL_HANDLE,
+        .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT};
+
+    VkDescriptorSetLayoutBinding ssboLightPixelsReadBack = {.binding            = 8,
+                                                            .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                                            .descriptorCount    = 1,
+                                                            .pImmutableSamplers = VK_NULL_HANDLE,
+                                                            .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT};
+
     VkDescriptorSetLayoutBinding bindings[] = {
         uboInstanceTransform, samplerLayoutBinding, previousSSBOLayoutBinding, currentSSBOLayoutBinding, uboDeltaTime,
-        gBufferBinding,       nBufferBinding};
+        gBufferBinding,       nBufferBinding,       uboLightInstanceTransform, ssboLightPixelsReadBack};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {
         .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 7,
+        .bindingCount = 9,
         .pBindings    = bindings,
         .pNext        = VK_NULL_HANDLE,
         .flags        = 0,

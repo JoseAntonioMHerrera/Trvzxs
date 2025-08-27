@@ -95,13 +95,18 @@ void fillParticleVertexInputAttributeDescription(VkVertexInputAttributeDescripti
     (*objectsIAD)[0].binding  = 0;
     (*objectsIAD)[0].location = 0;
     (*objectsIAD)[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[0].offset   = offsetof(GEOM_PARTICLE, position);
+    (*objectsIAD)[0].offset   = offsetof(GEOM_VERTEX, point);
 
     // GEOM_OBJECT colors
     (*objectsIAD)[1].binding  = 0;
     (*objectsIAD)[1].location = 1;
     (*objectsIAD)[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[1].offset   = offsetof(GEOM_PARTICLE, color);
+    (*objectsIAD)[1].offset   = offsetof(GEOM_VERTEX, color);
+    // GEOM_OBJECT colors
+    (*objectsIAD)[2].binding  = 0;
+    (*objectsIAD)[2].location = 2;
+    (*objectsIAD)[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    (*objectsIAD)[2].offset   = offsetof(GEOM_VERTEX, bary);
 }
 
 void recordGraphicsCommandBuffer(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,
@@ -213,19 +218,13 @@ void fillLightVolumeVertexInputAttributeDescription(VkVertexInputAttributeDescri
     (*objectsIAD)[0].binding  = 0;
     (*objectsIAD)[0].location = 0;
     (*objectsIAD)[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[0].offset   = offsetof(GEOM_VERTEX_G_BUFFER, geometry);
+    (*objectsIAD)[0].offset   = offsetof(GEOM_VERTEX, point);
 
     (*objectsIAD)[1].binding  = 0;
     (*objectsIAD)[1].location = 1;
     (*objectsIAD)[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[1].offset   = offsetof(GEOM_VERTEX_G_BUFFER, normals);
-
-    (*objectsIAD)[2].binding  = 0;
-    (*objectsIAD)[2].location = 2;
-    (*objectsIAD)[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[2].offset   = offsetof(GEOM_VERTEX_G_BUFFER, albedo);
+    (*objectsIAD)[1].offset   = offsetof(GEOM_VERTEX, bary);
 }
-
 void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,
                      GraphicPipelineToSurface* lightGraphics, DisplayManager* dm, VkFramebuffer swapchainFramebuffer)
 {
@@ -320,9 +319,9 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
 
     vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, lightGraphics->deviceBuffer->buffer, offsets);
     const SCENE* sceneLightVolumes = lightGraphics->scene;
-    vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *lightGraphics->deviceBuffer->indexBuffer, 0,
-                         VK_INDEX_TYPE_UINT32);
-
+    /*vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *lightGraphics->deviceBuffer->indexBuffer, 0,
+                         VK_INDEX_TYPE_UINT32);*/ //TODO refactorizar onDemmand index buffers lights
+        //TODO revisar uso de variable offsets para escalabilidad
     printf("DEBUG: Drawing %d lights\n", sceneLightVolumes->lightManager.lightLen);
     for (int indexLight = 0; indexLight < sceneLightVolumes->lightManager.lightLen; indexLight++)
     {
@@ -334,13 +333,18 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
                sceneLightVolumes->lightManager.instanceOffset.items[indexLight]);
 
         // Model vertex draw call
-        vkCmdDrawIndexed(
+        /*vkCmdDrawIndexed(
             gdp->commandBuffer[dm->currentFrame],
             sceneLightVolumes->lightManager.pLight[indexLight].model.indices.itemsLen,
             sceneLightVolumes->lightManager.pLight[indexLight].model.instanceCount,
             sceneLightVolumes->lightManager.pLight[indexLight].model.indiceOffset,
             sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
-            sceneLightVolumes->lightManager.instanceOffset.items[indexLight]); // TODO numero de indices a dibujar
+            sceneLightVolumes->lightManager.instanceOffset.items[indexLight]);*///TODO refactorizar onDemmand index buffers lights
+        vkCmdDraw(gdp->commandBuffer[dm->currentFrame],
+                  sceneLightVolumes->lightManager.pLight[indexLight].model.meshManager.totalMeshVerticesLen,
+                  sceneLightVolumes->lightManager.pLight[indexLight].lightVolumeInstanceCount,
+                  sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
+                  sceneLightVolumes->lightManager.instanceOffset.items[indexLight]);
     }
 
     // PARTICLE SUBPASS
@@ -357,13 +361,20 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
     VkDeviceSize particleOffsets[] = {0};
     // Particle vertex
 
-    const VkBuffer particleBuffer[] = {particleGraphics->computeP->deviceBuffer->ssbos->buffers[dm->currentFrame]};
+    printf("HOLA\n");
+    vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, particleGraphics->deviceBuffer->buffer,
+                           offsets); // TODO adaptar offsets a cada tipo
+    printf("HOLA\n");
 
-    vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 1, 1, particleBuffer, particleOffsets);
-
+    vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *particleGraphics->deviceBuffer->indexBuffer, 0,
+                         VK_INDEX_TYPE_UINT32);
     // Particle vertex draw call
     printf("DEBUG: Drawing 1024 particles\n");
-    vkCmdDraw(gdp->commandBuffer[dm->currentFrame], 1024, 1, 0, 0);
+    for (uint32_t particleGroupIndex = 0;
+         particleGroupIndex < particleGraphics->scene->particleManager.particleGroupLen; particleGroupIndex++)
+        vkCmdDrawIndexed(
+            gdp->commandBuffer[dm->currentFrame], particleGraphics->scene->particleManager.packedParticleIndicesLen,
+            particleGraphics->scene->particleManager.pParticleGroup[particleGroupIndex].particleInstancesLen, 0, 0, 0);
 
     printf("DEBUG: Ending render pass\n");
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
@@ -421,14 +432,11 @@ pointer dsm->subpassDependency->srcSubpass = VK_SUBPASS_EXTERNAL; dsm->subpassDe
     dsm->subpassDependency->srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
 VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; dsm->subpassDependency->srcAccessMask = 0;
     dsm->subpassDependency->dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; dsm->subpassDependency->dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-| VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; dsm->subpassDependency->dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-    VkAttachmentDescription attatchments[2] = {colorAttachment, depthAttachment};
-    VkRenderPassCreateInfo renderPassInfo = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = 2,
-        .pAttachments = attatchments,
-        .subpassCount = 1,
+VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; dsm->subpassDependency->dstAccessMask =
+VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+dsm->subpassDependency->dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT; VkAttachmentDescription attatchments[2] =
+{colorAttachment, depthAttachment}; VkRenderPassCreateInfo renderPassInfo = { .sType =
+VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, .attachmentCount = 2, .pAttachments = attatchments, .subpassCount = 1,
         .pSubpasses = &subpass,
         .dependencyCount = 1,
         .pDependencies = dsm->subpassDependency,
@@ -707,11 +715,11 @@ void createParticleGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager
     };
     printf("before INPUTOBJECTS BIDNINGS ETC\n");
     // PARTICLE VERTEX INPUT
-    gdp->objectIADLen = 2;
+    gdp->objectIADLen = 3;
     fillParticleVertexInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
     gdp->objectIBDLen = 1;
     printf("middle INPUTOBJECTS BIDNINGS ETC\n");
-    fillParticleVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_PARTICLE));
+    fillParticleVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(ParticleInstance));
 
     printf("TRAS INPUTOBJECTS BIDNINGS ETC\n");
 
@@ -727,7 +735,7 @@ void createParticleGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology               = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
+        .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .primitiveRestartEnable = VK_FALSE,
         .pNext                  = VK_NULL_HANDLE,
     };
@@ -912,7 +920,7 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
         .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable       = VK_TRUE,
         .depthWriteEnable      = VK_TRUE,
-        .depthCompareOp        = VK_COMPARE_OP_GREATER,
+        .depthCompareOp        = VK_COMPARE_OP_ALWAYS,
         .depthBoundsTestEnable = VK_FALSE,
         .minDepthBounds        = 0.0f, // Optional
         .maxDepthBounds        = 1.0f, // Optional
@@ -923,11 +931,11 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
 
     printf("before INPUTOBJECTS BIDNINGS ETC\n");
     // PARTICLE VERTEX INPUT
-    gdp->objectIADLen = 3;
+    gdp->objectIADLen = 2;
     fillLightVolumeVertexInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
     gdp->objectIBDLen = 1;
     printf("middle INPUTOBJECTS BIDNINGS ETC\n");
-    fillLightVolumeBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_PARTICLE));
+    fillLightVolumeBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_VERTEX));
 
     printf("TRAS INPUTOBJECTS BIDNINGS ETC\n");
 
@@ -999,9 +1007,13 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment[3] = {
         {
-            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+
+            .blendEnable         = VK_TRUE,
+            .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+            .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
+            .colorBlendOp        = VK_BLEND_OP_ADD,
+            .colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
                               VK_COLOR_COMPONENT_A_BIT,
-            .blendEnable = VK_FALSE,
         },
     };
 
