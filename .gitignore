@@ -57,3 +57,4 @@ makefile
 .vscode/
 build/
 *.gfxr
+.todo

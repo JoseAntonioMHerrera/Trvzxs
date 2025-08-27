@@ -40,13 +40,31 @@ private:
     uint32_t currentSceneIndex = 0;
 
 public:
-    // Bulk init of everything
-    MetaEngine(SDL_Window *window, Scene *scene)
+    void initVkInstance(SDL_Window *window)
     {
         std::cout << "ESTO ES METAENGINE CONSTRUCTOR \n";
         DeviceManager *dm = (DeviceManager *)malloc(
             sizeof(DeviceManager)); // Init for the general state object of
                                     // the render
+        std::cout << "inittrazosengine flag 1" << '\n';
+        dm->lDevice = (LogicalDevice **)malloc(sizeof(*dm->lDevice));
+        (*dm->lDevice) = (LogicalDevice *)malloc(sizeof(**dm->lDevice) * 1);
+        dm->pDevice = (PhysicalDevice *)malloc(sizeof(dm->pDevice));
+        dm->gpuIndex = 0;
+        dm->deviceIndex = 0;
+        VkInstance **instance = (VkInstance **)malloc(sizeof(VkInstance *));
+        createInstance(&dm->instance, window);
+        this->deviceManager =
+            MetaObject<DeviceManager, void (*)(DeviceManager *)>(
+                dm, freeDeviceManager);
+        std::cout << "RETORNO CREATEINSTANCE" << '\n';
+    }
+
+    void bulkInitVulkanWithScene(SDL_Window *window, Scene *scene)
+    {
+        std::cout << "ESTO ES METAENGINE CONSTRUCTOR \n";
+        DeviceManager *dm = this->deviceManager.getStruct(); // Init for the general state object of
+                                                             // the render
         std::cout << "inittrazosengine flag 1" << '\n';
         dm->lDevice = (LogicalDevice **)malloc(sizeof(*dm->lDevice));
         (*dm->lDevice) = (LogicalDevice *)malloc(sizeof(**dm->lDevice) * 1);
@@ -103,6 +121,9 @@ public:
         particleGraphicPipeline->computeP->deviceBuffer =
             (DeviceBufferManager *)malloc(
                 sizeof(*particleGraphicPipeline->computeP->deviceBuffer));
+        particleGraphicPipeline->deviceBuffer =
+            (DeviceBufferManager *)malloc(
+                sizeof(*particleGraphicPipeline->deviceBuffer));
         lightVolumeGraphicPipeline->deviceBuffer =
             (DeviceBufferManager *)malloc(
                 sizeof(*lightVolumeGraphicPipeline->deviceBuffer));
@@ -254,13 +275,17 @@ public:
         createModelInstanceTransformationsUniformBuffersMapped(
             pd, ld, gdp->maxFrames, gdp->deviceBuffer->pUbo,
             gdp->scene->modelsManager.modelInstanceLen);
+        printf("HOLAHOLAHOOPLHAOLAHOLAHOLA  \n");
         createLightInstanceTransformationsUniformBuffersMapped(
             pd, ld, lightVolumeGraphicPipeline->maxFrames,
             lightVolumeGraphicPipeline->deviceBuffer->pUbo,
             lightVolumeGraphicPipeline->scene->lightManager
                 .lightInstanceCount);
-        std::cout << "RETORNO UNIFORMBUFFERS MAPPED TRANSFORM MATRIX"
-                  << '\n';
+        printf("HOLAHOLAHOOPLHAOLAHOLAHOLA  \n");
+
+        std::cout
+            << "RETORNO UNIFORMBUFFERS MAPPED TRANSFORM MATRIX"
+            << '\n';
         createDeltaTimeUniformBuffers(
             pd, ld, gdp->maxFrames,
             particleGraphicPipeline->computeP->deviceBuffer->pUbo);
@@ -268,11 +293,26 @@ public:
         std::cout << "!!!!!! " << gdp->maxFrames << '\n';
         particleGraphicPipeline->computeP->deviceBuffer->ssbos =
             (SSBOBufferManager *)malloc(sizeof(*gdp->deviceBuffer->ssbos));
-        createSSBOBuffers(
+        createParticleSSBOBuffer(
             pd, ld, particleGraphicPipeline->maxFrames,
             particleGraphicPipeline->computeP->deviceBuffer->ssbos,
             particleGraphicPipeline->computeP->commandPool);
-        std::cout << "RETORNO SSBOBUFFERS" << '\n';
+
+        createParticleBuffer(pd, ld, particleGraphicPipeline->deviceBuffer, particleGraphicPipeline->scene,
+                             particleGraphicPipeline->commandPool);
+        createParticleIndiceBuffers(
+            pd, ld, particleGraphicPipeline->deviceBuffer,
+            particleGraphicPipeline->scene,
+            particleGraphicPipeline->commandPool);
+        std::cout << "RETORNO PARTICLE SSBO BUFFERS\n"
+                  << std::endl;
+        lightVolumeGraphicPipeline->deviceBuffer->ssbos =
+            (SSBOBufferManager *)malloc(sizeof(*lightVolumeGraphicPipeline->deviceBuffer->ssbos));
+        createReadbackLightPass1SSBOBuffers( // TODO: add preprocessing for switching readbackbuffers debugging
+            pd, ld, lightVolumeGraphicPipeline->maxFrames,
+            lightVolumeGraphicPipeline->deviceBuffer->ssbos,
+            lightVolumeGraphicPipeline->commandPool);
+        std::cout << "RETORNO LIGHT SSBOBUFFERS" << '\n';
         createDescriptorPool(gdp->maxFrames, ld->device, gdp);
         createDescriptorSetLayout(ld, gdp, gdp->maxFrames);
         std::cout << "RETORNO SETLAYOUT" << '\n';
@@ -327,17 +367,15 @@ public:
         std::cout << "RETORNO GEOMETRYBUFFER MODEL" << '\n';
 
         assert(gdp->scene > 0);
-        createLightVolumeIndiceBuffers(
-            pd, ld, lightVolumeGraphicPipeline->deviceBuffer,
-            lightVolumeGraphicPipeline->scene,
-            lightVolumeGraphicPipeline->commandPool);
+        if (lightVolumeGraphicPipeline->scene->lightManager.packedLightIndex.itemsLen > 0)
+            createLightVolumeIndiceBuffers(
+                pd, ld, lightVolumeGraphicPipeline->deviceBuffer,
+                lightVolumeGraphicPipeline->scene,
+                lightVolumeGraphicPipeline->commandPool);
         std::cout << "RETORNOs INDICE MODEL" << '\n';
         dm->logCallback = createDebugCallbackForVulkan(dm->instance);
         dispM->currentFrame = 0;
         std::cout << "Init vulkan ended." << std::endl;
-        this->deviceManager =
-            MetaObject<DeviceManager, void (*)(DeviceManager *)>(
-                dm, freeDeviceManager);
         printf("FLAG");
         this->displayManager =
             MetaObject<DisplayManager, void (*)(DisplayManager *)>(
@@ -346,6 +384,12 @@ public:
         this->vkInstance = MetaObject<VkInstance, void (*)(VkInstance *)>(
             *instance, freeInstance);
         printf("FLAG");
+        this->scene.addCamera3D(scene->getCamera3D());
+    }
+    // TODO: Bulk init of everything, refactor onDemand
+    MetaEngine()
+    {
+        printf("EN EL CONSTRUCTOR DE METAENGINE\n");
     };
 
     void firstFrameInitialPass()
@@ -365,7 +409,8 @@ public:
     void metaDrawFrame(SDL_Window *window, float deltaTime)
     {
         DeviceManager *deviceManager = this->deviceManager.getStruct();
-        Camera3D camera;
+        Camera3D camera = *this->scene.getCamera3D();
+
         drawFrame(
             deviceManager->pDevice,
             deviceManager

@@ -81,13 +81,13 @@ void updateSSBODescriptorSets(VkDevice device, GraphicPipelineToSurface* particl
     VkDescriptorBufferInfo prevSSBOBufferInfo = {
         .buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[prevFrame],
         .offset = 0,
-        .range  = sizeof(GEOM_PARTICLE) * 1024,
+        .range  = sizeof(ParticleInstance) * particleGraphics->scene->particleManager.particlesInstancesTotalLen,
     };
 
     VkDescriptorBufferInfo currentSSBOBufferInfo = {
         .buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[currentFrame],
         .offset = 0,
-        .range  = sizeof(GEOM_PARTICLE) * 1024,
+        .range  = sizeof(ParticleInstance) * particleGraphics->scene->particleManager.particlesInstancesTotalLen,
     };
 
     // Create descriptor write updates for both SSBO bindings
@@ -120,6 +120,65 @@ void updateSSBODescriptorSets(VkDevice device, GraphicPipelineToSurface* particl
     vkUpdateDescriptorSets(device, 2, descriptorWrites, 0, VK_NULL_HANDLE);
 }
 
+void printLightUniformBufferData(void** uniformBuffersMapped, int currentFrame, int lightInstanceCount)
+{
+    // Cast the void pointer to LightTransformations array
+    LightTransformations* lightData = (LightTransformations*) uniformBuffersMapped[currentFrame];
+
+    printf("=== Light Uniform Buffer Data (Frame %d) ===\n", currentFrame);
+    printf("Light Instance Count: %d\n\n", lightInstanceCount);
+
+    for (int i = 0; i < lightInstanceCount; i++)
+    {
+        printf("--- Light Instance %d ---\n", i);
+
+        // Print MVP matrices
+        printf("Model Matrix:\n");
+        printMat4(lightData[i].mvp.model);
+
+        printf("View Matrix:\n");
+        printMat4(lightData[i].mvp.view);
+
+        printf("Projection Matrix:\n");
+        printMat4(lightData[i].mvp.proj);
+
+        printf("Inverse View-Projection Matrix:\n");
+        printMat4(lightData[i].mInverseVP);
+
+        // Print camera data
+        printf("Camera Data:\n");
+        printCamera3D(lightData[i].camera);
+
+        printf("\n");
+    }
+}
+
+// Helper function to print a 4x4 matrix
+void printMat4(mat4 matrix)
+{
+    for (int row = 0; row < 4; row++)
+    {
+        printf("  [");
+        for (int col = 0; col < 4; col++)
+        {
+            printf("%8.3f", matrix[row][col]); // Adjust if your mat4 uses different indexing
+            if (col < 3)
+                printf(", ");
+        }
+        printf("]\n");
+    }
+    printf("\n");
+}
+
+// Helper function to print Camera3D
+void printCamera3D(Camera3D camera)
+{
+    printf("  Screen Size: (%.3f, %.3f)\n", camera.screenSize[0], camera.screenSize[1]);
+    printf("  Eye: (%.3f, %.3f, %.3f)\n", camera.eye[0], camera.eye[1], camera.eye[2]);
+    printf("  Center: (%.3f, %.3f, %.3f)\n", camera.center[0], camera.center[1], camera.center[2]);
+    printf("  up: (%.3f, %.3f, %.3f)\n", camera.up[0], camera.up[1], camera.up[2]);
+}
+
 void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, GraphicPipelineToSurface* gdp,
                GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics, VkDevice device,
                SDL_Window* window, float deltaTime, Camera3D camera)
@@ -138,7 +197,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     vkResetFences(device, 1, &particleGraphics->computeP->computeInFlightFence[dm->currentFrame]);
 
     printf("Recording particle compute command buffer\n");
-    recordParticleCommandBuffer(particleGraphics->computeP, pd, ld, *particleGraphics->pipelineLayout,
+    recordParticleCommandBuffer(particleGraphics, pd, ld, *particleGraphics->pipelineLayout,
                                 &particleGraphics->descriptorSet[dm->currentFrame], dm->currentFrame, deltaTime);
     VkCommandBuffer submitCommandBuffer[] = {(particleGraphics->computeP->commandBuffer[dm->currentFrame])};
     // COMPUTE SUBMIT WORKLOAD
@@ -226,18 +285,30 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     printf("Updating uniform buffers\n");
     MODEL_VIEW_PROJECTION* uboModels =
         updateModelUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
-
-    printf("Copying uniform buffer data to GPU (size: %zu bytes)\n",
+    printf("Instance 0 translation: (%.2f, %.2f, %.2f)\n", uboModels[0].model[3][0], uboModels[0].model[3][1],
+           uboModels[0].model[3][2]);
+    printf("Instance 1 translation: (%.2f, %.2f, %.2f)\n", uboModels[1].model[3][0], uboModels[1].model[3][1],
+           uboModels[1].model[3][2]);
+    VkPhysicalDeviceProperties props;
+    vkGetPhysicalDeviceProperties(pd->gpu[0], &props);
+    printf("minUniformBufferOffsetAlignment: %zu\n", props.limits.minUniformBufferOffsetAlignment);
+    printf("sizeof(MODEL_VIEW_PROJECTION): %zu\n", sizeof(MODEL_VIEW_PROJECTION));
+    printf("Copying model uniform buffer data to GPU (size: %zu bytes)\n",
            sizeof(*uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
     memcpy(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboModels,
-           sizeof(*uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
+           sizeof(MODEL_VIEW_PROJECTION) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
 
-    MODEL_VIEW_PROJECTION* uboLights =
-        updateLightUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
-    printf("Copying uniform buffer data to GPU (size: %zu bytes)\n",
+    LightTransformations* uboLights =
+        updateLightUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[2].scene);
+    printf("Copying light uniform buffer memory to GPU (size: %p bytes)\n",
+           (size_t) lightGraphics->deviceBuffer->pUbo->uniformBuffersMemory);
+    printf("Copying light uniform buffer data to GPU (size: %zu bytes)\n",
            sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
-    memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], &uboModels,
+    memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboLights,
            sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+    printLightUniformBufferData(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped, dm->currentFrame,
+                                dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+
     VkSemaphore waitSemaphores[] = {gdp->imgViewSemaphore[dm->currentFrame],
                                     particleGraphics->computeP->computeEndSemaphore[dm->currentFrame]};
 
@@ -289,8 +360,62 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     printf("New current frame: %d (max frames: %d)\n", dm->currentFrame, gdp->maxFrames);
     printf("=== DRAW FRAME END ===\n\n");
 
-    /*    if (dm->currentFrame == 2)
+    /*void* mappedData;
+    vkMapMemory(device, lightGraphics->deviceBuffer->ssbos->readBackBufferMemory, 0, VK_WHOLE_SIZE, 0, &mappedData);
+
+    // 2. Cast to your expected type
+    ReadBackBuffer* results       = (ReadBackBuffer*) (mappedData);
+    uint8_t         printReadBack = 0;
+    /*if (printReadBack)
+        for (int index = 0; index < lightGraphics->deviceBuffer->ssbos->readBackBufferSize; index++)
         {
-            exit(0);
-        }*/
+            if (results[index].pixel.r || (index % 10000 == 0))
+                printf("LightPixel %d pixel.r: %f\n", index, results[index].pixel.r);
+
+            if (results[index].pixel.g || (index % 10000 == 0))
+                printf("LightPixel %d pixel.g: %f\n", index, results[index].pixel.g);
+
+            if (results[index].pixel.b || (index % 10000 == 0))
+                printf("LightPixel %d pixel.b: %f\n", index, results[index].pixel.b);
+
+            if (results[index].pixel.a || (index % 10000 == 0))
+                printf("LightPixel %d pixel.a: %f\n", index, results[index].pixel.a);
+
+            if (results[index].pixel1.r || (index % 10000 == 0))
+                printf("LightPixel %d pixel1.r: %f\n", index, results[index].pixel1.r);
+
+            if (results[index].pixel1.g || (index % 10000 == 0))
+                printf("LightPixel %d pixel1.g: %f\n", index, results[index].pixel1.g);
+
+            if (results[index].pixel1.b || (index % 10000 == 0))
+                printf("LightPixel %d pixel1.b: %f\n", index, results[index].pixel1.b);
+
+            if (results[index].pixel1.a || (index % 10000 == 0))
+                printf("LightPixel %d pixel1.a: %f\n", index, results[index].pixel1.a);
+
+            if (results[index].pixel2.r || (index % 10000 == 0))
+                printf("LightPixel %d pixel2.r: %f\n", index, results[index].pixel2.r);
+
+            if (results[index].pixel2.g || (index % 10000 == 0))
+                printf("LightPixel %d pixel2.g: %f\n", index, results[index].pixel2.g);
+
+            if (results[index].pixel2.b || (index % 10000 == 0))
+                printf("LightPixel %d pixel2.b: %f\n", index, results[index].pixel2.b);
+
+            if (results[index].pixel2.a || (index % 10000 == 0))
+                printf("LightPixel %d pixel2.a: %f\n", index, results[index].pixel2.a);
+
+            if (results[index].pixel3.r || (index % 10000 == 0))
+                printf("LightPixel %d pixel3.r: %f\n", index, results[index].pixel3.r);
+
+            if (results[index].pixel3.g || (index % 10000 == 0))
+                printf("LightPixel %d pixel3.g: %f\n", index, results[index].pixel3.g);
+
+            if (results[index].pixel3.b || (index % 10000 == 0))
+                printf("LightPixel %d pixel3.b: %f\n", index, results[index].pixel3.b);
+
+            if (results[index].pixel3.a || (index % 10000 == 0))
+                printf("LightPixel %d pixel3.a: %f\n", index, results[index].pixel3.a);
+        }
+    vkUnmapMemory(device, lightGraphics->deviceBuffer->ssbos->readBackBufferMemory);*/
 }

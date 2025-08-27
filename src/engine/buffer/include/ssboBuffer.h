@@ -17,6 +17,9 @@
 #include "cam.h"
 #include "mat4.h"
 #include "affine.h"
-//#include "displayTimer.h"
+// #include "displayTimer.h"
 
-int createSSBOBuffers(PhysicalDevice *pd, LogicalDevice *ld, uint32_t ssbosLen, SSBOBufferManager *ssbos, CommandPools* commandPool);
+int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager* ssbos,
+                             CommandPools* commandPool);
+int createReadbackLightPass1SSBOBuffers(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen,
+                                        SSBOBufferManager* ssbos, CommandPools* commandPool);

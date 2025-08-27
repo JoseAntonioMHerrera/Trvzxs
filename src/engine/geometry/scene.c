@@ -33,30 +33,48 @@ uint32_t getModelIndicesLenFromScene(const SCENE* const scene)
 
 uint32_t* getModelIndicesFromScene(const SCENE* const scene)
 {
+    printf("DEBUG: Starting getModelIndicesFromScene\n");
     assert(scene->modelsManager.packedModelIndex.itemsLen > 0);
+    printf("DEBUG: packedModelIndex.itemsLen = %u\n", scene->modelsManager.packedModelIndex.itemsLen);
+
     uint32_t* indices = malloc(sizeof(uint32_t) * scene->modelsManager.packedModelIndex.itemsLen);
+    printf("DEBUG: Allocated memory for %u indices\n", scene->modelsManager.packedModelIndex.itemsLen);
+
     initIndicesScene(indices, scene->modelsManager.packedModelIndex.itemsLen);
+    printf("DEBUG: Initialized indices array\n");
+
     uint32_t indicesStorageIterator = 0;
 
     // Copy individual array of objects indices to scene indices array
     uint32_t iteratorStorageIndices = 0;
     uint32_t totalSceneObjects      = scene->modelsManager.modelLen;
+    printf("DEBUG: Total scene objects = %u\n", totalSceneObjects);
 
     for (int i = 0; i < scene->modelsManager.modelLen; i++)
     {
         uint32_t currentObjectIndicesLen = scene->modelsManager.pModel[i].indices.itemsLen;
-        uint32_t startPositionOffset     = iteratorStorageIndices; // flag current offset
-        uint32_t iteratorReadIndices     = 0;
+        printf("DEBUG: Processing model %d with %u indices\n", i, currentObjectIndicesLen);
+
+        uint32_t startPositionOffset = iteratorStorageIndices; // flag current offset
+        printf("DEBUG: Start position offset = %u\n", startPositionOffset);
+
+        uint32_t iteratorReadIndices = 0;
         for (iteratorStorageIndices; iteratorStorageIndices < (startPositionOffset + currentObjectIndicesLen);
              iteratorStorageIndices++)
         {
             // printf("ITERATOR:%d\n", indicesStorageIterator);
+            /*printf("DEBUG: Copying index %u from model %d position %u to global position %u\n",
+                   scene->modelsManager.pModel[i].indices.items[iteratorReadIndices], i, iteratorReadIndices,
+                   indicesStorageIterator);*/
+
             indices[indicesStorageIterator] = scene->modelsManager.pModel[i].indices.items[iteratorReadIndices];
             indicesStorageIterator++;
             iteratorReadIndices++;
         }
+        printf("DEBUG: Finished processing model %d, indicesStorageIterator = %u\n", i, indicesStorageIterator);
     }
 
+    printf("DEBUG: Completed getModelIndicesFromScene, returning indices array\n");
     return indices;
 }
 
@@ -117,29 +135,49 @@ uint32_t getVolumetricLightsIndicesLenFromScene(const SCENE* const scene)
 
 uint32_t* getVolumetricLightsIndicesFromScene(const SCENE* const scene)
 {
-    assert(scene->lightManager.packedLightIndex.itemsLen > 0);
-    uint32_t* indices = malloc(sizeof(uint32_t) * scene->lightManager.packedLightIndex.itemsLen);
-    initIndicesScene(indices, scene->lightManager.packedLightIndex.itemsLen);
-    uint32_t indicesStorageIterator = 0;
+    printf("DEBUG: Starting getVolumetricLightsIndicesFromScene\n");
+    if (scene->lightManager.packedLightIndex.itemsLen > 0)
+    {
+        return 0;
+    }
+    printf("DEBUG: packedLightIndex.itemsLen = %u\n", scene->lightManager.packedLightIndex.itemsLen);
 
-    // Copy individual array of objects indices to scene indices array
+    uint32_t* indices = malloc(sizeof(uint32_t) * scene->lightManager.packedLightIndex.itemsLen);
+    printf("DEBUG: Allocated memory for %u indices\n", scene->lightManager.packedLightIndex.itemsLen);
+
+    initIndicesScene(indices, scene->lightManager.packedLightIndex.itemsLen);
+    printf("DEBUG: Initialized indices array\n");
+
+    uint32_t indicesStorageIterator = 0;
     uint32_t iteratorStorageIndices = 0;
     uint32_t totalSceneObjects      = scene->lightManager.lightLen;
+    printf("DEBUG: Total scene light objects = %u\n", totalSceneObjects);
 
     for (int i = 0; i < scene->lightManager.lightLen; i++)
     {
         uint32_t currentObjectIndicesLen = scene->lightManager.pLight[i].model.indices.itemsLen;
-        uint32_t startPositionOffset     = iteratorStorageIndices; // flag current offset
-        uint32_t iteratorReadIndices     = 0;
+        printf("DEBUG: Processing light %d with %u indices\n", i, currentObjectIndicesLen);
+
+        uint32_t startPositionOffset = iteratorStorageIndices; // flag current offset
+        printf("DEBUG: Start position offset = %u\n", startPositionOffset);
+
+        uint32_t iteratorReadIndices = 0;
         for (iteratorStorageIndices; iteratorStorageIndices < (startPositionOffset + currentObjectIndicesLen);
              iteratorStorageIndices++)
         {
             // printf("ITERATOR:%d\n", indicesStorageIterator);
-            indices[indicesStorageIterator] = scene->modelsManager.pModel[i].indices.items[iteratorReadIndices];
+            /*printf("DEBUG: Copying index %u from light %d position %u to global position %u with value %u\n",
+                   scene->modelsManager.pModel[i].indices.items[iteratorReadIndices], i, iteratorReadIndices,
+                   indicesStorageIterator, scene->lightManager.pLight[i].model.indices.items[iteratorReadIndices]);*/
+
+            indices[indicesStorageIterator] = scene->lightManager.pLight[i].model.indices.items[iteratorReadIndices];
             indicesStorageIterator++;
             iteratorReadIndices++;
         }
+        printf("DEBUG: Finished processing light %d, indicesStorageIterator = %u\n", i, indicesStorageIterator);
     }
+
+    printf("DEBUG: Completed getVolumetricLightsIndicesFromScene, returning indices array\n");
 
     return indices;
 }
@@ -201,7 +239,8 @@ GEOM_VERTEX* getLightVolumesVerticesFromScene(const SCENE* const scene)
     uint32_t modelsLen: number of GEOM_OBJE
 
 */
-void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen)
+void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen, uint32_t particleVerticesLen,
+               uint32_t particleGroupsLen)
 {
     (*scene) = (SCENE*) malloc(sizeof(SCENE));
     if (modelsLen <= 0)
@@ -222,6 +261,18 @@ void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen)
     {
         (*scene)->lightManager.pLight   = (LightVolume*) malloc(sizeof(LightVolume) * lightsLen);
         (*scene)->lightManager.lightLen = lightsLen;
+    }
+
+    if (particleGroupsLen <= 0)
+    {
+        (*scene)->particleManager.particleGroupLen = 0;
+    }
+    else
+    {
+        printf("WE INIT THAT SHIT\n");
+        (*scene)->particleManager.packedParticleVertexLen = particleVerticesLen;
+        (*scene)->particleManager.particleGroupLen        = particleGroupsLen;
+        (*scene)->particleManager.pParticleGroup = (ParticleGroup*) malloc(sizeof(ParticleGroup) * particleGroupsLen);
     }
 }
 
@@ -470,66 +521,27 @@ void fillLightVolumeInstancesIndices(LightManager* lan)
 
     printf("DEBUG: fillLightVolumeInstancesIndices - Completed, total light instances: %u\n", instanceOffset);
 }
-
-/*void fillSceneWithInstancedModelData(Models3DManager* man, Model3DInstance** instanceData,
-                                     uint32_t totalInstanceDataLen)
+void fillParticleGroupsInstancesIndices(ParticleGroupManager* pgm)
 {
-    printf("DEBUG: fillSceneWithInstancedModelData START\n");
-    printf("DEBUG: man=%p, instanceData=%p, totalInstanceDataLen=%u\n", man, instanceData, totalInstanceDataLen);
-    printf("DEBUG: man->modelLen=%u\n", man->modelLen);
+    printf("DEBUG: fillParticleGroupsInstancesIndices - Starting with %d particles\n", pgm->particlesInstancesTotalLen);
 
-    fillModelInstancesIndices(man);
+    pgm->particleInstanceOffsets.items    = malloc(sizeof(*pgm->particleInstanceOffsets.items) * pgm->particleGroupLen);
+    pgm->particleInstanceOffsets.itemsLen = pgm->particleGroupLen;
 
-    printf("DEBUG: Allocating %zu bytes for %u instances\n", sizeof(*man->pModelInstance) * totalInstanceDataLen,
-           totalInstanceDataLen);
-    man->pModelInstance = malloc(sizeof(*man->pModelInstance) * totalInstanceDataLen);
-    printf("DEBUG: man->pModelInstance allocated at %p\n", man->pModelInstance);
+    printf("DEBUG: Allocated instanceOffset array for %d particle items\n", pgm->particleGroupLen);
 
-    // printScene(objects, sceneLen);
-    uint32_t modelInstanceIdx = 0;
-    man->modelInstanceLen     = totalInstanceDataLen;
-
-    for (int modelIdx = 0; modelIdx < man->modelLen; modelIdx++)
+    uint32_t instanceOffset = 0;
+    for (int itemIdx = 0; itemIdx < pgm->particleGroupLen; itemIdx++)
     {
-        uint32_t instanceLen = man->pModel[modelIdx].instanceCount;
-        printf("DEBUG: Model %d: instanceCount=%u, instanceData[%d]=%p\n", modelIdx, instanceLen, modelIdx,
-               instanceData[modelIdx]);
-
-        for (int instanceIdx = 0; instanceIdx < man->pModel[modelIdx].instanceCount; instanceIdx++)
-        {
-            printf("DEBUG: Copying instance: modelIdx=%d, instanceIdx=%d, modelInstanceIdx=%u (max=%u)\n", modelIdx,
-                   instanceIdx, modelInstanceIdx, totalInstanceDataLen);
-            printf("DEBUG: About to access instanceData[%d][%d]\n", modelIdx, instanceIdx);
-
-            man->pModel[modelIdx].pModelInstance[instanceIdx] = instanceData[modelIdx][instanceIdx];
-
-            printf("DEBUG: Successfully copied instance %u\n", modelInstanceIdx - 1);
-        }
+        pgm->particleInstanceOffsets.items[itemIdx] = instanceOffset;
+        printf("DEBUG: Particle[%d]: instanceOffset=%u, instanceCount=%u\n", itemIdx, instanceOffset,
+               pgm->pParticleGroup[itemIdx].particleInstancesLen);
+        instanceOffset += pgm->pParticleGroup[itemIdx].particleInstancesLen;
     }
 
-    printf("DEBUG: fillSceneWithInstancedModelData END - copied %u instances\n", modelInstanceIdx);
-}*/
-/*
-void fillSceneWithInstancedLightVolumeData(LightManager* lan, LightVolumeInstance** instanceData,
-                                           uint32_t totalInstanceDataLen)
-{
-    printf("INIT SCENE WITH INSTANCE LIGHTLen:%d\n", lan->lightLen);
-    fillLightVolumeInstancesIndices(lan);
-    // lan->pLightInstance = malloc(sizeof(*lan->pLightInstance) * totalInstanceDataLen);
-    //  printScene(objects, sceneLen);
-    uint32_t lightInstanceIdx = 0;
-
-    for (int lightIdx = 0; lightIdx < lan->lightLen; lightIdx++)
-    {
-        uint32_t instanceLen = lan->pLight[lightIdx].model.instanceCount;
-        for (int instanceIdx = 0; instanceIdx < lan->pLight[lightIdx].model.instanceCount; instanceIdx++)
-        {
-            lan->pLight[lightIdx].pLightVolumeInstance[instanceIdx] = instanceData[lightIdx][instanceIdx];
-            lan->lightInstanceCount++;
-        }
-    }
+    printf("DEBUG: fillParticleGroupsInstancesIndices - Completed, total particle instances: %u\n", instanceOffset);
 }
-*/
+
 void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetricLightsLen)
 {
     printf("INIT SCENE WITH VOLUMETRICLIGHTSLen:%d\n", volumetricLightsLen);
@@ -565,6 +577,44 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
     (scene)->lightManager.packedLightIndex.itemsLen = getVolumetricLightsIndicesLenFromScene(scene);
     (scene)->lightManager.packedLightIndex.items    = getVolumetricLightsIndicesFromScene((scene));
     fillLightVolumeInstancesIndices(&scene->lightManager);
+    // printf("FINALIZAMOS CREACION ESCENA!\n");
+    // printf("SCENELEN : %d", (*scene)->sceneLen);
+    // printf("INDICESLEN : %d", (*scene)->totalIndicesLen);
+}
+
+void fillSceneWithParticleData(SCENE* scene, ParticleGroup* particleGroups, uint32_t particleGroupsLen,
+                               GEOM_VERTEX* particleVertices, uint32_t particleVerticesCount,
+                               uint32_t* particleVertexIndices, uint32_t particleVertexIndicesLen)
+{
+    scene->particleManager.particleGroupLen = particleGroupsLen;
+
+    printf("INIT SCENE WITH ParticlesGroupsLen:%d\n", particleGroupsLen);
+    uint32_t vertexIndexOffsetForModelIndices         = 0;
+    uint32_t indexOffset                              = 0;
+    uint32_t vertexOffset                             = 0;
+    scene->particleManager.particlesInstancesTotalLen = 0;
+    // printScene(objects, sceneLen);
+
+    for (int objIndex = 0; objIndex < particleGroupsLen; objIndex++)
+    {
+        scene->particleManager.pParticleGroup[objIndex] = particleGroups[objIndex];
+
+        printf("SDFUNSOGNOSD\n");
+        ParticleGroup* particleGroup = &(scene)->particleManager.pParticleGroup[objIndex];
+
+        // apply_offset_to_indices(light->model.indices.items, light->model.indices.itemsLen,
+        // vertexIndexOffsetForModelIndices); vertexIndexOffsetForModelIndices +=
+        // light->model.meshManager.totalMeshVerticesLen;
+        scene->particleManager.particlesInstancesTotalLen += particleGroup->particleInstancesLen;
+    }
+    printf("FINAL TOTALS: indexOffset=%d, vertexOffset=%d\n instanceCount=%d\n", indexOffset, vertexOffset,
+           scene->particleManager.particlesInstancesTotalLen);
+
+    scene->particleManager.pPackedParticleVertex    = particleVertices;
+    scene->particleManager.packedParticleVertexLen  = particleVerticesCount;
+    scene->particleManager.pPackedParticleIndices   = particleVertexIndices;
+    scene->particleManager.packedParticleIndicesLen = particleVertexIndicesLen;
+    fillParticleGroupsInstancesIndices(&scene->particleManager);
     // printf("FINALIZAMOS CREACION ESCENA!\n");
     // printf("SCENELEN : %d", (*scene)->sceneLen);
     // printf("INDICESLEN : %d", (*scene)->totalIndicesLen);

@@ -45,10 +45,13 @@ void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferU
 
 void createGeometryIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                                 CommandPools* commandPool);
-
+void createParticleIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
+                                 CommandPools* commandPool);
 void createGeometryBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                           CommandPools* commandPool);
 void createLightVolumeIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                                     CommandPools* commandPool);
 void createLightVolumeVertexBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                                    CommandPools* commandPool);
+void createParticleBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
+                          CommandPools* commandPool);

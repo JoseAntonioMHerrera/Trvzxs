@@ -20,18 +20,25 @@ file(GLOB_RECURSE ENGINE_WRAPPER_HEADERS
      # TODO move CInterface to engine with entrypoint of engine
 )
 
+option(RENDERDOC_LAYER "Add layer support for renderdoc" OFF)
+message(STATUS "RENDERDOC_LAYER is set to: ${RENDERDOC_LAYER}")
+
+if(RENDERDOC_LAYER)
+    message(STATUS "Enabling RenderDoc layer support")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE RENDERDOC_ENABLED)
+endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
     $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
     $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
     $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
-    
+
     # Vulkan and related
     Vulkan::Vulkan
     Vulkan::Headers
     GPUOpen::VulkanMemoryAllocator
-    
+
     # SPIR-V and shader compilation
     glslang::glslang
     glslang::SPIRV

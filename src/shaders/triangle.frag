@@ -18,6 +18,6 @@ void main() {
     vec3 correctedColor = pow(texColor.rgb, vec3(1.0 / gamma));
 
     // Set the output color
-    outColor = vec4(correctedColor, texColor.a);
+    outColor = vec4(correctedColor, gl_FragCoord.z);
     outNormals = inNormals;
 }
