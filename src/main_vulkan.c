@@ -249,17 +249,20 @@ void createInstance(VkInstance **instance, SDL_Window *window)
         extensionNames[extensionCount++] = extensionsToSelect[4];*/
     printf("SELECCINOADAS %d extensiones\n", extensionCount);
     VkValidationFeatureEnableEXT enables[] = {
-        VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
-        VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
         VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
         VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+    };
+    VkValidationFeatureDisableEXT disables[] = {
+        VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
 
     };
-
     VkValidationFeaturesEXT validationFeatures = {
         .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
-        .enabledValidationFeatureCount = sizeof(enables) / sizeof(enables[0]),
+        .enabledValidationFeatureCount = 2,
         .pEnabledValidationFeatures = enables,
+        .disabledValidationFeatureCount = 2, // Add this
+        .pDisabledValidationFeatures = disables,
         .pNext = NULL,
     };
 

@@ -240,7 +240,7 @@ GEOM_VERTEX* getLightVolumesVerticesFromScene(const SCENE* const scene)
 
 */
 void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen, uint32_t particleVerticesLen,
-               uint32_t particleGroupsLen)
+               uint32_t particleGroupsLen, uint32_t particleInstancesLen)
 {
     (*scene) = (SCENE*) malloc(sizeof(SCENE));
     if (modelsLen <= 0)
@@ -269,10 +269,13 @@ void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen, uint32_t p
     }
     else
     {
-        printf("WE INIT THAT SHIT\n");
+
         (*scene)->particleManager.packedParticleVertexLen = particleVerticesLen;
         (*scene)->particleManager.particleGroupLen        = particleGroupsLen;
         (*scene)->particleManager.pParticleGroup = (ParticleGroup*) malloc(sizeof(ParticleGroup) * particleGroupsLen);
+        (*scene)->particleManager.pParticleInstance =
+            (ParticleInstance*) malloc(sizeof(ParticleInstance) * particleInstancesLen);
+        (*scene)->particleManager.packedParticleInstanceLen = particleInstancesLen;
     }
 }
 
@@ -523,7 +526,7 @@ void fillLightVolumeInstancesIndices(LightManager* lan)
 }
 void fillParticleGroupsInstancesIndices(ParticleGroupManager* pgm)
 {
-    printf("DEBUG: fillParticleGroupsInstancesIndices - Starting with %d particles\n", pgm->particlesInstancesTotalLen);
+    printf("DEBUG: fillParticleGroupsInstancesIndices - Starting with %d particles\n", pgm->packedParticleInstanceLen);
 
     pgm->particleInstanceOffsets.items    = malloc(sizeof(*pgm->particleInstanceOffsets.items) * pgm->particleGroupLen);
     pgm->particleInstanceOffsets.itemsLen = pgm->particleGroupLen;
@@ -555,7 +558,6 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
     {
         scene->lightManager.pLight[objIndex] = pLight[objIndex];
         printLightVolume(pLight);
-        printf("SDFUNSOGNOSD\n");
         LightVolume* light = &(scene)->lightManager.pLight[objIndex];
 
         // apply_offset_to_indices(light->model.indices.items, light->model.indices.itemsLen,
@@ -583,37 +585,49 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
 }
 
 void fillSceneWithParticleData(SCENE* scene, ParticleGroup* particleGroups, uint32_t particleGroupsLen,
-                               GEOM_VERTEX* particleVertices, uint32_t particleVerticesCount,
+                               TrzVertex* particleVertices, uint32_t particleVerticesCount,
                                uint32_t* particleVertexIndices, uint32_t particleVertexIndicesLen)
 {
-    scene->particleManager.particleGroupLen = particleGroupsLen;
 
     printf("INIT SCENE WITH ParticlesGroupsLen:%d\n", particleGroupsLen);
-    uint32_t vertexIndexOffsetForModelIndices         = 0;
-    uint32_t indexOffset                              = 0;
-    uint32_t vertexOffset                             = 0;
-    scene->particleManager.particlesInstancesTotalLen = 0;
-    // printScene(objects, sceneLen);
+    uint32_t vertexIndexOffsetForModelIndices = 0;
+    uint32_t indexOffset                      = 0;
+    uint32_t vertexOffset                     = 0;
+    uint32_t packedParticleInstancesOffset    = 0;
+    scene->particleManager.particleGroupLen   = particleGroupsLen;
 
     for (int objIndex = 0; objIndex < particleGroupsLen; objIndex++)
     {
         scene->particleManager.pParticleGroup[objIndex] = particleGroups[objIndex];
 
-        printf("SDFUNSOGNOSD\n");
-        ParticleGroup* particleGroup = &(scene)->particleManager.pParticleGroup[objIndex];
+        for (int particleInstanceIndex = 0;
+             particleInstanceIndex < scene->particleManager.pParticleGroup[objIndex].particleInstancesLen;
+             particleInstanceIndex++)
+        {
+            glm_vec4_copy(
+                scene->particleManager.pParticleGroup[objIndex].pParticleInstances[particleInstanceIndex].position,
+                scene->particleManager.pParticleInstance[packedParticleInstancesOffset].position);
 
-        // apply_offset_to_indices(light->model.indices.items, light->model.indices.itemsLen,
-        // vertexIndexOffsetForModelIndices); vertexIndexOffsetForModelIndices +=
-        // light->model.meshManager.totalMeshVerticesLen;
-        scene->particleManager.particlesInstancesTotalLen += particleGroup->particleInstancesLen;
+            glm_vec4_copy(
+                scene->particleManager.pParticleGroup[objIndex].pParticleInstances[particleInstanceIndex].velocity,
+                scene->particleManager.pParticleInstance[packedParticleInstancesOffset].velocity);
+
+            glm_vec4_copy(
+                scene->particleManager.pParticleGroup[objIndex].pParticleInstances[particleInstanceIndex].color,
+                scene->particleManager.pParticleInstance[packedParticleInstancesOffset].color);
+
+            packedParticleInstancesOffset++;
+        }
     }
     printf("FINAL TOTALS: indexOffset=%d, vertexOffset=%d\n instanceCount=%d\n", indexOffset, vertexOffset,
-           scene->particleManager.particlesInstancesTotalLen);
+           scene->particleManager.packedParticleInstanceLen);
 
-    scene->particleManager.pPackedParticleVertex    = particleVertices;
-    scene->particleManager.packedParticleVertexLen  = particleVerticesCount;
-    scene->particleManager.pPackedParticleIndices   = particleVertexIndices;
-    scene->particleManager.packedParticleIndicesLen = particleVertexIndicesLen;
+    scene->particleManager.pPackedParticleVertex     = particleVertices;
+    scene->particleManager.packedParticleVertexLen   = particleVerticesCount;
+    scene->particleManager.pPackedParticleIndices    = particleVertexIndices;
+    scene->particleManager.packedParticleIndicesLen  = particleVertexIndicesLen;
+    scene->particleManager.packedParticleInstanceLen = packedParticleInstancesOffset;
+
     fillParticleGroupsInstancesIndices(&scene->particleManager);
     // printf("FINALIZAMOS CREACION ESCENA!\n");
     // printf("SCENELEN : %d", (*scene)->sceneLen);

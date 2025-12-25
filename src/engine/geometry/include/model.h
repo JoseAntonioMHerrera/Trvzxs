@@ -14,6 +14,7 @@ typedef struct Mesh3DManager
     Mesh3D*  pMesh;
     uint32_t meshesLen;
     uint32_t totalMeshVerticesLen;
+    // vec4     boundingBox[2];
 } Mesh3DManager;
 typedef struct Model3DInstance
 {

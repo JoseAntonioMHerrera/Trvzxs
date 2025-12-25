@@ -20,6 +20,8 @@
 // #include "displayTimer.h"
 
 int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager* ssbos,
-                             CommandPools* commandPool);
+                             CommandPools* commandPool, SCENE* scene);
 int createReadbackLightPass1SSBOBuffers(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen,
                                         SSBOBufferManager* ssbos, CommandPools* commandPool);
+/*uint32_t createOclCullingSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager*
+   ssbos, CommandPools* commandPool, SCENE* scene);*/

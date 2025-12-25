@@ -80,55 +80,69 @@ public:
         std::cout << "WOOP" << std::endl;
         DisplayManager *dispM =
             (DisplayManager *)malloc(sizeof(DisplayManager));
-        dispM->graphicsPipelineLen = 3;
+        dispM->graphicsPipelineLen = 4; // 0 models 1 particles 2 lihts 3 depth prepass
         dispM->graphicPipeline = (GraphicPipelineToSurface *)malloc(
             sizeof(*dispM->graphicPipeline) * dispM->graphicsPipelineLen);
 
-        std::cout << "WOOP" << std::endl;
         // PIPELINES
         GraphicPipelineToSurface *gdp = &dispM->graphicPipeline[0];
         GraphicPipelineToSurface *particleGraphicPipeline =
             &dispM->graphicPipeline[1];
         GraphicPipelineToSurface *lightVolumeGraphicPipeline =
             &dispM->graphicPipeline[2];
+        GraphicPipelineToSurface *depthPrepassGraphicPipeline =
+            &dispM->graphicPipeline[3];
         gdp->scene = scene->getScene();
         printSceneModels(&gdp->scene->modelsManager);
 
         particleGraphicPipeline->scene = scene->getScene();
         lightVolumeGraphicPipeline->scene = scene->getScene();
-        std::cout << "WOOP" << std::endl;
+        depthPrepassGraphicPipeline->scene = scene->getScene();
+
         dispM->graphicPipeline[0].swapchain = (GraphicSwapchain *)malloc(
             sizeof(*dispM->graphicPipeline->swapchain));
-        dispM->graphicPipeline[1].computeP = (ComputePipeline *)malloc(
-            sizeof(*dispM->graphicPipeline[1].computeP));
-        std::cout << "WOOP" << std::endl;
-        // SWAPCHAIN SHARED
         GraphicSwapchain *dsm =
             (GraphicSwapchain *)dispM->graphicPipeline->swapchain;
         GraphicSwapchain *dsmParticle = dsm;
         GraphicSwapchain *dsmLightVolume = dsm;
-        std::cout << "WOOP" << std::endl;
+        GraphicSwapchain *dsmDepthPrePass = dsm;
+        particleGraphicPipeline->computePipelineCount = 1;
+        particleGraphicPipeline->computeP = (ComputePipeline *)malloc( // TODO change order models -> light ->particles
+            sizeof(*particleGraphicPipeline->computeP));
+
+        depthPrepassGraphicPipeline->computePipelineCount = 2;
+        depthPrepassGraphicPipeline->computeP = (ComputePipeline *)malloc( // TODO change order models -> light ->particles
+            sizeof(*depthPrepassGraphicPipeline->computeP) * depthPrepassGraphicPipeline->computePipelineCount);
+        ComputePipeline fillHiZComputeP = depthPrepassGraphicPipeline->computeP[0];
+        ComputePipeline oclComputeP = depthPrepassGraphicPipeline->computeP[1];
+        // SWAPCHAIN SHARED
+
         // VULKAN BUFFERS
-        DeviceBufferManager *devicebmModelGraphicPipeline;
-        DeviceBufferManager *devicebmMParticleComputePipeline;
-        DeviceBufferManager *devicebmParticleGraphicPipeline;
-        DeviceBufferManager *devicebmVolumetricGraphicPipeline;
+
         gdp->deviceBuffer =
             (DeviceBufferManager *)malloc(sizeof(*gdp->deviceBuffer));
-        particleGraphicPipeline->deviceBuffer =
-            (DeviceBufferManager *)malloc(
-                sizeof(*particleGraphicPipeline->deviceBuffer));
-        particleGraphicPipeline->computeP->deviceBuffer =
-            (DeviceBufferManager *)malloc(
-                sizeof(*particleGraphicPipeline->computeP->deviceBuffer));
-        particleGraphicPipeline->deviceBuffer =
-            (DeviceBufferManager *)malloc(
-                sizeof(*particleGraphicPipeline->deviceBuffer));
-        lightVolumeGraphicPipeline->deviceBuffer =
-            (DeviceBufferManager *)malloc(
-                sizeof(*lightVolumeGraphicPipeline->deviceBuffer));
+        particleGraphicPipeline->deviceBuffer = (DeviceBufferManager *)malloc(
+            sizeof(*particleGraphicPipeline->deviceBuffer));
+        particleGraphicPipeline->computeP->deviceBuffer = (DeviceBufferManager *)malloc(
+            sizeof(*particleGraphicPipeline->computeP->deviceBuffer));
+        particleGraphicPipeline->deviceBuffer = (DeviceBufferManager *)malloc(
+            sizeof(*particleGraphicPipeline->deviceBuffer));
+        lightVolumeGraphicPipeline->deviceBuffer = (DeviceBufferManager *)malloc(
+            sizeof(*lightVolumeGraphicPipeline->deviceBuffer));
+        depthPrepassGraphicPipeline->deviceBuffer = (DeviceBufferManager *)malloc(
+            sizeof(*lightVolumeGraphicPipeline->deviceBuffer));
 
-        std::cout << "WOOP" << std::endl;
+        for (uint32_t compIndex = 0; compIndex < particleGraphicPipeline->computePipelineCount; compIndex++)
+        {
+            particleGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)malloc(
+                sizeof(*particleGraphicPipeline->computeP[compIndex].deviceBuffer));
+        }
+        for (uint32_t compIndex = 0; compIndex < depthPrepassGraphicPipeline->computePipelineCount; compIndex++)
+        {
+            depthPrepassGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)malloc(
+                sizeof(*depthPrepassGraphicPipeline->computeP[compIndex].deviceBuffer));
+        }
+
         // COMMAND POOLS
         gdp->commandPool =
             (CommandPools *)malloc(sizeof(*gdp->commandPool));
@@ -138,15 +152,21 @@ public:
             sizeof(*lightVolumeGraphicPipeline->commandPool));
         particleGraphicPipeline->computeP->commandPool =
             particleGraphicPipeline->commandPool;
+        depthPrepassGraphicPipeline->commandPool = (CommandPools *)malloc(
+            sizeof(*lightVolumeGraphicPipeline->commandPool));
 
-        std::cout << "WOOP" << std::endl;
-
+        for (uint32_t compIndex = 0; compIndex < particleGraphicPipeline->computePipelineCount; compIndex++)
+        {
+            particleGraphicPipeline->computeP[compIndex].commandPool = (CommandPools *)malloc(sizeof(CommandPools));
+        }
+        for (uint32_t compIndex = 0; compIndex < depthPrepassGraphicPipeline->computePipelineCount; compIndex++)
+        {
+            depthPrepassGraphicPipeline->computeP[compIndex].commandPool = (CommandPools *)malloc(sizeof(CommandPools));
+        }
         // gdp->scene->modelsManager.pModel =
         // scene.get()->getModels().data();
 
         printSceneModels(&gdp->scene->modelsManager);
-
-        std::cout << "RETURNED PRINT SCENE" << std::endl;
 
         this->scene.setScene(scene->getScene());
         printSceneModels(&this->scene.getScene()->modelsManager);
@@ -154,19 +174,20 @@ public:
         particleGraphicPipeline->maxFrames = MAX_FRAMES_IN_FLIGHT;
         lightVolumeGraphicPipeline->maxFrames = MAX_FRAMES_IN_FLIGHT;
         gdp->maxFrames = MAX_FRAMES_IN_FLIGHT;
+        depthPrepassGraphicPipeline->maxFrames = MAX_FRAMES_IN_FLIGHT;
+
         dsm->scImagesLen = gdp->maxFrames;
         dsmParticle->scImagesLen = particleGraphicPipeline->maxFrames;
         dsmLightVolume->scImagesLen = lightVolumeGraphicPipeline->maxFrames;
+        dsmDepthPrePass->scImagesLen = depthPrepassGraphicPipeline->maxFrames;
 
         createSDLSurface(dispM, dm->instance, window);
-        std::cout << "RETORNO CREATESURFACE" << '\n';
 
         initDeviceManager(dm->instance, dm, dispM);
-        std::cout << "RETORNOINITDEVICEMANAGER" << '\n';
 
         PhysicalDevice *pd = &dm->pDevice[dm->gpuIndex];
         LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
-        std::cout << "RETORNO FILLGEOMETRYDATA" << '\n';
+
         physicalDeviceTest(pd->gpu);
 
         if (VK_FALSE == isDeviceValid(ld->device))
@@ -174,27 +195,29 @@ public:
             throw std::runtime_error("isDeviceValid returns VK_FALSE");
         }
         createSwapChain(pd, ld, dispM, gdp, window);
-        particleGraphicPipeline->swapchain = dsmParticle;
+        particleGraphicPipeline->swapchain = dsmParticle; // TODO demasiao confuso, cambiar a dsmGdp
         lightVolumeGraphicPipeline->swapchain = dsmLightVolume;
+        depthPrepassGraphicPipeline->swapchain = dsmDepthPrePass;
 
         gdp->maxFrames = dsm->scImagesLen;
         lightVolumeGraphicPipeline->maxFrames = dsmLightVolume->scImagesLen;
         particleGraphicPipeline->maxFrames = dsmParticle->scImagesLen;
-        std::cout << "NUMERO DE FRAMES " << gdp->maxFrames << '\n';
-        std::cout << "RETORNO CREATESWAPCHAIN" << '\n';
+        depthPrepassGraphicPipeline->maxFrames = dsmDepthPrePass->scImagesLen;
+
         createMsaaColorResources(ld->device, pd, dsm);
-        std::cout << "RETORNO msaacolorresources" << '\n';
+
         createMsaaDepthResources(
             ld->device, pd,
             dsm); // Pipeline grafica de geometria con multisampling
-        std::cout
-            << "RETORNO msaadepthresources"
-            << '\n'; // Pipeline grafica de geometria con multisampling
+
         createDepthImageResources(
             pd, ld,
             dispM->graphicPipeline
                 ->swapchain); // Pipeline grafica de geometria sin
                               // multisampling
+        /*createHiZImageResources(
+            pd, ld,
+            depthPrepassGraphicPipeline);*/
         printf("RETORNO DEPTHIMAGE\n");
         createGeometryBufferResources(pd, ld,
                                       dispM->graphicPipeline->swapchain);
@@ -205,17 +228,13 @@ public:
         createRenderPass(
             pd, dispM->graphicPipeline[0].swapchain, ld->device,
             gdp); // Render pass composicion de una o mas pipeline graficas
-        // TODO refactor the initialization of swapchain data, with default
-        // data for depth resources createParticleRenderPass(pd,
-        // particleGraphicPipeline->swapchain, ld->device,
-        // particleGraphicPipeline);
         particleGraphicPipeline->renderPass = gdp->renderPass;
         lightVolumeGraphicPipeline->renderPass = gdp->renderPass;
-        // dispM->graphicPipeline[1].renderPass =
-        // dispM->graphicPipeline[0].renderPass;
-        std::cout << "RETORNO RENDERPASS" << '\n';
-        dsm->scImageViewLen = dsm->scImagesLen;
-        std::cout << "RETORNO RENDERPASS" << '\n';
+
+        /*createPreDepthRenderPass(pd, depthPrepassGraphicPipeline->swapchain, ld->device,
+                                 depthPrepassGraphicPipeline);*/
+
+        dsm->scImageViewLen = dsm->scImagesLen; // todo ??
 
         for (uint32_t i = 0;
              i <
@@ -234,7 +253,6 @@ public:
         createFrameBuffers(dsm, gdp->renderPass, &ld->device);
         std::cout << "RETORNO FRAMEBUFFERS" << '\n';
 
-        devicebmModelGraphicPipeline = gdp->deviceBuffer;
         std::cout << "RETORNO FRAMEBUFFERS" << '\n';
         createGraphicsCommandPool(pd, ld->device, gdp);
         std::cout << "RETORNO FRAMEBUFFERS" << '\n';
@@ -246,7 +264,16 @@ public:
         // particleGraphicPipeline);
         particleGraphicPipeline->commandPool = gdp->commandPool;
         lightVolumeGraphicPipeline->commandPool = gdp->commandPool;
-        particleGraphicPipeline->computeP->commandPool = gdp->commandPool;
+        depthPrepassGraphicPipeline->commandPool = gdp->commandPool; // TODO por ahora todos comparten el mism commandPool
+        for (uint32_t compIndex = 0; compIndex < particleGraphicPipeline->computePipelineCount; compIndex++)
+        {
+            particleGraphicPipeline->computeP[compIndex].commandPool = particleGraphicPipeline->commandPool;
+        }
+
+        for (uint32_t compIndex = 0; compIndex < depthPrepassGraphicPipeline->computePipelineCount; compIndex++)
+        {
+            depthPrepassGraphicPipeline->computeP[compIndex].commandPool = depthPrepassGraphicPipeline->commandPool;
+        }
         std::cout << "RETORNO TRANSFERPOOL" << '\n';
         createCommandBuffer(gdp, &ld->device, gdp->maxFrames);
         createCommandBuffer(lightVolumeGraphicPipeline, &ld->device,
@@ -254,6 +281,8 @@ public:
         std::cout << "RETORNO PRIMER COMMAN BUFFER CREATION" << '\n';
         createCommandBufferWithCompute(particleGraphicPipeline, &ld->device,
                                        gdp->maxFrames);
+        /*createCommandBufferWithCompute(depthPrepassGraphicPipeline, &ld->device,
+                                       gdp->maxFrames);*/
         std::cout << "RETORNO SEGUNDO COMMAN BUFFER CREATION 2" << '\n';
         VkDeviceSize textureSize;
         uint32_t width;
@@ -293,11 +322,18 @@ public:
         std::cout << "!!!!!! " << gdp->maxFrames << '\n';
         particleGraphicPipeline->computeP->deviceBuffer->ssbos =
             (SSBOBufferManager *)malloc(sizeof(*gdp->deviceBuffer->ssbos));
+        // oclComputeP.deviceBuffer->ssbos =
+        //     (SSBOBufferManager *)malloc(sizeof(*gdp->deviceBuffer->ssbos));
         createParticleSSBOBuffer(
             pd, ld, particleGraphicPipeline->maxFrames,
             particleGraphicPipeline->computeP->deviceBuffer->ssbos,
-            particleGraphicPipeline->computeP->commandPool);
-
+            particleGraphicPipeline->computeP->commandPool,
+            particleGraphicPipeline->scene);
+        /*createOclCullingSSBOBuffer(
+            pd, ld, depthPrepassGraphicPipeline->maxFrames,
+            oclComputeP.deviceBuffer->ssbos,
+            oclComputeP.commandPool,
+            depthPrepassGraphicPipeline->scene);*/
         createParticleBuffer(pd, ld, particleGraphicPipeline->deviceBuffer, particleGraphicPipeline->scene,
                              particleGraphicPipeline->commandPool);
         createParticleIndiceBuffers(
@@ -337,6 +373,8 @@ public:
                   << '\n';
         createLightVolumeGraphicPipeline(lightVolumeGraphicPipeline, dispM,
                                          &ld->device);
+        // createDepthPrepassGraphicsPipeline(depthPrepassGraphicPipeline, dispM,
+        //                                    &ld->device);
         std::cout << "RETORNO LIGHT VOLUME GRAPHIC PIPELINE FLAG METAENGINE"
                   << '\n';
         // gdp->computeP = (ComputePipeline*) (sizeof(*gdp->computeP));
@@ -345,6 +383,8 @@ public:
         std::cout << "RETORNO GRPAHICSPIPLINE" << '\n';
         createParticleComputePipeline(particleGraphicPipeline->computeP,
                                       ld->device);
+        /*createOcclusionCullingComputePipeline(&oclComputeP,
+                                              ld->device);*/
         std::cout << "RETORNO COMPUTEPIPELINE" << '\n';
         std::cout << "RETORNO COMMANDBUFFER" << '\n';
         createSyncObjects(gdp, &ld->device);

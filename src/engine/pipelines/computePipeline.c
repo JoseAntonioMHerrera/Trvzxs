@@ -60,6 +60,42 @@ void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device)
     }
 }
 
+void createOcclusionCullingComputePipeline(ComputePipeline* computeP, VkDevice device)
+{
+
+    assert(computeP);
+
+    char** computeOclCulling = (char**) malloc(sizeof(char*));
+
+    size_t computeGeometrySize = 0;
+
+    readSPVBinaryFile(OCL_CULLING_COMPUTE, computeOclCulling, &computeGeometrySize);
+
+    assert(computeGeometrySize > 0);
+
+    computeP->computeShader = createComputeShaderModule(device, computeOclCulling, computeGeometrySize);
+
+    VkPipelineShaderStageCreateInfo computeShaderStageInfo = {
+        .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
+        .module = (*computeP->computeShader),
+        .pName  = "main",
+        .pNext  = VK_NULL_HANDLE,
+    };
+
+    VkComputePipelineCreateInfo pipelineInfo = {
+        .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .layout = *computeP->pipelineLayout,
+        .stage  = computeShaderStageInfo,
+    };
+
+    computeP->pipeline = malloc(sizeof(*computeP->pipeline));
+    if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, computeP->pipeline) != VK_SUCCESS)
+    {
+        printf("Error creating compute pipeline!");
+    }
+}
+
 void debugParticles(ComputePipeline* computeP, VkDevice device)
 {
     // Map the memory
@@ -70,12 +106,12 @@ void debugParticles(ComputePipeline* computeP, VkDevice device)
     ParticleInstance* particles = (ParticleInstance*) data;
 
     // Print first few particles
-    for (int i = 0; i < 1024; i++)
+    /*for (int i = 0; i < 1024; i++)
     {
         printf("Particle %d: pos=(%.2f, %.2f, %.2f), vel=(%.2f, %.2f, %.2f)\n", i, particles[i].position.data[0],
                particles[i].position.data[1], particles[i].position.data[2], particles[i].velocity.data[0],
                particles[i].velocity.data[1], particles[i].velocity.data[2]);
-    }
+    }*/
 
     // Unmap when done
     vkUnmapMemory(device, computeP->deviceBuffer->ssbos->readBackBufferMemory);
@@ -108,7 +144,9 @@ void recordParticleCommandBuffer(GraphicPipelineToSurface* graphicPipeline, Phys
     vkCmdPipelineBarrier(computeP->commandBuffer[imageIndex], VK_PIPELINE_STAGE_TRANSFER_BIT,
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 1, &barrier,
                          0, NULL);
-    vkCmdDispatch(computeP->commandBuffer[imageIndex], floor(1024 / 256), 1, 1);
+    uint32_t xWorkDivision = floor(graphicPipeline->scene->particleManager.packedParticleInstanceLen / 256);
+    // printf("WORKGROUP: %d\n", xWorkDivision);
+    vkCmdDispatch(computeP->commandBuffer[imageIndex], xWorkDivision ? xWorkDivision : 1, 1, 1);
     // Add barrier for SSBO writes
     VkBufferMemoryBarrier ssboBarrier = {
         .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,

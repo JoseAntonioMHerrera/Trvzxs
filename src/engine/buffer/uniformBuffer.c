@@ -3,8 +3,8 @@
 
 MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene)
 {
-    printf("=== UPDATING MODELS UNIFORM BUFFERS ===\n");
-    printf("Delta time: %.4f\n", deltaTime);
+    // printf("=== UPDATING MODELS UNIFORM BUFFERS ===\n");
+    // printf("Delta time: %.4f\n", deltaTime);
 
     static struct timespec startTime;
     static int             initialized = 0;
@@ -13,17 +13,17 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
 
     // Calculate the difference in seconds
     float time = (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_nsec - startTime.tv_nsec) / 1e9f;
-    printf("Elapsed time: %.4f seconds\n", time);
+    //  printf("Elapsed time: %.4f seconds\n", time);
 
     uint32_t transformationsCount = scene->modelsManager.modelInstanceLen;
-    printf("Total transformations needed: %u (models: %u + lights: %u)\n", transformationsCount,
-           scene->modelsManager.modelInstanceLen, scene->lightManager.lightInstanceCount);
+    //    printf("Total transformations needed: %u (models: %u + lights: %u)\n", transformationsCount,
+    //     scene->modelsManager.modelInstanceLen, scene->lightManager.lightInstanceCount);
 
     MODEL_VIEW_PROJECTION* pTransformations = malloc(sizeof(MODEL_VIEW_PROJECTION) * transformationsCount);
-    printf("Allocated transformations array at %p (size: %zu bytes)\n", pTransformations,
-           sizeof(MODEL_VIEW_PROJECTION) * transformationsCount);
+    //    printf("Allocated transformations array at %p (size: %zu bytes)\n", pTransformations,
+    // sizeof(MODEL_VIEW_PROJECTION) * transformationsCount);
     uint32_t transformationsIdx = 0;
-    printf("Processing %u model instances:\n", scene->modelsManager.modelInstanceLen);
+    //    printf("Processing %u model instances:\n", scene->modelsManager.modelInstanceLen);
     for (uint32_t modelIdx = 0; modelIdx < scene->modelsManager.modelLen; modelIdx++)
     {
         Model3D model = scene->modelsManager.pModel[modelIdx];
@@ -31,68 +31,72 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
         {
 
             glm_mat4_copy(model.pModelInstance[instanceIdx].m, pTransformations[transformationsIdx].model);
-            printf("    Model matrix copied from instance %u\n", transformationsIdx);
+            //          printf("    Model matrix copied from instance %u\n", transformationsIdx);
 
             // Print model matrix values
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    printf("Model[%d][%d] = %.6f ", i, j, pTransformations[transformationsIdx].model[i][j]);
-                }
-                printf("\n");
-            }
+            /*       for (int i = 0; i < 4; i++)
+                   {
+                       for (int j = 0; j < 4; j++)
+                       {
+                           printf("Model[%d][%d] = %.6f ", i, j,
+               pTransformations[transformationsIdx].model[i][j]);
+                       }
+                       printf("\n");
+                   }*/
 
             // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
-            printf("    Setting up view matrix: eye(%.1f,%.1f,%.1f) center(%.1f,%.1f,%.1f) up(%.1f,%.1f,%.1f)\n",
-                   camera.eye[0], camera.eye[1], camera.eye[2], camera.center[0], camera.center[1], camera.center[2],
-                   camera.up[0], camera.up[1], camera.up[2]);
+            //            printf("    Setting up view matrix: eye(%.1f,%.1f,%.1f) center(%.1f,%.1f,%.1f)
+            //            up(%.1f,%.1f,%.1f)\n",
+            // camera.eye[0], camera.eye[1], camera.eye[2], camera.center[0], camera.center[1], camera.center[2],
+            // camera.up[0], camera.up[1], camera.up[2]);
 
             vec4 view;
             glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsIdx].view);
-            printf("    View matrix calculated\n");
+            //            printf("    View matrix calculated\n");
 
             // Print view matrix values
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    printf("View[%d][%d] = %.6f ", i, j, pTransformations[transformationsIdx].view[i][j]);
-                }
-                printf("\n");
-            }
-
+            /*            for (int i = 0; i < 4; i++)
+                        {
+                            for (int j = 0; j < 4; j++)
+                            {
+                                printf("View[%d][%d] = %.6f ", i, j,
+               pTransformations[transformationsIdx].view[i][j]);
+                            }
+                            printf("\n");
+                        }
+            */
             // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
             float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
-            printf("    Projection setup: FOV=45°, aspect=%.3f (%ux%u), near=0.1, far=500.0\n", aspectRatio,
-                   dsm->currentExtent2D.width, dsm->currentExtent2D.height);
+            //    printf("    Projection setup: FOV=45°, aspect=%.3f (%ux%u), near=0.1, far=500.0\n",
+            //    aspectRatio,
+            // dsm->currentExtent2D.width, dsm->currentExtent2D.height);
 
             vec4 proj;
-            glm_perspective(glm_rad(45.0f), aspectRatio, 0.1f, 500.0f, pTransformations[transformationsIdx].proj);
-            printf("    Projection matrix calculated\n");
+            glm_perspective(glm_rad(45.0f), aspectRatio, 2.0f, 500.0f, pTransformations[transformationsIdx].proj);
+            //         printf("    Projection matrix calculated\n");
 
             // Adjust for Vulkan's coordinate system
             pTransformations[transformationsIdx].proj[1][1] *= -1;
-            printf("    Vulkan Y-axis flip applied (proj[1][1] *= -1)\n");
+            //        printf("    Vulkan Y-axis flip applied (proj[1][1] *= -1)\n");
 
             // Print projection matrix values
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    printf("Proj[%d][%d] = %.6f ", i, j, pTransformations[transformationsIdx].proj[i][j]);
-                }
-                printf("\n");
-            }
-
+            /*      for (int i = 0; i < 4; i++)
+                  {
+                      for (int j = 0; j < 4; j++)
+                      {
+                          printf("Proj[%d][%d] = %.6f ", i, j, pTransformations[transformationsIdx].proj[i][j]);
+                      }
+                      printf("\n");
+                  }
+      */
             transformationsIdx++;
-            printf("  Model instance %u transformation complete\n", transformationsIdx);
+            //      printf("  Model instance %u transformation complete\n", transformationsIdx);
         }
     }
 
-    printf("All transformations processed successfully\n");
-    printf("Returning transformations array: %p\n", pTransformations);
-    printf("=== UNIFORM BUFFER UPDATE COMPLETE ===\n");
+    // printf("All transformations processed successfully\n");
+    //  printf("Returning transformations array: %p\n", pTransformations);
+    //  printf("=== UNIFORM BUFFER UPDATE COMPLETE ===\n");
     return pTransformations;
 }
 
@@ -120,8 +124,8 @@ void getRotatingPositionAroundLight(vec3 lightPos, vec3 result, float deltaTime,
 
 LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene)
 {
-    printf("=== UPDATING UNIFORM BUFFERS ===\n");
-    printf("Delta time: %.4f\n", deltaTime);
+    // printf("=== UPDATING UNIFORM BUFFERS ===\n");
+    //  printf("Delta time: %.4f\n", deltaTime);
 
     static struct timespec startTime;
     static int             initialized = 0;
@@ -130,17 +134,17 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
 
     // Calculate the difference in seconds
     float time = (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_nsec - startTime.tv_nsec) / 1e9f;
-    printf("Elapsed time: %.4f seconds\n", time);
+    //  printf("Elapsed time: %.4f seconds\n", time);
 
     uint32_t transformationsLen = scene->lightManager.lightInstanceCount;
-    printf("Total transformations needed: %u (lights: %u)\n", transformationsLen,
-           scene->lightManager.lightInstanceCount);
+    // printf("Total transformations needed: %u (lights: %u)\n", transformationsLen,
+    //      scene->lightManager.lightInstanceCount);
 
     LightTransformations* pTransformations = malloc(sizeof(LightTransformations) * transformationsLen);
-    printf("Allocated transformations array at %p (size: %zu bytes)\n", pTransformations,
-           sizeof(LightTransformations) * transformationsLen);
+    //    printf("Allocated transformations array at %p (size: %zu bytes)\n", pTransformations,
+    //       sizeof(LightTransformations) * transformationsLen);
 
-    printf("Processing %u model instances:\n", scene->modelsManager.modelInstanceLen);
+    //    printf("Processing %u model instances:\n", scene->modelsManager.modelInstanceLen);
     uint32_t transformationsCount = 0;
     for (uint32_t lightIdx = 0; lightIdx < scene->lightManager.lightLen; lightIdx++)
     {
@@ -157,18 +161,19 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
 
             // Model matrix: rotate around Z-axis
             glm_mat4_copy(auxModelInstance, pTransformations[transformationsCount].mvp.model);
-            printf("    Model matrix copied from instance %u\n", transformationsCount);
+            //          printf("    Model matrix copied from instance %u\n", transformationsCount);
 
             // Print model matrix values
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    printf("Model[%d][%d] = %.6f ", i, j, pTransformations[transformationsCount].mvp.model[i][j]);
-                }
-                printf("\n");
-            }
-
+            /*         for (int i = 0; i < 4; i++)
+                     {
+                         for (int j = 0; j < 4; j++)
+                         {
+                             printf("Model[%d][%d] = %.6f ", i, j,
+               pTransformations[transformationsCount].mvp.model[i][j]);
+                         }
+                         printf("\n");
+                     }
+         */
             // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
 
             Camera3D* camInstance = (Camera3D*) malloc(sizeof(pTransformations[transformationsCount].camera));
@@ -184,62 +189,66 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
             glm_vec3_copy(result, pTransformations[transformationsCount].data.position);
             pTransformations[transformationsCount].data.color = light.pLightVolumeInstance[instanceIdx].color;
             pTransformations[transformationsCount].data.scale = light.pLightVolumeInstance[instanceIdx].scale;
-            printf("    Setting up view matrix: eye(%.1f,%.1f,%.1f) center(%.1f,%.1f,%.1f) up(%.1f,%.1f,%.1f)\n",
-                   camera.eye[0], camera.eye[1], camera.eye[2], camera.center[0], camera.center[1], camera.center[2],
-                   camera.up[0], camera.up[1], camera.up[2]);
-            printf("    Setting up view matrix: eye(%.1f,%.1f,%.1f) center(%.1f,%.1f,%.1f) up(%.1f,%.1f,%.1f)\n",
-                   camInstance->eye[0], camInstance->eye[1], camInstance->eye[2], camInstance->center[0],
-                   camInstance->center[1], camInstance->center[2], camInstance->up[0], camInstance->up[1],
-                   camInstance->up[2]);
+            /*         printf("    Setting up view matrix: eye(%.1f,%.1f,%.1f) center(%.1f,%.1f,%.1f)
+               up(%.1f,%.1f,%.1f)\n", camera.eye[0], camera.eye[1], camera.eye[2], camera.center[0],
+               camera.center[1], camera.center[2], camera.up[0], camera.up[1], camera.up[2]); printf("    Setting
+               up view matrix: eye(%.1f,%.1f,%.1f) center(%.1f,%.1f,%.1f) up(%.1f,%.1f,%.1f)\n",
+                            camInstance->eye[0], camInstance->eye[1], camInstance->eye[2],
+               camInstance->center[0], camInstance->center[1], camInstance->center[2], camInstance->up[0],
+               camInstance->up[1], camInstance->up[2]);
+             */
             vec4 view;
             glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsCount].mvp.view);
-            printf("    View matrix calculated\n");
+            // printf("    View matrix calculated\n");
 
             // Print view matrix values
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    printf("View[%d][%d] = %.6f ", i, j, pTransformations[transformationsCount].mvp.view[i][j]);
-                }
-                printf("\n");
-            }
-
+            /*              for (int i = 0; i < 4; i++)
+                          {
+                              for (int j = 0; j < 4; j++)
+                              {
+                                  printf("View[%d][%d] = %.6f ", i, j,
+               pTransformations[transformationsCount].mvp.view[i][j]);
+                              }
+                              printf("\n");
+                          }
+       */
             // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
             float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
-            printf("    Projection setup: FOV=45°, aspect=%.3f (%ux%u), near=0.1, far=500.0\n", aspectRatio,
-                   dsm->currentExtent2D.width, dsm->currentExtent2D.height);
+            //          printf("    Projection setup: FOV=45°, aspect=%.3f (%ux%u), near=0.1, far=500.0\n",
+            //          aspectRatio,
+            //      dsm->currentExtent2D.width, dsm->currentExtent2D.height);
 
             vec4 proj;
             glm_perspective(glm_rad(45.0f), aspectRatio, 0.1f, 500.0f, pTransformations[transformationsCount].mvp.proj);
-            printf("    Projection matrix calculated\n");
+            //       printf("    Projection matrix calculated\n");
 
             // Adjust for Vulkan's coordinate system
             pTransformations[transformationsCount].mvp.proj[1][1] *= -1;
-            printf("    Vulkan Y-axis flip applied (proj[1][1] *= -1)\n");
+            //       printf("    Vulkan Y-axis flip applied (proj[1][1] *= -1)\n");
             mat4 proj_view;
             glm_mat4_mul(pTransformations[transformationsCount].mvp.proj,
                          pTransformations[transformationsCount].mvp.view, proj_view);
 
             glm_mat4_inv(proj_view, pTransformations[transformationsCount].mInverseVP);
             // Print projection matrix values
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    printf("Proj[%d][%d] = %.6f ", i, j, pTransformations[transformationsCount].mvp.proj[i][j]);
-                }
-                printf("\n");
-            }
-
-            printf("  Model instance %u transformation complete\n", transformationsCount);
+            /*       for (int i = 0; i < 4; i++)
+                   {
+                       for (int j = 0; j < 4; j++)
+                       {
+                           printf("Proj[%d][%d] = %.6f ", i, j,
+               pTransformations[transformationsCount].mvp.proj[i][j]);
+                       }
+                       printf("\n");
+                   }
+*/
+            //    printf("  Model instance %u transformation complete\n", transformationsCount);
             transformationsCount++;
         }
     }
 
-    printf("All transformations processed successfully\n");
+    /*printf("All transformations processed successfully\n");
     printf("Returning transformations array: %p\n", pTransformations);
-    printf("=== UNIFORM BUFFER UPDATE COMPLETE ===\n");
+    printf("=== UNIFORM BUFFER UPDATE COMPLETE ===\n");*/
     return pTransformations;
 }
 
