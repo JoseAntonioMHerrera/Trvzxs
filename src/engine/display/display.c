@@ -29,7 +29,7 @@ void firstFrameInitialPassCompute(PhysicalDevice* pd, LogicalDevice* ld, Display
                                   VkDevice device)
 {
     uint32_t bufferIndex = (dm->currentFrame - 1 + particleGraphics->maxFrames) % particleGraphics->maxFrames;
-
+    printf("BUFFFER INDEX: %d\n", bufferIndex);
     // Begin command buffer
     VkCommandBufferBeginInfo beginInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
                                           .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
@@ -81,13 +81,13 @@ void updateSSBODescriptorSets(VkDevice device, GraphicPipelineToSurface* particl
     VkDescriptorBufferInfo prevSSBOBufferInfo = {
         .buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[prevFrame],
         .offset = 0,
-        .range  = sizeof(ParticleInstance) * particleGraphics->scene->particleManager.particlesInstancesTotalLen,
+        .range  = sizeof(ParticleInstance) * particleGraphics->scene->particleManager.packedParticleInstanceLen,
     };
 
     VkDescriptorBufferInfo currentSSBOBufferInfo = {
         .buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[currentFrame],
         .offset = 0,
-        .range  = sizeof(ParticleInstance) * particleGraphics->scene->particleManager.particlesInstancesTotalLen,
+        .range  = sizeof(ParticleInstance) * particleGraphics->scene->particleManager.packedParticleInstanceLen,
     };
 
     // Create descriptor write updates for both SSBO bindings
@@ -183,8 +183,8 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
                GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics, VkDevice device,
                SDL_Window* window, float deltaTime, Camera3D camera)
 {
-    printf("=== DRAW FRAME START ===\n");
-    printf("Current frame: %d, Delta time: %.4f\n", dm->currentFrame, deltaTime);
+    // printf("=== DRAW FRAME START ===\n");
+    // printf("Current frame: %d, Delta time: %.4f\n", dm->currentFrame, deltaTime);
 
     VkSemaphore          signalComputeSemaphores[] = {particleGraphics->computeP->computeEndSemaphore[dm->currentFrame],
                                                       particleGraphics->computeP->computeReadySemaphore[dm->currentFrame]};
@@ -193,15 +193,15 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         particleGraphics->computeP->computeReadySemaphore[(dm->currentFrame - 1 + particleGraphics->maxFrames) %
                                                           particleGraphics->maxFrames]};
 
-    printf("Resetting compute fence for frame %d\n", dm->currentFrame);
+    // printf("Resetting compute fence for frame %d\n", dm->currentFrame);
     vkResetFences(device, 1, &particleGraphics->computeP->computeInFlightFence[dm->currentFrame]);
 
-    printf("Recording particle compute command buffer\n");
+    // printf("Recording particle compute command buffer\n");
     recordParticleCommandBuffer(particleGraphics, pd, ld, *particleGraphics->pipelineLayout,
                                 &particleGraphics->descriptorSet[dm->currentFrame], dm->currentFrame, deltaTime);
     VkCommandBuffer submitCommandBuffer[] = {(particleGraphics->computeP->commandBuffer[dm->currentFrame])};
     // COMPUTE SUBMIT WORKLOAD
-    printf("Submitting compute queue workload\n");
+    // printf("Submitting compute queue workload\n");
     VkSubmitInfo computeQueueSubmitInfo = {
         .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount   = 1,
@@ -221,35 +221,35 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     }
     else
     {
-        printf("Compute queue submitted successfully\n");
+        // printf("Compute queue submitted successfully\n");
     }
 
-    printf("Waiting for compute fence completion\n");
+    // printf("Waiting for compute fence completion\n");
     vkWaitForFences(device, 1, &particleGraphics->computeP->computeInFlightFence[dm->currentFrame], VK_TRUE,
                     UINT64_MAX);
-    printf("Compute fence completed\n");
+    // printf("Compute fence completed\n");
 
-    printf("Waiting for graphics fence for frame %d\n", dm->currentFrame);
+    // printf("Waiting for graphics fence for frame %d\n", dm->currentFrame);
     vkWaitForFences(device, 1, &gdp->inFlightFence[dm->currentFrame], VK_TRUE, UINT64_MAX);
-    printf("Graphics fence completed\n");
+    // printf("Graphics fence completed\n");
 
-    printf("Updating SSBO descriptor sets\n");
+    // printf("Updating SSBO descriptor sets\n");
     updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames);
 
     uint32_t imageIndex       = dm->currentFrame;
     uint32_t aquireImageIndex = dm->currentFrame;
-    printf("Acquiring next swapchain image (index: %u)\n", aquireImageIndex);
+    // printf("Acquiring next swapchain image (index: %u)\n", aquireImageIndex);
 
     VkResult nextImageResult =
         vkAcquireNextImageKHR(device, dm->graphicPipeline->swapchain->VkSwapchain, UINT64_MAX,
                               gdp->imgViewSemaphore[dm->currentFrame], VK_NULL_HANDLE, &aquireImageIndex);
 
-    printf("Swapchain image acquisition result: %d, acquired index: %u\n", nextImageResult, aquireImageIndex);
+    // printf("Swapchain image acquisition result: %d, acquired index: %u\n", nextImageResult, aquireImageIndex);
 
     switch (nextImageResult)
     {
     case VK_SUCCESS:
-        printf("Swapchain image acquired successfully\n");
+        // printf("Swapchain image acquired successfully\n");
         break;
     case VK_ERROR_OUT_OF_DATE_KHR:
         printf("Swapchain out of date - recreating\n");
@@ -260,7 +260,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         exit(1);
     }
 
-    printf("Resetting graphics fence for frame %d\n", dm->currentFrame);
+    // printf("Resetting graphics fence for frame %d\n", dm->currentFrame);
     vkResetFences(device, 1, &gdp->inFlightFence[dm->currentFrame]);
 
     if (nextImageResult != VK_SUCCESS)
@@ -269,45 +269,45 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         exit(1);
     }
 
-    printf("Recording graphics command buffer\n");
+    // printf("Recording graphics command buffer\n");
     recordGraphicsCommandBuffer(gdp, particleGraphics, lightGraphics, dm, dm->currentFrame, pd);
 
-    printf("Ending command buffer recording\n");
+    // printf("Ending command buffer recording\n");
     if (vkEndCommandBuffer(gdp->commandBuffer[dm->currentFrame]) != VK_SUCCESS)
     {
         printf("ERROR: Failed to record command buffer!\n");
     }
     else
     {
-        printf("Command buffer recorded successfully\n");
+        // printf("Command buffer recorded successfully\n");
     }
 
-    printf("Updating uniform buffers\n");
+    // printf("Updating uniform buffers\n");
     MODEL_VIEW_PROJECTION* uboModels =
         updateModelUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
-    printf("Instance 0 translation: (%.2f, %.2f, %.2f)\n", uboModels[0].model[3][0], uboModels[0].model[3][1],
-           uboModels[0].model[3][2]);
-    printf("Instance 1 translation: (%.2f, %.2f, %.2f)\n", uboModels[1].model[3][0], uboModels[1].model[3][1],
-           uboModels[1].model[3][2]);
+    // printf("Instance 0 translation: (%.2f, %.2f, %.2f)\n", uboModels[0].model[3][0], uboModels[0].model[3][1],
+    //  uboModels[0].model[3][2]);
+    // printf("Instance 1 translation: (%.2f, %.2f, %.2f)\n", uboModels[1].model[3][0], uboModels[1].model[3][1],
+    //     uboModels[1].model[3][2]);
     VkPhysicalDeviceProperties props;
     vkGetPhysicalDeviceProperties(pd->gpu[0], &props);
-    printf("minUniformBufferOffsetAlignment: %zu\n", props.limits.minUniformBufferOffsetAlignment);
-    printf("sizeof(MODEL_VIEW_PROJECTION): %zu\n", sizeof(MODEL_VIEW_PROJECTION));
-    printf("Copying model uniform buffer data to GPU (size: %zu bytes)\n",
-           sizeof(*uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
+    // printf("minUniformBufferOffsetAlignment: %zu\n", props.limits.minUniformBufferOffsetAlignment);
+    // printf("sizeof(MODEL_VIEW_PROJECTION): %zu\n", sizeof(MODEL_VIEW_PROJECTION));
+    // printf("Copying model uniform buffer data to GPU (size: %zu bytes)\n",
+    // sizeof(*uboModels) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
     memcpy(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboModels,
            sizeof(MODEL_VIEW_PROJECTION) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
 
     LightTransformations* uboLights =
         updateLightUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[2].scene);
-    printf("Copying light uniform buffer memory to GPU (size: %p bytes)\n",
-           (size_t) lightGraphics->deviceBuffer->pUbo->uniformBuffersMemory);
-    printf("Copying light uniform buffer data to GPU (size: %zu bytes)\n",
-           sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+    // printf("Copying light uniform buffer memory to GPU (size: %p bytes)\n",
+    //        (size_t) lightGraphics->deviceBuffer->pUbo->uniformBuffersMemory);
+    //  printf("Copying light uniform buffer data to GPU (size: %zu bytes)\n",
+    // sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
     memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboLights,
            sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
-    printLightUniformBufferData(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped, dm->currentFrame,
-                                dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+    // printLightUniformBufferData(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped, dm->currentFrame,
+    //                             dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
 
     VkSemaphore waitSemaphores[] = {gdp->imgViewSemaphore[dm->currentFrame],
                                     particleGraphics->computeP->computeEndSemaphore[dm->currentFrame]};
@@ -317,7 +317,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     VkSemaphore signalSemaphores[] = {gdp->renderEndFlag[dm->currentFrame]};
 
-    printf("Submitting graphics queue workload\n");
+    // printf("Submitting graphics queue workload\n");
     VkSubmitInfo graphicQueuesubmitInfo = {
         .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount   = 2,
@@ -336,12 +336,12 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     }
     else
     {
-        printf("Graphics queue submitted successfully\n");
+        //      printf("Graphics queue submitted successfully\n");
     }
 
     VkSwapchainKHR swapChains[] = {dm->graphicPipeline->swapchain->VkSwapchain};
 
-    printf("Presenting frame to swapchain\n");
+    //  printf("Presenting frame to swapchain\n");
     VkPresentInfoKHR presentInfo = {
         .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
@@ -353,15 +353,16 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     };
 
     VkResult presentResult = vkQueuePresentKHR(*ld->queueManager.presentQueue, &presentInfo);
-    printf("Present result: %d\n", presentResult);
+    //  printf("Present result: %d\n", presentResult);
 
-    printf("Frame %d completed, advancing to next frame\n", dm->currentFrame);
+    ///    printf("Frame %d completed, advancing to next frame\n", dm->currentFrame);
     dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
-    printf("New current frame: %d (max frames: %d)\n", dm->currentFrame, gdp->maxFrames);
-    printf("=== DRAW FRAME END ===\n\n");
+    //  printf("New current frame: %d (max frames: %d)\n", dm->currentFrame, gdp->maxFrames);
+    // printf("=== DRAW FRAME END ===\n\n");
 
     /*void* mappedData;
-    vkMapMemory(device, lightGraphics->deviceBuffer->ssbos->readBackBufferMemory, 0, VK_WHOLE_SIZE, 0, &mappedData);
+    vkMapMemory(device, lightGraphics->deviceBuffer->ssbos->readBackBufferMemory, 0, VK_WHOLE_SIZE, 0,
+    &mappedData);
 
     // 2. Cast to your expected type
     ReadBackBuffer* results       = (ReadBackBuffer*) (mappedData);

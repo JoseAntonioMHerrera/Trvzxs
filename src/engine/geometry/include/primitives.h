@@ -11,5 +11,6 @@ Model3D*     create_quad(const GEOM_VERTEX_POSITION* const global, uint32_t size
 GEOM_OBJECT* create_grid(GEOM_OBJECT** geometry, int numPoints, float padding);
 Model3D*     create_plane(const GEOM_VERTEX_POSITION* const global, uint32_t size);
 void         print_geom_vertex(const GEOM_VERTEX* vertices, uint32_t verticesLen);
+void         printTrzVertex(const TrzVertex* vertices, uint32_t verticesLen);
 // Primitive log functions
 void printParticle(const ParticleInstance* particle);

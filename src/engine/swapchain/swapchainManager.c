@@ -25,12 +25,83 @@ VkImageView createImageView(GraphicSwapchain* dsm, VkDevice device, VkFormat for
 
     return imageView;
 }
+void createPreDepthRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device, GraphicPipelineToSurface* gdp)
+{
+    // 1 SAMPLE DEPTH ATTACHTMENT
+    VkAttachmentDescription2 depthAttachment = {
+        .sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format         = (findDepthImageFormat(pd->gpu)),
+        .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp        = VK_ATTACHMENT_STORE_OP_STORE, // Change from DONT_CARE
+        .finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+        .samples        = VK_SAMPLE_COUNT_1_BIT,
+    };
+    // MODELS DEPTH ATTACHTMENT REF
+    VkAttachmentReference2 depthAttachmentRef = {
+        .sType      = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .attachment = 0,
+        .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+    VkAttachmentReference2 depthPrePassAttachtmentsRef[] = {depthAttachmentRef};
 
+    VkSubpassDescription2 depthPrepassSubpass = {
+        .sType                   = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+        .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount    = 0,
+        .pDepthStencilAttachment = &depthAttachmentRef,
+    };
+
+    VkSubpassDependency2 subpassDependencies[] = {
+        {
+            // External -> Subpass 0
+            .sType        = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+            .srcSubpass   = VK_SUBPASS_EXTERNAL,
+            .dstSubpass   = 0,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // Add for layout
+                                                                  // transition
+            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // Add for layout
+                                                               // transition
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT |
+                             VK_ACCESS_MEMORY_WRITE_BIT, // Add for layout transition
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                             VK_ACCESS_MEMORY_READ_BIT, // Add for layout transition
+            .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+        },
+    };
+
+    gdp->attachtmentLen                     = 1;
+    gdp->subpassLen                         = 1;
+    gdp->dependenciesLen                    = 1;
+    VkAttachmentDescription2 attatchments[] = {depthAttachment};
+    VkSubpassDescription2    subpasses[]    = {depthPrepassSubpass};
+    VkRenderPassCreateInfo2  renderPassInfo = {
+         .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
+         .attachmentCount = gdp->attachtmentLen,
+         .pAttachments    = attatchments,
+         .subpassCount    = gdp->subpassLen,
+         .pSubpasses      = subpasses,
+         .dependencyCount = gdp->dependenciesLen,
+         .pDependencies   = subpassDependencies,
+    };
+
+    gdp->renderPass = malloc(sizeof(*gdp->renderPass));
+    if (vkCreateRenderPass2(device, &renderPassInfo, NULL, gdp->renderPass) != VK_SUCCESS)
+    {
+
+        exit(0);
+    }
+}
 void createRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device, GraphicPipelineToSurface* gdp)
 {
 
     // TODO make abstractions for resources attachtments and resolvers
-    printf("CREAMOS EL RENDER PASS CON %d\n", dsm->msaaColorRes->numSamples);
     // COLOR ATTACHTMENT WITH MSAA ENABLED (N SAMPLES)
     VkAttachmentDescription2 colorAttachment = {
         .sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
@@ -361,16 +432,14 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, 
 
     VkPresentModeKHR selectedPresentationMode = chooseSwapPresentMode(
         swapChainSupportDetails->presentModes, swapChainSupportDetails->presentModeLen, VK_PRESENT_MODE_MAILBOX_KHR);
-    printf("SELECCIONADO EL MODO DE PRESNETACION %d\n", selectedPresentationMode);
+
     // Procesamos la resolución soportada por nuestra ventana y la del
     // framebuffer de swapchain
     chooseSwapExtent2D(&gps->swapchain->currentExtent2D, &swapChainSupportDetails->capabilities, window);
-    printf("SELECCIONADO EL MODO DE PRESNETACION %d\n", 3);
 
     // Number of images allowed in the swapchain at the same time
     gps->swapchain->scImagesLen = swapChainSupportDetails->capabilities.minImageCount + 1;
 
-    printf("SELECCIONADO EL MODO DE PRESNETACION %d\n", 6);
     // Check if imageCount exceeds the maxImageCount of the physical device
     // surface capabilities
     if (swapChainSupportDetails->capabilities.maxImageCount > 0 &&
@@ -378,10 +447,9 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, 
     {
         gps->swapchain->scImagesLen = swapChainSupportDetails->capabilities.maxImageCount;
     }
-    printf("SELECCIONADO EL MODO DE PRESNETACION %d\n", 7);
+
     // Finally, we build the SwapChain info struct
     uint32_t familyIndices[] = {pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.transferFamily};
-    printf("SELECCIONADO EL MODO DE PRESNETACION %d\n", 8);
     VkSwapchainCreateInfoKHR creationSwapChainInfo = {
         .sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface          = dm->surface,

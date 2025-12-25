@@ -24,7 +24,7 @@ struct LightInstance {
     LightInstanceData data;
 };
 layout(binding = 7) uniform UniformBufferObject {
-    LightInstance lightInstance[2];
+    LightInstance lightInstance[2000]; // Migrar a SSBO buffers
 } ubo;
 
 layout(input_attachment_index = 0, binding = 5) uniform subpassInput geometryBuffer;
@@ -99,7 +99,6 @@ vec3 calculateBlinnPhong(vec3 worldPos, vec3 normal, vec3 albedo) {
 
     return (ambient + diffuse + specular) * attenuation * lightIntensity;
 }
-
 
 void main() {
     // Read from G-buffer (we'll just verify it works)

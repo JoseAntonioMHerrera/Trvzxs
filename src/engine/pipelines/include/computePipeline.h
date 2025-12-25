@@ -16,7 +16,7 @@
 #include "commandPool.h"
 
 #define PARTICLE_COMPUTE "shaders/bin/particle.comp.spv\0"
-
+#define OCL_CULLING_COMPUTE "shaders/bin/oclCulling.comp.spv\0"
 typedef struct DeviceBufferManager DeviceBufferManager;
 typedef struct DisplayManager      DisplayManager;
 typedef struct LogicalDevice       LogicalDevice;
@@ -50,7 +50,7 @@ typedef struct ComputePipeline
     // SHADERS
     VkShaderModule* computeShader;
 } ComputePipeline;
-
+void createOcclusionCullingComputePipeline(ComputePipeline* computeP, VkDevice device);
 void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device);
 void createModelSkinningComputePipeline(ComputePipeline* computeP, DisplayManager* dm, VkDevice* device);
 void createPostProcComputePipeline(ComputePipeline* computeP, DisplayManager* dm, VkDevice* device);

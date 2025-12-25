@@ -45,6 +45,15 @@ typedef struct GEOM_VERTEX_NORMAL
     float z;
 } GEOM_VERTEX_NORMAL;
 
+typedef struct TrzVertex
+{
+    vec4 point;
+    vec4 color;
+    vec4 textCoords;
+    vec4 normal; // Added normal
+    vec4 bary;
+} TrzVertex;
+
 typedef struct GEOM_VERTEX
 {
     union GEOM_VERTEX_POSITION    point;
@@ -56,7 +65,6 @@ typedef struct GEOM_VERTEX
         float x, y, z;
     } bary;
 } GEOM_VERTEX;
-
 typedef struct GEOM_VERTEX_G_BUFFER
 {
     union GEOM_VERTEX_POSITION    geometry;

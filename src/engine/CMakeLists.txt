@@ -27,6 +27,7 @@ target_include_directories(engine_mod PUBLIC
     texture/include
     image/include
     uniformBuffers/include
+    optimizations/include
     "include/"
     "display/include"
     ${CMAKE_SOURCE_DIR}/src/ #TODO move entryfiles to the library to engine folder tree
@@ -66,6 +67,7 @@ file(GLOB_RECURSE ENGINE_HEADERS
     "image/include/*.h"
     "display/include/*.h"
     "pipelines/constants/include/*.h"
+    "optimizations/include/*.h"
     "${CMAKE_SOURCE_DIR}/src/*.h"
     "${CMAKE_SOURCE_DIR}/src/engineCInterface.h" # TODO move CInterface to engine with entrypoint of engine
 )
@@ -78,7 +80,7 @@ target_compile_definitions(engine_mod
 
 target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS} )
 # Create library target
-target_sources(engine_mod PUBLIC ${ENGINE_SOURCES} ${ENGINE_HEADERS} ${CGLM_HEADERS} ${STB_HEADERS})
+target_sources(engine_mod PUBLIC ${ENGINE_SOURCES} ${ENGINE_HEADERS} ${CGLM_HEADERS})
 # Link libraries to the executable target
 target_link_libraries(engine_mod
     PRIVATE

@@ -95,18 +95,18 @@ void fillParticleVertexInputAttributeDescription(VkVertexInputAttributeDescripti
     (*objectsIAD)[0].binding  = 0;
     (*objectsIAD)[0].location = 0;
     (*objectsIAD)[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[0].offset   = offsetof(GEOM_VERTEX, point);
+    (*objectsIAD)[0].offset   = offsetof(TrzVertex, point);
 
     // GEOM_OBJECT colors
     (*objectsIAD)[1].binding  = 0;
     (*objectsIAD)[1].location = 1;
     (*objectsIAD)[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[1].offset   = offsetof(GEOM_VERTEX, color);
+    (*objectsIAD)[1].offset   = offsetof(TrzVertex, color);
     // GEOM_OBJECT colors
     (*objectsIAD)[2].binding  = 0;
     (*objectsIAD)[2].location = 2;
     (*objectsIAD)[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[2].offset   = offsetof(GEOM_VERTEX, bary);
+    (*objectsIAD)[2].offset   = offsetof(TrzVertex, bary);
 }
 
 void recordGraphicsCommandBuffer(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,
@@ -200,6 +200,27 @@ void fillModelVertexInputAttributeDescription(VkVertexInputAttributeDescription*
     (*objectsIAD)[3].offset   = offsetof(GEOM_VERTEX, normal);
 }
 
+void fillDepthPassVertexBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,
+                                            size_t stride)
+{
+
+    *objectIBD              = malloc(sizeof(VkVertexInputBindingDescription));
+    (*objectIBD)->binding   = 0;
+    (*objectIBD)->stride    = stride;
+    (*objectIBD)->inputRate = inputRate;
+}
+
+void fillDepthPassVertexInputAttributeDescription(VkVertexInputAttributeDescription** objectsIAD, uint32_t viadLen)
+{ // MOVE  object input attribute description to each primitive
+    *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription) * viadLen);
+    // GEOM_OBJECT coordinates
+
+    (*objectsIAD)[0].binding  = 0;
+    (*objectsIAD)[0].location = 0;
+    (*objectsIAD)[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    (*objectsIAD)[0].offset   = offsetof(GEOM_VERTEX, point);
+}
+
 void fillLightVolumeBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,
                                         size_t stride)
 {
@@ -228,7 +249,7 @@ void fillLightVolumeVertexInputAttributeDescription(VkVertexInputAttributeDescri
 void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,
                      GraphicPipelineToSurface* lightGraphics, DisplayManager* dm, VkFramebuffer swapchainFramebuffer)
 {
-    printf("DEBUG: Starting render pass with framebuffer %p\n", (void*) swapchainFramebuffer);
+    // printf("DEBUG: Starting render pass with framebuffer %p\n", (void*) swapchainFramebuffer);
 
     VkRenderPassBeginInfo renderPassInfo = {
         .sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -239,9 +260,9 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
 
     };
 
-    printf("DEBUG: Render area: %dx%d\n", dm->graphicPipeline->swapchain->currentExtent2D.width,
-           dm->graphicPipeline->swapchain->currentExtent2D.height);
-
+    /* printf("DEBUG: Render area: %dx%d\n", dm->graphicPipeline->swapchain->currentExtent2D.width,
+            dm->graphicPipeline->swapchain->currentExtent2D.height);
+ */
     VkClearValue clearValues[4];
     clearValues[0].color           = (VkClearColorValue) {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil    = (VkClearDepthStencilValue) {1.0f, 0};
@@ -250,7 +271,7 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
     renderPassInfo.clearValueCount = 4;
     renderPassInfo.pClearValues    = clearValues;
 
-    printf("DEBUG: Beginning render pass\n");
+    // printf("DEBUG: Beginning render pass\n");
     vkCmdBeginRenderPass(gdp->commandBuffer[dm->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     // MOdels vertex buffer offset for draw
     VkDeviceSize offsets[] = {0};
@@ -258,7 +279,7 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
     // Models vertex
     const VkBuffer localBuffer[] = {*gdp->deviceBuffer->buffer};
 
-    printf("DEBUG: Binding graphics pipeline for models\n");
+    //  printf("DEBUG: Binding graphics pipeline for models\n");
     vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipeline);
 
     VkViewport viewport = {
@@ -270,7 +291,7 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
         viewport.maxDepth = 1.0f,
     };
 
-    printf("DEBUG: Setting viewport: %.0fx%.0f\n", viewport.width, viewport.height);
+    // printf("DEBUG: Setting viewport: %.0fx%.0f\n", viewport.width, viewport.height);
     vkCmdSetViewport(gdp->commandBuffer[dm->currentFrame], 0, 1, &viewport);
 
     VkRect2D scissor = {
@@ -280,7 +301,7 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
 
     vkCmdSetScissor(gdp->commandBuffer[dm->currentFrame], 0, 1, &scissor);
     // MODEL SUBPASS
-    printf("DEBUG: === MODEL SUBPASS START ===\n");
+    // printf("DEBUG: === MODEL SUBPASS START ===\n");
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
                             0, 1, &gdp->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
     vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, localBuffer, offsets);
@@ -289,15 +310,16 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
     vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *gdp->deviceBuffer->indexBuffer, 0,
                          VK_INDEX_TYPE_UINT32);
 
-    printf("DEBUG: Drawing %d models\n", sceneModels->modelsManager.modelLen);
+    // printf("DEBUG: Drawing %d models\n", sceneModels->modelsManager.modelLen);
     for (int indexModel = 0; indexModel < sceneModels->modelsManager.modelLen; indexModel++)
     {
-        printf("DEBUG: Model[%d]: indices=%u, instances=%u, indexOffset=%u, vertexOffset=%u, instanceOffset=%u\n",
+        /*     printf("DEBUG: Model[%d]: indices=%u, instances=%u, indexOffset=%u, vertexOffset=%u,
+             instanceOffset=%u\n",
                indexModel, sceneModels->modelsManager.pModel[indexModel].indices.itemsLen,
                sceneModels->modelsManager.pModel[indexModel].instanceCount,
                sceneModels->modelsManager.pModel[indexModel].indiceOffset,
                sceneModels->modelsManager.pModel[indexModel].vertexOffset,
-               sceneModels->modelsManager.instanceOffset.items[indexModel]);
+               sceneModels->modelsManager.instanceOffset.items[indexModel]);*/
 
         // Model vertex draw call
         vkCmdDrawIndexed(
@@ -309,11 +331,11 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
     }
 
     // LIGHT SUBPASS
-    printf("DEBUG: === LIGHT SUBPASS START ===\n");
+    // printf("DEBUG: === LIGHT SUBPASS START ===\n");
     vkCmdNextSubpass(gdp->commandBuffer[dm->currentFrame], VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *lightGraphics->pipeline);
-    printf("DEBUG: Bound light graphics pipeline\n");
+    // printf("DEBUG: Bound light graphics pipeline\n");
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
                             0, 1, &lightGraphics->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
 
@@ -322,15 +344,15 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
     /*vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *lightGraphics->deviceBuffer->indexBuffer, 0,
                          VK_INDEX_TYPE_UINT32);*/ //TODO refactorizar onDemmand index buffers lights
         //TODO revisar uso de variable offsets para escalabilidad
-    printf("DEBUG: Drawing %d lights\n", sceneLightVolumes->lightManager.lightLen);
+    // printf("DEBUG: Drawing %d lights\n", sceneLightVolumes->lightManager.lightLen);
     for (int indexLight = 0; indexLight < sceneLightVolumes->lightManager.lightLen; indexLight++)
     {
-        printf("DEBUG: Light[%d]: indices=%u, instances=%u, indexOffset=%u, vertexOffset=%u, instanceOffset=%u\n",
-               indexLight, sceneLightVolumes->lightManager.pLight[indexLight].model.indices.itemsLen,
-               sceneLightVolumes->lightManager.pLight[indexLight].model.instanceCount,
-               sceneLightVolumes->lightManager.pLight[indexLight].model.indiceOffset,
-               sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
-               sceneLightVolumes->lightManager.instanceOffset.items[indexLight]);
+        /*    printf("DEBUG: Light[%d]: indices=%u, instances=%u, indexOffset=%u, vertexOffset=%u, instanceOffset=%u\n",
+                   indexLight, sceneLightVolumes->lightManager.pLight[indexLight].model.indices.itemsLen,
+                   sceneLightVolumes->lightManager.pLight[indexLight].model.instanceCount,
+                   sceneLightVolumes->lightManager.pLight[indexLight].model.indiceOffset,
+                   sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
+                   sceneLightVolumes->lightManager.instanceOffset.items[indexLight]);*/
 
         // Model vertex draw call
         /*vkCmdDrawIndexed(
@@ -348,11 +370,11 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
     }
 
     // PARTICLE SUBPASS
-    printf("DEBUG: === PARTICLE SUBPASS START ===\n");
+    //  printf("DEBUG: === PARTICLE SUBPASS START ===\n");
     vkCmdNextSubpass(gdp->commandBuffer[dm->currentFrame], VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS,
                       *particleGraphics->pipeline);
-    printf("DEBUG: Bound particle graphics pipeline\n");
+    // printf("DEBUG: Bound particle graphics pipeline\n");
     vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
                             0, 1, &particleGraphics->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
     // DRAW THE PARTICLES
@@ -361,24 +383,31 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
     VkDeviceSize particleOffsets[] = {0};
     // Particle vertex
 
-    printf("HOLA\n");
     vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, particleGraphics->deviceBuffer->buffer,
                            offsets); // TODO adaptar offsets a cada tipo
-    printf("HOLA\n");
 
-    vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *particleGraphics->deviceBuffer->indexBuffer, 0,
-                         VK_INDEX_TYPE_UINT32);
+    if (particleGraphics->deviceBuffer->indexBuffer && *particleGraphics->deviceBuffer->indexBuffer != VK_NULL_HANDLE)
+    {
+        //  printf("Success: Attempting to bind invalid index buffer handle\n");
+
+        vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *particleGraphics->deviceBuffer->indexBuffer, 0,
+                             VK_INDEX_TYPE_UINT32);
+    }
+    else
+    {
+        printf("ERROR: Attempting to bind invalid index buffer handle\n");
+        exit(0);
+    }
+
     // Particle vertex draw call
-    printf("DEBUG: Drawing 1024 particles\n");
     for (uint32_t particleGroupIndex = 0;
          particleGroupIndex < particleGraphics->scene->particleManager.particleGroupLen; particleGroupIndex++)
         vkCmdDrawIndexed(
             gdp->commandBuffer[dm->currentFrame], particleGraphics->scene->particleManager.packedParticleIndicesLen,
             particleGraphics->scene->particleManager.pParticleGroup[particleGroupIndex].particleInstancesLen, 0, 0, 0);
 
-    printf("DEBUG: Ending render pass\n");
     vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
-    printf("DEBUG: Render pass completed\n");
+    // printf("DEBUG: Render pass completed\n");
 }
 
 /*
@@ -719,7 +748,7 @@ void createParticleGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager
     fillParticleVertexInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
     gdp->objectIBDLen = 1;
     printf("middle INPUTOBJECTS BIDNINGS ETC\n");
-    fillParticleVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(ParticleInstance));
+    fillParticleVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(TrzVertex));
 
     printf("TRAS INPUTOBJECTS BIDNINGS ETC\n");
 
@@ -906,7 +935,6 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
 
     VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
-    printf("HOLA HOLA PA TI MI COLA\n");
     uint32_t dynamicStateSize = 2;
 
     VkPipelineDynamicStateCreateInfo dynamicState = {
@@ -995,7 +1023,7 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
         .depthClampEnable        = VK_FALSE,
         .polygonMode             = VK_POLYGON_MODE_FILL,
         .lineWidth               = 1.0f,
-        .cullMode                = VK_CULL_MODE_NONE,
+        .cullMode                = VK_CULL_MODE_FRONT_BIT,
         .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .depthBiasEnable         = VK_FALSE,
         .depthBiasConstantFactor = 0.0f, // Optional
@@ -1082,4 +1110,153 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
 
         exit(1);
     }
+}
+
+#define DEPTH_PREPASS_VERT_SHADER "shaders/bin/depthPrepass.vert.spv"
+// No fragment shader needed - early depth writes only
+
+void createDepthPrepassGraphicsPipeline(GraphicPipelineToSurface* depthGdp, DisplayManager* dm, VkDevice* device)
+{
+    // Load only vertex shader
+    char** depthVert     = malloc(sizeof(char*));
+    size_t depthVertSize = 0;
+    readSPVBinaryFile(DEPTH_PREPASS_VERT_SHADER, depthVert, &depthVertSize);
+
+    depthGdp->vertShader = createShaderModule(*device, depthVert, depthVertSize);
+    depthGdp->fragShader = NULL; // No fragment shader for depth prepass
+
+    // Single stage - vertex only
+    VkPipelineShaderStageCreateInfo vertStage = {.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                                                 .stage  = VK_SHADER_STAGE_VERTEX_BIT,
+                                                 .module = (*depthGdp->vertShader),
+                                                 .pName  = "main",
+                                                 .pNext  = VK_NULL_HANDLE};
+
+    // Use your existing vertex input setup (models use GEOM_VERTEX)
+    depthGdp->objectIADLen = 2; // Position + normal (same as models)
+    fillDepthPassVertexInputAttributeDescription(&depthGdp->objectIAD, depthGdp->objectIADLen);
+    depthGdp->objectIBDLen = 1;
+    fillDepthPassVertexBindingDescriptions(&depthGdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_VERTEX));
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+        .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount   = depthGdp->objectIBDLen,
+        .pVertexBindingDescriptions      = depthGdp->objectIBD,
+        .vertexAttributeDescriptionCount = depthGdp->objectIADLen,
+        .pVertexAttributeDescriptions    = depthGdp->objectIAD,
+        .pNext                           = VK_NULL_HANDLE};
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+        .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+        .pNext                  = VK_NULL_HANDLE};
+
+    // Dynamic viewport and scissor (matching your existing pattern)
+    VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+
+    VkPipelineDynamicStateCreateInfo dynamicState = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                                                     .dynamicStateCount = 2,
+                                                     .pDynamicStates    = dynamicStates,
+                                                     .pNext             = VK_NULL_HANDLE};
+
+    VkPipelineViewportStateCreateInfo viewportState = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                                                       .viewportCount = 1,
+                                                       .pViewports    = NULL, // Dynamic
+                                                       .scissorCount  = 1,
+                                                       .pScissors     = NULL, // Dynamic
+                                                       .pNext         = VK_NULL_HANDLE};
+
+    // Early fragment test enablement via rasterization state
+    VkPipelineRasterizationStateCreateInfo rasterizer = {
+        .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable        = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE, // Must be false to write depth
+        .polygonMode             = VK_POLYGON_MODE_FILL,
+        .lineWidth               = 1.0f,
+        .cullMode                = VK_CULL_MODE_BACK_BIT, // Cull back faces for efficiency
+        .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .depthBiasEnable         = VK_FALSE,
+        .pNext                   = VK_NULL_HANDLE};
+
+    // No multisampling for depth prepass (keep it simple and fast)
+    VkPipelineMultisampleStateCreateInfo multisampling = {.sType =
+                                                              VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                          .sampleShadingEnable   = VK_FALSE,
+                                                          .rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT,
+                                                          .minSampleShading      = 1.0f,
+                                                          .pSampleMask           = NULL,
+                                                          .alphaToCoverageEnable = VK_FALSE,
+                                                          .alphaToOneEnable      = VK_FALSE,
+                                                          .pNext                 = VK_NULL_HANDLE};
+
+    // Aggressive depth state for prepass
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {
+        .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable       = VK_TRUE,
+        .depthWriteEnable      = VK_TRUE,
+        .depthCompareOp        = VK_COMPARE_OP_LESS, // Early-Z optimization friendly
+        .depthBoundsTestEnable = VK_FALSE,
+        .minDepthBounds        = 0.0f,
+        .maxDepthBounds        = 1.0f,
+        .stencilTestEnable     = VK_FALSE,
+        .front                 = {},
+        .back                  = {}};
+
+    // Critical: Disable color writes completely
+    VkPipelineColorBlendStateCreateInfo colorBlending = {.sType =
+                                                             VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                                                         .logicOpEnable   = VK_FALSE,
+                                                         .attachmentCount = 0, // No color attachments
+                                                         .pAttachments    = NULL,
+                                                         .pNext           = VK_NULL_HANDLE};
+
+    // Create pipeline layout (reuse your existing descriptor set layout)
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+        .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = depthGdp->maxFrames,
+        .pSetLayouts =
+            (VkDescriptorSetLayout[]) {depthGdp->dsl, depthGdp->dsl, depthGdp->dsl}, // Same pattern as your code
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges    = NULL,
+        .pNext                  = VK_NULL_HANDLE};
+
+    depthGdp->pipelineLayout = malloc(sizeof(*depthGdp->pipelineLayout));
+    if (vkCreatePipelineLayout(*device, &pipelineLayoutInfo, NULL, depthGdp->pipelineLayout) != VK_SUCCESS)
+    {
+        printf("Failed to create depth prepass pipeline layout!\n");
+        exit(1);
+    }
+
+    // Create the graphics pipeline
+    VkGraphicsPipelineCreateInfo pipelineInfo = {.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                                                 .stageCount          = 1, // Only vertex shader
+                                                 .pStages             = &vertStage,
+                                                 .pVertexInputState   = &vertexInputInfo,
+                                                 .pInputAssemblyState = &inputAssembly,
+                                                 .pViewportState      = &viewportState,
+                                                 .pRasterizationState = &rasterizer,
+                                                 .pMultisampleState   = &multisampling,
+                                                 .pDepthStencilState  = &depthStencil,
+                                                 .pColorBlendState    = &colorBlending,
+                                                 .pDynamicState       = &dynamicState,
+                                                 .layout              = *depthGdp->pipelineLayout,
+                                                 .renderPass =
+                                                     *depthGdp->renderPass, // You'll need the depth-only render pass
+                                                 .subpass            = 0,
+                                                 .basePipelineHandle = VK_NULL_HANDLE,
+                                                 .basePipelineIndex  = -1,
+                                                 .pNext              = VK_NULL_HANDLE};
+
+    depthGdp->pipeline = malloc(sizeof(*depthGdp->pipeline));
+    if (vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, depthGdp->pipeline) != VK_SUCCESS)
+    {
+        printf("Failed to create depth prepass graphics pipeline!\n");
+        exit(1);
+    }
+
+    printf("Depth prepass graphics pipeline created successfully\n");
+
+    // Clean up
+    free(depthVert);
 }

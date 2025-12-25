@@ -83,13 +83,13 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
         VkDescriptorBufferInfo prevSSBOBufferInfo = {
             .buffer = particleGraphic->computeP->deviceBuffer->ssbos->buffers[(i - 1 + maxFrames) % maxFrames],
             .offset = 0,
-            .range  = sizeof(ParticleInstance) * particleGraphic->scene->particleManager.particlesInstancesTotalLen,
+            .range  = sizeof(ParticleInstance) * particleGraphic->scene->particleManager.packedParticleInstanceLen,
         };
 
         VkDescriptorBufferInfo currentSSBOBufferInfo = {
             .buffer = particleGraphic->computeP->deviceBuffer->ssbos->buffers[i],
             .offset = 0,
-            .range  = sizeof(ParticleInstance) * particleGraphic->scene->particleManager.particlesInstancesTotalLen,
+            .range  = sizeof(ParticleInstance) * particleGraphic->scene->particleManager.packedParticleInstanceLen,
         };
 
         VkDescriptorBufferInfo lightPixelReadBack = {

@@ -13,59 +13,46 @@ uint32_t createMemoryTypeCache(DeviceManager* pdmm) {}
 void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
 {
     printf("=== INITIALIZING DEVICE QUEUES ===\n");
-    printf("Physical device address: %p\n", pd);
-    printf("Logical device address: %p\n", ld);
 
-    // ld->displayManager = malloc(sizeof(ld->displayManager));
+    float queuePriority = 1.0f;
 
-    float queuePriority = 1.0;
-    printf("Queue priority set to: %.1f\n", queuePriority);
+    // Collect unique queue family indices
+    uint32_t uniqueQueueFamilies[4];
+    uint32_t uniqueCount = 0;
 
-    printf("Creating queue create infos:\n");
-    printf("  Graphics family index: %u\n", pd->queueFamilyIndices.graphicsFamily);
-    VkDeviceQueueCreateInfo queueCreateInfoGraphics = {
-        .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = pd->queueFamilyIndices.graphicsFamily,
-        .queueCount       = 1,
-        .pQueuePriorities = &queuePriority,
-        .pNext            = NULL,
-    };
+    // Add each family if it's not already in the list
+    uint32_t families[] = {pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.presentFamily,
+                           pd->queueFamilyIndices.transferFamily, pd->queueFamilyIndices.computeFamily};
 
-    printf("  Present family index: %u\n", pd->queueFamilyIndices.presentFamily);
-    VkDeviceQueueCreateInfo queueCreateInfoPresentation = {
-        .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = pd->queueFamilyIndices.presentFamily,
-        .queueCount       = 1,
-        .pQueuePriorities = &queuePriority,
-        .pNext            = NULL,
-    };
+    for (int i = 0; i < 4; i++)
+    {
+        bool found = 0;
+        for (uint32_t j = 0; j < uniqueCount; j++)
+        {
+            if (uniqueQueueFamilies[j] == families[i])
+            {
+                found = 1;
+                break;
+            }
+        }
+        if (!found)
+        {
+            uniqueQueueFamilies[uniqueCount++] = families[i];
+        }
+    }
 
-    printf("  Transfer family index: %u\n", pd->queueFamilyIndices.transferFamily);
-    VkDeviceQueueCreateInfo queueCreateInfoTransfer = {
-        .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = pd->queueFamilyIndices.transferFamily,
-        .queueCount       = 1,
-        .pQueuePriorities = &queuePriority,
-        .pNext            = NULL,
-    };
-
-    printf("  Compute family index: %u\n", pd->queueFamilyIndices.computeFamily);
-    VkDeviceQueueCreateInfo queueCreateInfoCompute = {
-        .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = pd->queueFamilyIndices.computeFamily,
-        .queueCount       = 1,
-        .pQueuePriorities = &queuePriority,
-        .pNext            = NULL,
-    };
-
-    printf("Allocating queue create info array for 3 queues\n");
-    VkDeviceQueueCreateInfo* queuesCreateInfo = malloc(sizeof(VkDeviceQueueCreateInfo) * 3); // TODO: generalizar
-    printf("Queue create info array allocated at: %p\n", queuesCreateInfo);
-
-    // queuesCreateInfo[0] = queueCreateInfoPresentation;
-    queuesCreateInfo[0] = queueCreateInfoGraphics;
-    queuesCreateInfo[1] = queueCreateInfoTransfer;
-    queuesCreateInfo[2] = queueCreateInfoCompute;
+    // Create queue create infos for unique families only
+    VkDeviceQueueCreateInfo queueCreateInfos[uniqueCount];
+    for (uint32_t i = 0; i < uniqueCount; i++)
+    {
+        queueCreateInfos[i] = (VkDeviceQueueCreateInfo) {
+            .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = uniqueQueueFamilies[i],
+            .queueCount       = 1,
+            .pQueuePriorities = &queuePriority,
+            .pNext            = NULL,
+        };
+    }
     printf("Queue create infos assigned: Graphics, Transfer, Compute\n");
 
     printf("Setting up device features:\n");
@@ -88,8 +75,8 @@ void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
     // Logical device
     VkDeviceCreateInfo createLogicalDeviceInfo = {
         .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pQueueCreateInfos       = queuesCreateInfo,
-        .queueCreateInfoCount    = 3,
+        .pQueueCreateInfos       = queueCreateInfos,
+        .queueCreateInfoCount    = uniqueCount,
         .pEnabledFeatures        = &deviceFeatures,
         .ppEnabledExtensionNames = logicalDeviceExtensionNames,
         .enabledExtensionCount   = 3,

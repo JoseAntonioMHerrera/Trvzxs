@@ -23,7 +23,7 @@ struct LightInstance {
     LightInstanceData data;
 };
 layout(binding = 7) uniform UniformBufferObject {
-LightInstance lightInstance[2];
+LightInstance lightInstance[2000];
 } ubo;
 
 layout(location = 0) in vec3 point;
