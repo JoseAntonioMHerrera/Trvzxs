@@ -3,6 +3,7 @@
 #include <math.h>
 #include <time.h>
 #include "graphicConfiguration.h"
+#include "gpuDrivenCommandGen.h"
 
 float random_float() { return (float) rand() / (float) RAND_MAX; }
 
@@ -12,7 +13,7 @@ float random_float_range(float min, float max) { return min + random_float() * (
 int random_int_range(int min, int max) { return min + rand() % (max - min + 1); }
 
 int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager* ssbos,
-                             CommandPools* commandPool)
+                             CommandPools* commandPool, SCENE* scene)
 {
 
     assert(ssbos);
@@ -25,41 +26,13 @@ int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssb
     ssbos->buffers            = (VkBuffer*) malloc(sizeof(VkBuffer) * ssbosLen);
     ssbos->buffersMemory      = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory) * ssbosLen);
     ssbos->buffersLen         = ssbosLen;
-    ssbos->readBackBufferSize = 1024;
+    ssbos->readBackBufferSize = scene->particleManager.packedParticleInstanceLen;
 
-    ParticleInstance* particles = malloc(sizeof(ParticleInstance) * 1024);
-
-    // init particles position velocity and color
-    // TODO: move particle inizialization data outside the function, here its only to create vk structs
-    for (TRVZXS_SIZE particleIndex = 0; particleIndex < 1024; particleIndex++)
-    {
-
-        float r     = 0.25f * sqrt(random_float_range(0.0f, 1.0f));
-        float theta = random_float_range(0.0f, 1.0f) * GLM_PI * 2;
-        float x     = r * cos(theta) * WINDOW_HEIGHT / WINDOW_WIDTH;
-        float y     = r * sin(theta);
-        float z     = -0.6;
-
-        glm_vec3_copy((vec3) {x, y, z}, particles[particleIndex].position.data);
-
-        glm_normalize_to(particles[particleIndex].position.data, particles[particleIndex].velocity.data);
-
-        particles[particleIndex].color = (GEOM_VERTEX_COLOR_RGBA) {
-            r : (uint32_t) random_int_range(0, 255),
-            g : (uint32_t) random_int_range(0, 180),
-            b : (uint32_t) random_int_range(0, 61),
-            a : 1.0f
-        };
-
-        if ((particleIndex % 1024) == 0)
-        {
-            printParticle(&particles[particleIndex]);
-        }
-    }
+    ParticleInstance* particles = malloc(sizeof(ParticleInstance) * scene->particleManager.packedParticleInstanceLen);
 
     printf("TRAS INICIALIZAR LAS PARTICULAS\n");
 
-    VkDeviceSize particlesBufferSize = sizeof(ParticleInstance) * 1024;
+    VkDeviceSize particlesBufferSize = sizeof(ParticleInstance) * scene->particleManager.packedParticleInstanceLen;
 
     VkBuffer       stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -71,7 +44,7 @@ int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssb
 
     void* data;
     vkMapMemory(ld->device, stagingBufferMemory, 0, particlesBufferSize, 0, &data);
-    memcpy(data, particles, (size_t) particlesBufferSize);
+    memcpy(data, scene->particleManager.pParticleInstance, (size_t) particlesBufferSize);
     vkUnmapMemory(ld->device, stagingBufferMemory);
 
     printf("TRAS COPIAR PARTICLE DATA A LA GPU DESDE STAGING BUFFER\n");
@@ -132,3 +105,52 @@ int createReadbackLightPass1SSBOBuffers(PhysicalDevice* pd, LogicalDevice* ld, u
 
     return 1;
 };
+
+/*uint32_t createOclCullingSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager*
+ssbos, CommandPools* commandPool, SCENE* scene)
+{
+    assert(ssbos);
+    srand(time(NULL));
+
+    ssbos->buffersMapped =
+        malloc(sizeof(*ssbos->buffersMapped) *
+               ssbosLen); // TODO: ubosLen useless here, len is determined by maxframes from the graphics pipeline
+
+    ssbos->buffers       = (VkBuffer*) malloc(sizeof(VkBuffer) * ssbosLen);
+    ssbos->buffersMemory = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory) * ssbosLen);
+    ssbos->buffersLen    = ssbosLen;
+
+    RenderableObject* renderables         = malloc(sizeof(RenderableObject) * scene->packedRenderablesCount);
+    VkDeviceSize      particlesBufferSize = sizeof(RenderableObject) * scene->packedRenderablesCount;
+
+    VkBuffer       stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+
+    createVkBuffer(pd, ld->device, particlesBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer,
+                   &stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(ld->device, stagingBufferMemory, 0, particlesBufferSize, 0, &data);
+    memcpy(data, scene->particleManager.pParticleInstance, (size_t) particlesBufferSize);
+    vkUnmapMemory(ld->device, stagingBufferMemory);
+
+    for (size_t ssboIndex = 0; ssboIndex < ssbosLen; ssboIndex++)
+    {
+        createVkBuffer(pd, ld->device, particlesBufferSize,
+                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                           VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                       VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &ssbos->buffers[ssboIndex],
+                       &ssbos->buffersMemory[ssboIndex]);
+
+        // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
+        copyBuffer(ld, stagingBuffer, ssbos->buffers[ssboIndex], particlesBufferSize, commandPool->transferCommandPool,
+                   *ld->queueManager.transferQueue);
+    }
+
+    // Clean up staging buffer resources
+    vkDestroyBuffer(ld->device, stagingBuffer, NULL);
+    vkFreeMemory(ld->device, stagingBufferMemory, NULL);
+
+    return 0;
+};*/

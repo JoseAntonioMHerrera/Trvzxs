@@ -7,20 +7,24 @@
 #include "swapchainManagerTypes.h"
 #include "deviceManagmentTypes.h"
 
+VkImageView createImageView(GraphicSwapchain* dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels,
+                            VkImageAspectFlags aspectMask);
 
-VkImageView createImageView(GraphicSwapchain *dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels, VkImageAspectFlags aspectMask);
+void createFrameBuffers(GraphicSwapchain* swapManager, VkRenderPass* renderPass, VkDevice* device);
 
-void createFrameBuffers(GraphicSwapchain *swapManager, VkRenderPass *renderPass, VkDevice* device);
-
-void chooseSwapExtent2D(VkExtent2D *extent, VkSurfaceCapabilitiesKHR* capabilities, SDL_Window* window);
+void chooseSwapExtent2D(VkExtent2D* extent, VkSurfaceCapabilitiesKHR* capabilities, SDL_Window* window);
 
 VkSurfaceFormatKHR* chooseSwapSurfaceFormat(VkSurfaceFormatKHR* availableFormats, uint8_t availableFormatsCount);
 
-VkPresentModeKHR chooseSwapPresentMode(VkPresentModeKHR* availablePresentModes, uint8_t availableModesCount, VkPresentModeKHR mode);
+VkPresentModeKHR chooseSwapPresentMode(VkPresentModeKHR* availablePresentModes, uint8_t availableModesCount,
+                                       VkPresentModeKHR mode);
 
-void createSwapChain(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *displayM, GraphicPipelineToSurface* gps, SDL_Window* window);
+void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* displayM, GraphicPipelineToSurface* gps,
+                     SDL_Window* window);
 
-void cleanupSwapChain(LogicalDevice *ld, DisplayManager *dm);
+void cleanupSwapChain(LogicalDevice* ld, DisplayManager* dm);
 
-void recreateSwapChain(PhysicalDevice *pd, LogicalDevice* ld, SDL_Window *window);
-void createRenderPass(PhysicalDevice *pd, GraphicSwapchain *dsm, VkDevice device, GraphicPipelineToSurface *gdp);
+void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window);
+void createRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device, GraphicPipelineToSurface* gdp);
+void createPreDepthRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device,
+                              GraphicPipelineToSurface* gdp);

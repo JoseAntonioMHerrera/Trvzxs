@@ -7,7 +7,7 @@ struct InstanceData {
 };
 
 layout(binding = 0) uniform UniformBufferObject {
-    InstanceData instances[2];
+    InstanceData instances[2000];
 } ubo;
 
 layout(location = 0) in vec3 inPosition;

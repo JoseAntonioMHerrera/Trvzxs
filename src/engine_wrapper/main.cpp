@@ -21,7 +21,6 @@ extern "C"
 #include <vulkan/vulkan_core.h>
 #include "file_functions.h"
 #include "vertex.h"
-#include <vulkan/vulkan_core.h>
 #include "strictDebug.h"
 #include "main_vulkan.h"
 #include "cglm.h"
@@ -39,7 +38,7 @@ extern "C"
 #include <chrono>
 // TODO move this to central display
 const int MARGIN = 20;
-const double TARGET_FPS = 60.0; // Assuming 60Hz refresh rate
+const double TARGET_FPS = 300; // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
 
 // Global variables for camera control
@@ -156,26 +155,31 @@ int main()
         ParticleGroup *particleGroup = (ParticleGroup *)malloc(sizeof(ParticleGroup));
 
         scene->initParticle();
-        uint32_t particleInstancesLen = 1;
+        uint32_t particleInstancesLen = 1000000;
         ParticleInstance *pParticleInstance = (ParticleInstance *)malloc(sizeof(ParticleInstance) * particleInstancesLen);
         for (uint32_t partInstanceIndex = 0; partInstanceIndex < particleInstancesLen; partInstanceIndex++)
         {
-            if (partInstanceIndex % 2)
-            {
-                pParticleInstance[partInstanceIndex].position = {1.0, 0.0, 0.0};
-            }
-            else
-            {
-                pParticleInstance[partInstanceIndex].position = {0.0, 1.0, 1.0};
-            }
-            pParticleInstance[partInstanceIndex].velocity.x = max(50, min(50, getRandomDouble(100)));
-            pParticleInstance[partInstanceIndex].velocity.y = max(50, min(50, getRandomDouble(100)));
-            pParticleInstance[partInstanceIndex].velocity.z = max(50, min(50, getRandomDouble(100)));
+            float x = 0.0;
+            float y = 0.0;
+            float z = 0.0;
+            vec4 tempPos = {partInstanceIndex, partInstanceIndex, partInstanceIndex, 0.0f};
+            glm_vec4_copy(tempPos, pParticleInstance[partInstanceIndex].position);
 
-            pParticleInstance[partInstanceIndex].color.r = max(50, min(50, getRandomDouble(100)));
-            pParticleInstance[partInstanceIndex].color.g = max(50, min(50, getRandomDouble(100)));
-            pParticleInstance[partInstanceIndex].color.b = max(50, min(50, getRandomDouble(100)));
-            pParticleInstance[partInstanceIndex].color.a = max(50, min(50, getRandomDouble(100)));
+            vec4 tempVel = {
+                1.0,                // x
+                getRandomDouble(0), // y
+                getRandomDouble(0), // z
+                0.0f                // w = 0.0
+            };
+            glm_vec4_copy(tempVel, pParticleInstance[partInstanceIndex].velocity);
+
+            vec4 tempColor = {
+                getRandomDouble(100), // r
+                getRandomDouble(100), // g
+                getRandomDouble(100), // b
+                0.0f                  // a = 0.0
+            };
+            glm_vec4_copy(tempColor, pParticleInstance[partInstanceIndex].color);
         }
 
         scene->initInstanceDataParticle(particleGroup, particleInstancesLen, pParticleInstance);
@@ -201,15 +205,21 @@ int main()
         glm_vec3_copy(vecPos2, lightInstance2.position);
         lightInstance2.color = {1.0, 0.0, 0.0, 1.0};
         lightInstance2.scale = 1.0;
-        LightVolumeInstance lightinstances[] = {lightInstance, lightInstance2};
-        scene->initInstanceDataLight(&scene->getVolumetricLight(0), 2, lightinstances);
+
+        LightVolumeInstance lightinstances[2000];
+        for (int i = 0; i < 2000; i++)
+        {
+            lightinstances[i] = (i % 2 == 0) ? lightInstance : lightInstance2;
+        }
+        scene->initInstanceDataLight(&scene->getVolumetricLight(0), 2000, lightinstances);
         // GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
         // scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
 
         scene->addModel(load_obj_to_geom_object(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj")));
 
         // scene->addModel(&light->model);
-        scene->initInstanceDataModel(&scene->getModel(0), 2);
+        scene->initInstanceDataModel(&scene->getModel(0), 2000);
+
         scene->init();
         std::cout << "QUE??????\n";
         engine->bulkInitVulkanWithScene(window, scene.get());

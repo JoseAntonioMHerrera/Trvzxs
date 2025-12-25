@@ -8,12 +8,14 @@
 void printParticle(const ParticleInstance* particle)
 {
     printf("Particle Data:\n");
-    printf("Position: (x: %.4f, y: %.4f, z: %.4f)\n", particle->position.x, particle->position.y, particle->position.z);
+    printf("Position: (x: %.4f, y: %.4f, z: %.4f)\n", particle->position[0], particle->position[1],
+           particle->position[2]);
 
-    printf("Velocity: (x: %.4f, y: %.4f, z: %.4f)\n", particle->velocity.x, particle->velocity.y, particle->velocity.z);
+    printf("Velocity: (x: %.4f, y: %.4f, z: %.4f)\n", particle->velocity[0], particle->velocity[1],
+           particle->velocity[2]);
 
-    printf("Color: (r: %.4f, g: %.4f, b: %.4f, a: %.4f)\n", particle->color.r, particle->color.g, particle->color.b,
-           particle->color.a);
+    printf("Color: (r: %.4f, g: %.4f, b: %.4f, a: %.4f)\n", particle->color[0], particle->color[1], particle->color[2],
+           particle->color[3]);
     printf("------------------------\n");
 }
 // Helper function to create a vertex
@@ -158,6 +160,19 @@ void print_geom_vertex(const GEOM_VERTEX* vertices, uint32_t verticesLen)
     {
         printf("Vertex %u: (%.2f, %.2f, %.2f) UV: (%.2f, %.2f) Normal: (%.2f, %.2f, %.2f)\n", i, vertices[i].point.x,
                vertices[i].point.y, vertices[i].point.z, vertices[i].textCoords.u, vertices[i].textCoords.v);
+    };
+}
+void printTrzVertex(const TrzVertex* vertices, uint32_t verticesLen)
+{
+    printf("Vertices Information:\n");
+    printf("Number of vertices: %u\n", verticesLen);
+
+    printf("\nVertices:\n");
+    for (uint32_t i = 0; i < verticesLen; i++)
+    {
+        printf("Vertex %u: (%.2f, %.2f, %.2f) UV: (%.2f, %.2f) Normal: (%.2f, %.2f, %.2f)\n", i, vertices[i].point[0],
+               vertices[i].point[1], vertices[i].point[2], vertices[i].textCoords[0], vertices[i].textCoords[1],
+               vertices[i].normal[0], vertices[i].normal[1], vertices[i].normal[2]);
     };
 }
 // Cube

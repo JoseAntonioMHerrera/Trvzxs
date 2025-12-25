@@ -18,7 +18,7 @@ void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferU
 
     if (vkCreateBuffer(d, &bufferInfo, VK_NULL_HANDLE, buffer) != VK_SUCCESS)
     {
-
+        printf("ERROR EN CREATEBUFFER\n");
         exit(1);
     }
 
@@ -378,7 +378,7 @@ void createParticleBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferMan
     printf("Source vertex data address: %p\n", scene->particleManager.pPackedParticleVertex);
     printf("Copying %llu bytes from vertex data to staging buffer\n", (unsigned long long) particleBufferSize);
 
-    print_geom_vertex(scene->particleManager.pPackedParticleVertex, particleBufferSize / 64);
+    printTrzVertex(scene->particleManager.pPackedParticleVertex, particleBufferSize / 64);
     memcpy(memoryMappedData, scene->particleManager.pPackedParticleVertex, (size_t) particleBufferSize);
     printf("Vertex data copied successfully to staging buffer\n");
     // assert(objects->sceneVertexLen == 24);

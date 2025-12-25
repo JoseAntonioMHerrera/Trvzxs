@@ -74,7 +74,7 @@ void transitionImageLayout(LogicalDevice* ld, VkCommandPool commandPool, VkImage
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
     {
-        printf("Moving from COLOR ATTACHTMENT OPTIMAL TO PRESENT SRC KHR\n");
+        // printf("Moving from COLOR ATTACHTMENT OPTIMAL TO PRESENT SRC KHR\n");
         barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         barrier.dstAccessMask = 0;
 
@@ -193,7 +193,7 @@ void createDepthImageResources(PhysicalDevice* pd, LogicalDevice* ld, GraphicSwa
                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                   dispM->depthImage.common, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1,
                   VK_SHARING_MODE_EXCLUSIVE);
-
+    // TODO ocl depth
     dispM->depthImage.common->imageView =
         createImageView(dispM, ld->device, format, dispM->depthImage.common->image, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
 }

@@ -15,6 +15,6 @@
        "vulkan-loader",
       "vulkan-headers",
       "vulkan-memory-allocator",
-      "shaderc"  
+      "shaderc"
     ]
   }
