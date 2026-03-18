@@ -96,11 +96,11 @@ void createOcclusionCullingComputePipeline(ComputePipeline* computeP, VkDevice d
     }
 }
 
-void debugParticles(ComputePipeline* computeP, VkDevice device)
+void debugParticles(ComputePipeline* computeP, VmaAllocator allocator)
 {
     // Map the memory
     void* data;
-    vkMapMemory(device, computeP->deviceBuffer->ssbos->readBackBufferMemory, 0, VK_WHOLE_SIZE, 0, &data);
+    vmaBridgeMapMemory(allocator, computeP->deviceBuffer->ssbos->readbackAlloc, &data);
 
     // Cast to your particle struct
     ParticleInstance* particles = (ParticleInstance*) data;
@@ -114,7 +114,7 @@ void debugParticles(ComputePipeline* computeP, VkDevice device)
     }*/
 
     // Unmap when done
-    vkUnmapMemory(device, computeP->deviceBuffer->ssbos->readBackBufferMemory);
+    vmaBridgeUnmapMemory(allocator, computeP->deviceBuffer->ssbos->readbackAlloc);
 }
 
 void recordParticleCommandBuffer(GraphicPipelineToSurface* graphicPipeline, PhysicalDevice* pd, LogicalDevice* ld,

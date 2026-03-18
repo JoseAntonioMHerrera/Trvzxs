@@ -16,19 +16,19 @@ typedef struct CommandPools CommandPools;
 
 typedef struct DeviceBufferManager
 {
-    VkBuffer*       buffer;
-    VkDeviceMemory* bufferMemory;
-    size_t          bufferLen;
+    VkBuffer*      buffer;
+    VmaAllocation* bufferAlloc;
+    size_t         bufferLen;
 
     // Index Buffer
-    VkBuffer*       indexBuffer;
-    VkDeviceMemory* indexBufferMemory;
-    size_t*         indexLen;
+    VkBuffer*      indexBuffer;
+    VmaAllocation* indexBufferAlloc;
+    size_t*        indexLen;
 
     // Staging Buffer
-    size_t          stagingLen;
-    VkBuffer*       stagingBuffer;
-    VkDeviceMemory* stagingBufferMemory;
+    size_t         stagingLen;
+    VkBuffer*      stagingBuffer;
+    VmaAllocation* stagingAlloc;
 
     // UniformBuffers
     UniformBufferManager* pUbo;
@@ -39,9 +39,13 @@ typedef struct DeviceBufferManager
     uint32_t           ssbosCount;
 } DeviceBufferManager;
 
-void createVkBuffer(PhysicalDevice* pd, VkDevice d, VkDeviceSize size, VkBufferUsageFlags usage,
-                    VkSharingMode sharingMode, VkMemoryPropertyFlags properties, VkBuffer* buffer,
-                    VkDeviceMemory* bufferMemory);
+void createVkBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+                    VkSharingMode sharingMode, VmaBridgeMemoryUsage memUsage, VkBuffer* buffer,
+                    VmaAllocation* allocation);
+
+void createVkBufferMapped(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlags usage,
+                          VkSharingMode sharingMode, VkBuffer* buffer, VmaAllocation* allocation,
+                          void** mappedPtr);
 
 void createGeometryIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                                 CommandPools* commandPool);

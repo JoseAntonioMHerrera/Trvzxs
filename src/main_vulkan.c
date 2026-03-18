@@ -115,10 +115,8 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
 {
     vkDeviceWaitIdle(dm->lDevice[dm->deviceIndex]->device);
     cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager);
-    vkDestroyBuffer(ld->device, gdp->deviceBuffer->buffer, NULL);
-    vkDestroyBuffer(ld->device, gdp->deviceBuffer->indexBuffer, NULL);
-    vkFreeMemory(ld->device, gdp->deviceBuffer->bufferMemory, NULL);
-    vkFreeMemory(ld->device, gdp->deviceBuffer->indexBufferMemory, NULL);
+    vmaBridgeDestroyBuffer(ld->allocator, *gdp->deviceBuffer->buffer, *gdp->deviceBuffer->bufferAlloc);
+    vmaBridgeDestroyBuffer(ld->allocator, *gdp->deviceBuffer->indexBuffer, *gdp->deviceBuffer->indexBufferAlloc);
     vkDestroyRenderPass(ld->device, gdp->renderPass, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->transferCommandPool, NULL);
