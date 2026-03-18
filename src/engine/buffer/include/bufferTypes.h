@@ -1,24 +1,25 @@
 #pragma once
 #include <vulkan/vulkan.h>
+#include "vma_bridge.h"
 
 typedef struct UniformBufferManager
 {
-    VkBuffer*       uniformBuffers;
-    uint32_t        uniformBuffersLen;
-    VkDeviceMemory* uniformBuffersMemory;
-    void**          uniformBuffersMapped;
+    VkBuffer*      uniformBuffers;
+    uint32_t       uniformBuffersLen;
+    VmaAllocation* uniformAllocations;
+    void**         uniformBuffersMapped;
 } UniformBufferManager;
 
 typedef struct SSBOBufferManager
 {
-    VkBuffer*       buffers;
-    uint32_t        buffersLen;
-    VkDeviceMemory* buffersMemory;
-    void**          buffersMapped;
+    VkBuffer*      buffers;
+    uint32_t       buffersLen;
+    VmaAllocation* allocations;
+    void**         buffersMapped;
 
-    VkBuffer       readbackBuffer;
-    VkDeviceMemory readBackBufferMemory;
-    size_t         readBackBufferSize;
+    VkBuffer      readbackBuffer;
+    VmaAllocation readbackAlloc;
+    size_t        readBackBufferSize;
 } SSBOBufferManager;
 
 typedef struct ReadBackBuffer

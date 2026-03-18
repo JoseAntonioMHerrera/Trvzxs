@@ -24,7 +24,7 @@ int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssb
                ssbosLen); // TODO: ubosLen useless here, len is determined by maxframes from the graphics pipeline
 
     ssbos->buffers            = (VkBuffer*) malloc(sizeof(VkBuffer) * ssbosLen);
-    ssbos->buffersMemory      = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory) * ssbosLen);
+    ssbos->allocations        = (VmaAllocation*) malloc(sizeof(VmaAllocation) * ssbosLen);
     ssbos->buffersLen         = ssbosLen;
     ssbos->readBackBufferSize = scene->particleManager.packedParticleInstanceLen;
 
@@ -34,45 +34,39 @@ int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssb
 
     VkDeviceSize particlesBufferSize = sizeof(ParticleInstance) * scene->particleManager.packedParticleInstanceLen;
 
-    VkBuffer       stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    // We create the staging buffer
-    createVkBuffer(pd, ld->device, particlesBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer,
-                   &stagingBufferMemory);
+    VkBuffer      stagingBuffer;
+    VmaAllocation stagingAlloc;
+    createVkBuffer(ld->allocator, particlesBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                   VMA_BRIDGE_MEMORY_CPU_TO_GPU, &stagingBuffer, &stagingAlloc);
     printf("TRAS INICIALIZAR LAS PARTICULAS STAGING BUFFER\n");
 
     void* data;
-    vkMapMemory(ld->device, stagingBufferMemory, 0, particlesBufferSize, 0, &data);
+    vmaBridgeMapMemory(ld->allocator, stagingAlloc, &data);
     memcpy(data, scene->particleManager.pParticleInstance, (size_t) particlesBufferSize);
-    vkUnmapMemory(ld->device, stagingBufferMemory);
+    vmaBridgeUnmapMemory(ld->allocator, stagingAlloc);
 
     printf("TRAS COPIAR PARTICLE DATA A LA GPU DESDE STAGING BUFFER\n");
 
     for (size_t ssboIndex = 0; ssboIndex < ssbosLen; ssboIndex++)
     {
-        createVkBuffer(pd, ld->device, particlesBufferSize,
+        createVkBuffer(ld->allocator, particlesBufferSize,
                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &ssbos->buffers[ssboIndex],
-                       &ssbos->buffersMemory[ssboIndex]);
+                       VK_SHARING_MODE_EXCLUSIVE, VMA_BRIDGE_MEMORY_GPU_ONLY, &ssbos->buffers[ssboIndex],
+                       &ssbos->allocations[ssboIndex]);
 
         printf("TRAS CREAR EL VKBUFFER DE LAS PARTICULAS\n");
-        // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
         copyBuffer(ld, stagingBuffer, ssbos->buffers[ssboIndex], particlesBufferSize, commandPool->transferCommandPool,
                    *ld->queueManager.transferQueue);
     }
 
-    // Clean up staging buffer resources
-    vkDestroyBuffer(ld->device, stagingBuffer, NULL);
-    vkFreeMemory(ld->device, stagingBufferMemory, NULL);
+    vmaBridgeDestroyBuffer(ld->allocator, stagingBuffer, stagingAlloc);
 
     // Clean up host memory
     free(particles);
 
-    createVkBuffer(pd, ld->device, particlesBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ssbos->readbackBuffer,
-                   &ssbos->readBackBufferMemory);
+    createVkBuffer(ld->allocator, particlesBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                   VMA_BRIDGE_MEMORY_CPU_TO_GPU, &ssbos->readbackBuffer, &ssbos->readbackAlloc);
 
     return 1;
 };
@@ -88,7 +82,7 @@ int createReadbackLightPass1SSBOBuffers(PhysicalDevice* pd, LogicalDevice* ld, u
                ssbosLen); // TODO: ubosLen useless here, len is determined by maxframes from the graphics pipeline
 
     ssbos->buffers            = (VkBuffer*) malloc(sizeof(VkBuffer) * ssbosLen);
-    ssbos->buffersMemory      = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory) * ssbosLen);
+    ssbos->allocations        = (VmaAllocation*) malloc(sizeof(VmaAllocation) * ssbosLen);
     ssbos->buffersLen         = ssbosLen;
     ssbos->readBackBufferSize = WINDOW_WIDTH * WINDOW_HEIGHT;
 
@@ -96,12 +90,8 @@ int createReadbackLightPass1SSBOBuffers(PhysicalDevice* pd, LogicalDevice* ld, u
 
     VkDeviceSize lightPixelsBufferSize = sizeof(ReadBackBuffer) * WINDOW_WIDTH * WINDOW_HEIGHT;
 
-    VkBuffer       stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-
-    createVkBuffer(pd, ld->device, lightPixelsBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ssbos->readbackBuffer,
-                   &ssbos->readBackBufferMemory);
+    createVkBuffer(ld->allocator, lightPixelsBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                   VMA_BRIDGE_MEMORY_CPU_TO_GPU, &ssbos->readbackBuffer, &ssbos->readbackAlloc);
 
     return 1;
 };

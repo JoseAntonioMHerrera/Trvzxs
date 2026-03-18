@@ -283,36 +283,17 @@ int createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
         uniformBuffersLen = 1;
     }
 
-    ubos->uniformBuffers = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
-    printf("Allocated uniformBuffers array at %p for %u buffers\n", ubos->uniformBuffers, uniformBuffersLen);
-
-    ubos->uniformBuffersMemory = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory) * uniformBuffersLen);
-    printf("Allocated uniformBuffersMemory array at %p for %u memories\n", ubos->uniformBuffersMemory,
-           uniformBuffersLen);
-
-    ubos->uniformBuffersLen = uniformBuffersLen;
-    printf("Set uniformBuffersLen to: %u\n", ubos->uniformBuffersLen);
+    ubos->uniformBuffers     = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
+    ubos->uniformAllocations = (VmaAllocation*) malloc(sizeof(VmaAllocation) * uniformBuffersLen);
+    ubos->uniformBuffersLen  = uniformBuffersLen;
 
     for (TRVZXS_SIZE i = 0; i < uniformBuffersLen; i++)
     {
-        printf("Creating buffer %zu/%u with size %llu bytes\n", i, uniformBuffersLen - 1,
-               (unsigned long long) bufferSize);
-
-        createVkBuffer(pd, ld->device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       &ubos->uniformBuffers[i], &ubos->uniformBuffersMemory[i]);
-
-        printf("Buffer %zu created: handle=%p, memory=%p\n", i, (void*) (uintptr_t) ubos->uniformBuffers[i],
-               (void*) (uintptr_t) ubos->uniformBuffersMemory[i]);
-
-        vkMapMemory(ld->device, ubos->uniformBuffersMemory[i], 0, bufferSize, 0, &ubos->uniformBuffersMapped[i]);
-
-        printf("Buffer %zu mapped at address: %p\n", i, ubos->uniformBuffersMapped[i]);
+        createVkBufferMapped(ld->allocator, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                             &ubos->uniformBuffers[i], &ubos->uniformAllocations[i], &ubos->uniformBuffersMapped[i]);
     }
 
-    printf("flag createModelInstanceTransformationsUniformBuffersMapped\n");
-    printf("=== UNIFORM BUFFER CREATION COMPLETE ===\n");
-
+    printf("=== MODEL UNIFORM BUFFER CREATION COMPLETE ===\n");
     return 1;
 }
 
@@ -321,56 +302,30 @@ int createLightInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
                                                            uint32_t lightInstanceCount)
 {
     printf("=== CREATING LIGHT INSTANCE TRANSFORMATION UNIFORM BUFFERS ===\n");
-    printf("Input parameters: ubosLen=%u, modelInstanceLen=%u\n", ubosLen, lightInstanceCount);
 
     assert(ubos);
 
     VkDeviceSize bufferSize = sizeof(LightTransformations) * lightInstanceCount;
-    printf("Buffer size calculation: sizeof(LightTransformations)=%zu * modelInstanceLen=%u = %llu bytes\n",
-           sizeof(LightTransformations), lightInstanceCount, (unsigned long long) bufferSize);
 
     ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ubosLen);
-    printf("Allocated uniformBuffersMapped array at %p for %u pointers\n", ubos->uniformBuffersMapped, ubosLen);
 
     uint32_t uniformBuffersLen = ubosLen;
-    printf("Original uniformBuffersLen: %u\n", uniformBuffersLen);
-
     if (uniformBuffersLen < 1)
     {
-        printf("Adjusting uniformBuffersLen from %u to 1\n", uniformBuffersLen);
         uniformBuffersLen = 1;
     }
 
-    ubos->uniformBuffers = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
-    printf("Allocated uniformBuffers array at %p for %u buffers\n", ubos->uniformBuffers, uniformBuffersLen);
-
-    ubos->uniformBuffersMemory = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory) * uniformBuffersLen);
-    printf("Allocated uniformBuffersMemory array at %p for %u memories\n", ubos->uniformBuffersMemory,
-           uniformBuffersLen);
-
-    ubos->uniformBuffersLen = uniformBuffersLen;
-    printf("Set uniformBuffersLen to: %u\n", ubos->uniformBuffersLen);
+    ubos->uniformBuffers     = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
+    ubos->uniformAllocations = (VmaAllocation*) malloc(sizeof(VmaAllocation) * uniformBuffersLen);
+    ubos->uniformBuffersLen  = uniformBuffersLen;
 
     for (TRVZXS_SIZE i = 0; i < uniformBuffersLen; i++)
     {
-        printf("Creating buffer %zu/%u with size %llu bytes\n", i, uniformBuffersLen - 1,
-               (unsigned long long) bufferSize);
-
-        createVkBuffer(pd, ld->device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       &ubos->uniformBuffers[i], &ubos->uniformBuffersMemory[i]);
-
-        printf("Buffer %zu created: handle=%p, memory=%p\n", i, (void*) (uintptr_t) ubos->uniformBuffers[i],
-               (void*) (uintptr_t) ubos->uniformBuffersMemory[i]);
-
-        vkMapMemory(ld->device, ubos->uniformBuffersMemory[i], 0, bufferSize, 0, &ubos->uniformBuffersMapped[i]);
-
-        printf("Buffer %zu mapped at address: %p\n", i, ubos->uniformBuffersMapped[i]);
+        createVkBufferMapped(ld->allocator, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                             &ubos->uniformBuffers[i], &ubos->uniformAllocations[i], &ubos->uniformBuffersMapped[i]);
     }
 
-    printf("flag createModelInstanceTransformationsUniformBuffersMapped\n");
-    printf("=== UNIFORM BUFFER CREATION COMPLETE ===\n");
-
+    printf("=== LIGHT UNIFORM BUFFER CREATION COMPLETE ===\n");
     return 1;
 }
 
@@ -388,16 +343,15 @@ int createDeltaTimeUniformBuffers(PhysicalDevice* pd, LogicalDevice* ld, const u
         uniformBuffersLen = 1;
     }
 
-    ubos->uniformBuffers       = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
-    ubos->uniformBuffersMemory = (VkDeviceMemory*) malloc(sizeof(VkDeviceMemory) * uniformBuffersLen);
-    ubos->uniformBuffersLen    = uniformBuffersLen;
+    ubos->uniformBuffers     = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
+    ubos->uniformAllocations = (VmaAllocation*) malloc(sizeof(VmaAllocation) * uniformBuffersLen);
+    ubos->uniformBuffersLen  = uniformBuffersLen;
 
     for (TRVZXS_SIZE i = 0; i < uniformBuffersLen; i++)
     {
-        createVkBuffer(pd, ld->device, bufferSize,
+        createVkBuffer(ld->allocator, bufferSize,
                        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       &ubos->uniformBuffers[i], &ubos->uniformBuffersMemory[i]);
+                       VMA_BRIDGE_MEMORY_CPU_TO_GPU, &ubos->uniformBuffers[i], &ubos->uniformAllocations[i]);
     }
 
     printf("EN CREATEUNIFORMBUFFERS AL FINAL\n");

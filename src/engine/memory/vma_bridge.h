@@ -13,9 +13,19 @@
 typedef struct VmaAllocator_T*  VmaAllocator;
 typedef struct VmaAllocation_T* VmaAllocation;
 
+// Simplified memory usage hints for the C engine.
+// The bridge translates these to VMA's internal flags.
+typedef enum VmaBridgeMemoryUsage
+{
+    VMA_BRIDGE_MEMORY_GPU_ONLY,   // Device-local, not host-accessible (vertex/index/SSBO on GPU)
+    VMA_BRIDGE_MEMORY_CPU_TO_GPU, // Host-visible, for staging uploads and CPU-written buffers
+} VmaBridgeMemoryUsage;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// --- Allocator lifecycle ---
 
 // Create a VMA allocator tied to the given Vulkan device/instance.
 // Must be called after the logical device and queues are initialized.
@@ -26,6 +36,43 @@ VkResult vmaBridgeCreateAllocator(VkInstance       instance,
 
 // Destroy a VMA allocator. Call before vkDestroyDevice.
 void vmaBridgeDestroyAllocator(VmaAllocator allocator);
+
+// --- Buffer operations ---
+
+// Create a buffer with VMA suballocation. Replaces the vkCreateBuffer +
+// vkAllocateMemory + vkBindBufferMemory triple.
+VkResult vmaBridgeCreateBuffer(VmaAllocator         allocator,
+                               VkDeviceSize         size,
+                               VkBufferUsageFlags   usage,
+                               VkSharingMode        sharingMode,
+                               VmaBridgeMemoryUsage memUsage,
+                               VkBuffer*            outBuffer,
+                               VmaAllocation*       outAllocation);
+
+// Create a buffer that is persistently mapped at creation time.
+// Returns the mapped pointer directly — no separate map call needed.
+// Used for UBOs that are written every frame.
+VkResult vmaBridgeCreateBufferMapped(VmaAllocator       allocator,
+                                     VkDeviceSize       size,
+                                     VkBufferUsageFlags usage,
+                                     VkSharingMode      sharingMode,
+                                     VkBuffer*          outBuffer,
+                                     VmaAllocation*     outAllocation,
+                                     void**             outMappedPtr);
+
+// Destroy a VMA-managed buffer. Replaces vkDestroyBuffer + vkFreeMemory.
+void vmaBridgeDestroyBuffer(VmaAllocator  allocator,
+                            VkBuffer      buffer,
+                            VmaAllocation allocation);
+
+// Map a VMA allocation for CPU access. VMA tracks the offset/size internally.
+VkResult vmaBridgeMapMemory(VmaAllocator  allocator,
+                            VmaAllocation allocation,
+                            void**        outData);
+
+// Unmap a previously mapped VMA allocation.
+void vmaBridgeUnmapMemory(VmaAllocator  allocator,
+                          VmaAllocation allocation);
 
 #ifdef __cplusplus
 }

@@ -26,12 +26,12 @@ void loadTextureImage(VkDeviceSize* imageSize, stbi_uc** pixels, uint32_t* width
 void createTextureImage(PhysicalDevice* pd, LogicalDevice* ld, GraphicPipelineToSurface* gdp, Texture2D** texture)
 {
 
-    VkBuffer       stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    VkDeviceSize   imageSize;
-    uint32_t       width, height;
-    stbi_uc*       pixels;
-    VkBuffer       textureBuffer;
+    VkBuffer      stagingBuffer;
+    VmaAllocation stagingAlloc;
+    VkDeviceSize  imageSize;
+    uint32_t      width, height;
+    stbi_uc*      pixels;
+    VkBuffer      textureBuffer;
 
     (*texture) = (Texture2D*) malloc(sizeof(Texture2D));
 
@@ -41,16 +41,15 @@ void createTextureImage(PhysicalDevice* pd, LogicalDevice* ld, GraphicPipelineTo
     (*texture)->textHeight = height;
     (*texture)->textWidth  = width;
     (*texture)->mipLevels  = log2(glm_max(height, width)) + 1;
-    createVkBuffer(pd, ld->device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer,
-                   &stagingBufferMemory);
+    createVkBuffer(ld->allocator, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                   VMA_BRIDGE_MEMORY_CPU_TO_GPU, &stagingBuffer, &stagingAlloc);
 
     void* data;
-    vkMapMemory(ld->device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vmaBridgeMapMemory(ld->allocator, stagingAlloc, &data);
 
     memcpy(data, pixels, (size_t) (imageSize));
 
-    vkUnmapMemory(ld->device, stagingBufferMemory);
+    vmaBridgeUnmapMemory(ld->allocator, stagingAlloc);
 
     stbi_image_free(pixels);
 
