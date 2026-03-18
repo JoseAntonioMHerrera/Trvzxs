@@ -424,7 +424,30 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
     // getMatchingQueueIndices(pd, ld, pd->queueFamilyProperties, pd->queueFamilyCount, &pd->queueFamilyIndices);
 
     initDeviceQueues(&dm->pDevice[dm->gpuIndex], dm->lDevice[dm->deviceIndex]);
+
+    // Create VMA allocator after the logical device and queues are ready.
+    // The allocator must exist before any buffer or image allocation.
+    createVmaAllocator(*instance, pd, ld);
+
     printf("Flag 2 initDeviceManager\n");
+}
+
+void createVmaAllocator(VkInstance instance, PhysicalDevice* pd, LogicalDevice* ld)
+{
+    VkResult result = vmaBridgeCreateAllocator(instance, *pd->gpu, ld->device, &ld->allocator);
+    if (result != VK_SUCCESS)
+    {
+        exit(1);
+    }
+}
+
+void destroyVmaAllocator(LogicalDevice* ld)
+{
+    if (ld->allocator != VK_NULL_HANDLE)
+    {
+        vmaBridgeDestroyAllocator(ld->allocator);
+        ld->allocator = VK_NULL_HANDLE;
+    }
 }
 
 /*

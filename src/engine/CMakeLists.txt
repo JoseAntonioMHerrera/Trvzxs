@@ -28,6 +28,7 @@ target_include_directories(engine_mod PUBLIC
     image/include
     uniformBuffers/include
     optimizations/include
+    memory/
     "include/"
     "display/include"
     ${CMAKE_SOURCE_DIR}/src/ #TODO move entryfiles to the library to engine folder tree
@@ -46,6 +47,7 @@ file(GLOB_RECURSE ENGINE_SOURCES
     "pipelines/constants/*.c"
     "swapchain/*.c"
     "texture/*.c"
+    "memory/*.cpp"
     "commands/*.c"
     "${CMAKE_SOURCE_DIR}/src/*.c" #TODO move entryfiles to the library to engine folder tree
 )

@@ -5,6 +5,7 @@
 #include "geometryPipelineTypes.h"
 #include <stdalign.h>
 #include <stddef.h>
+#include "vma_bridge.h"
 
 typedef struct DisplayManager
 {
@@ -23,6 +24,7 @@ typedef struct LogicalDevice
     VkDevice        device;
     QueueManager    queueManager;
     DisplayManager* displayManager;
+    VmaAllocator    allocator; // VMA suballocator — one per logical device, manages all GPU memory
 } LogicalDevice;
 
 typedef struct DeviceManager

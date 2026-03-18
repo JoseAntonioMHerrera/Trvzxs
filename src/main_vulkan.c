@@ -13,6 +13,7 @@
 #include <vulkan/vulkan_core.h>
 #include "strictDebug.h"
 #include "main_vulkan.h"
+#include "deviceManagment.h"
 #include "cglm.h"
 #include "graphicsPipeline.h"
 #include "commandPool.h"
@@ -126,7 +127,9 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     vkDestroyPipelineLayout(ld->device, gdp->pipelineLayout, NULL);
     cleanupSyncObjects(ld->device, gdp);
 
-    // vkDestroyPipelineLayout(device, pipelineLayout, NULL);
+    // VMA allocator must be destroyed after all VMA-managed resources are freed
+    // but before vkDestroyDevice — VMA holds internal references to the VkDevice.
+    destroyVmaAllocator(ld);
 
     vkDestroyDevice(ld->device, NULL);
 
