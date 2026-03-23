@@ -89,8 +89,8 @@ void transitionImageLayout(LogicalDevice* ld, VkCommandPool commandPool, VkImage
         endSingleTimeCommands(commandBuffer, commandPool, *ld->queueManager.graphicsQueue, ld->device);
 }
 
-void createVkImage(VkDevice device, PhysicalDevice* pd, VkFormat format, VkImageTiling tiling,
-                   VkImageLayout imageLayout, VkImageUsageFlags imageUsage, VkMemoryPropertyFlags memoryTypeNeeded,
+void createVkImage(VmaAllocator allocator, PhysicalDevice* pd, VkFormat format, VkImageTiling tiling,
+                   VkImageLayout imageLayout, VkImageUsageFlags imageUsage,
                    CommonImage* commonImage, uint32_t width, uint32_t height, uint32_t mipLevels,
                    VkSampleCountFlagBits numSamples, VkSharingMode sharingMode)
 {
@@ -112,35 +112,19 @@ void createVkImage(VkDevice device, PhysicalDevice* pd, VkFormat format, VkImage
         .initialLayout         = imageLayout,
         .usage                 = imageUsage,
         .sharingMode           = sharingMode,
-        .samples               = VK_SAMPLE_COUNT_1_BIT,
         .samples               = numSamples,
         .queueFamilyIndexCount = queueFamilyIndexCount,
         .pQueueFamilyIndices   = queueFamilyIndexCount > 1 ? concurrentQueueAccess : exclusiveQueueAccess,
-        .flags                 = 0, // Optional
+        .flags                 = 0,
     };
 
-    if (vkCreateImage(device, &imageInfo, VK_NULL_HANDLE, &commonImage->image) != VK_SUCCESS)
+    VkResult result = vmaBridgeCreateImage(allocator, &imageInfo, VMA_BRIDGE_MEMORY_GPU_ONLY,
+                                           &commonImage->image, &commonImage->allocation);
+    if (result != VK_SUCCESS)
     {
-
+        printf("ERROR: createVkImage failed with VkResult: %d\n", result);
         exit(1);
     }
-
-    // Allocating memory for the image
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(device, commonImage->image, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo = {
-        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize  = memRequirements.size,
-        .memoryTypeIndex = findMemoryType(pd, memRequirements.memoryTypeBits, memoryTypeNeeded),
-    };
-
-    if (vkAllocateMemory(device, &allocInfo, VK_NULL_HANDLE, &commonImage->imageMemory) != VK_SUCCESS)
-    {
-
-        exit(1);
-    };
-    vkBindImageMemory(device, commonImage->image, commonImage->imageMemory, 0);
 }
 
 VkFormat findSupportedFormat(VkPhysicalDevice* physicalDevice, VkFormat* candidates, uint32_t candidatesLen,
@@ -189,8 +173,8 @@ void createDepthImageResources(PhysicalDevice* pd, LogicalDevice* ld, GraphicSwa
 {
     VkFormat format          = (findDepthImageFormat(pd->gpu));
     dispM->depthImage.common = malloc(sizeof(*dispM->depthImage.common));
-    createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
-                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    createVkImage(ld->allocator, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                   dispM->depthImage.common, dispM->currentExtent2D.width, dispM->currentExtent2D.height, 1, 1,
                   VK_SHARING_MODE_EXCLUSIVE);
     // TODO ocl depth
@@ -202,9 +186,9 @@ void createGeometryBufferResources(PhysicalDevice* pd, LogicalDevice* ld, Graphi
 {
     VkFormat format = (findGeometryBufferFormat(pd->gpu));
     dispM->gBuffer  = malloc(sizeof(*dispM->gBuffer));
-    createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+    createVkImage(ld->allocator, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dispM->gBuffer, dispM->currentExtent2D.width,
+                  dispM->gBuffer, dispM->currentExtent2D.width,
                   dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_CONCURRENT);
 
     dispM->gBuffer->imageView =
@@ -215,9 +199,9 @@ void createNormalsBufferResources(PhysicalDevice* pd, LogicalDevice* ld, Graphic
 {
     VkFormat format = (findNormalsBufferFormat(pd->gpu));
     dispM->nBuffer  = malloc(sizeof(*dispM->nBuffer));
-    createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+    createVkImage(ld->allocator, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dispM->nBuffer, dispM->currentExtent2D.width,
+                  dispM->nBuffer, dispM->currentExtent2D.width,
                   dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_CONCURRENT);
 
     dispM->nBuffer->imageView =
@@ -334,7 +318,7 @@ VkSampleCountFlagBits getMaxUsableSampleCount(PhysicalDevice* phyDevice)
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, GraphicSwapchain* dsm)
+void createMsaaColorResources(LogicalDevice* ld, PhysicalDevice* pd, GraphicSwapchain* dsm)
 {
     printf("INI createMSSAACOLORRESOURCES\n");
     dsm->msaaColorRes    = malloc(sizeof(*dsm->msaaColorRes));
@@ -342,25 +326,25 @@ void createMsaaColorResources(VkDevice device, PhysicalDevice* pd, GraphicSwapch
     // dsm->msaaColorRes->numSamples = getMaxUsableSampleCount(pd);
     dsm->msaaColorRes->numSamples = VK_SAMPLE_COUNT_1_BIT;
     printf("ANTES DE LLAMAR A CREACTEVKIMAGE EN MSAA COLOR RESOURCES\n");
-    createVkImage(device, pd, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+    createVkImage(ld->allocator, pd, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dsm->msaaColorRes, dsm->currentExtent2D.width,
+                  dsm->msaaColorRes, dsm->currentExtent2D.width,
                   dsm->currentExtent2D.height, 1, dsm->msaaColorRes->numSamples, VK_SHARING_MODE_EXCLUSIVE);
     dsm->msaaColorRes->imageView =
-        createImageView(dsm, device, colorFormat, dsm->msaaColorRes->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
+        createImageView(dsm, ld->device, colorFormat, dsm->msaaColorRes->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void createMsaaDepthResources(VkDevice device, PhysicalDevice* pd, GraphicSwapchain* dsm)
+void createMsaaDepthResources(LogicalDevice* ld, PhysicalDevice* pd, GraphicSwapchain* dsm)
 {
     dsm->msaaDepthRes    = malloc(sizeof(*dsm->msaaDepthRes));
     VkFormat depthFormat = findDepthImageFormat(pd->gpu);
     // dsm->msaaDepthRes->numSamples = getMaxUsableSampleCount(pd);
     dsm->msaaDepthRes->numSamples = VK_SAMPLE_COUNT_1_BIT;
     printf("ANTES DE LLAMAR A CREACTEVKIMAGE EN MSAA DEPTH RESOURCES\n");
-    createVkImage(device, pd, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
-                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dsm->msaaDepthRes,
+    createVkImage(ld->allocator, pd, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, dsm->msaaDepthRes,
                   dsm->currentExtent2D.width, dsm->currentExtent2D.height, 1, dsm->msaaDepthRes->numSamples,
                   VK_SHARING_MODE_EXCLUSIVE);
     dsm->msaaDepthRes->imageView =
-        createImageView(dsm, device, depthFormat, dsm->msaaDepthRes->image, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
+        createImageView(dsm, ld->device, depthFormat, dsm->msaaDepthRes->image, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
 }

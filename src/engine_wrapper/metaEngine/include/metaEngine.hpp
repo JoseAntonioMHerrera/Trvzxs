@@ -120,27 +120,27 @@ public:
         // VULKAN BUFFERS
 
         gdp->deviceBuffer =
-            (DeviceBufferManager *)malloc(sizeof(*gdp->deviceBuffer));
-        particleGraphicPipeline->deviceBuffer = (DeviceBufferManager *)malloc(
-            sizeof(*particleGraphicPipeline->deviceBuffer));
-        particleGraphicPipeline->computeP->deviceBuffer = (DeviceBufferManager *)malloc(
-            sizeof(*particleGraphicPipeline->computeP->deviceBuffer));
-        particleGraphicPipeline->deviceBuffer = (DeviceBufferManager *)malloc(
-            sizeof(*particleGraphicPipeline->deviceBuffer));
-        lightVolumeGraphicPipeline->deviceBuffer = (DeviceBufferManager *)malloc(
-            sizeof(*lightVolumeGraphicPipeline->deviceBuffer));
-        depthPrepassGraphicPipeline->deviceBuffer = (DeviceBufferManager *)malloc(
-            sizeof(*lightVolumeGraphicPipeline->deviceBuffer));
+            (DeviceBufferManager *)calloc(1, sizeof(*gdp->deviceBuffer));
+        particleGraphicPipeline->deviceBuffer = (DeviceBufferManager *)calloc(
+            1, sizeof(*particleGraphicPipeline->deviceBuffer));
+        particleGraphicPipeline->computeP->deviceBuffer = (DeviceBufferManager *)calloc(
+            1, sizeof(*particleGraphicPipeline->computeP->deviceBuffer));
+        particleGraphicPipeline->deviceBuffer = (DeviceBufferManager *)calloc(
+            1, sizeof(*particleGraphicPipeline->deviceBuffer));
+        lightVolumeGraphicPipeline->deviceBuffer = (DeviceBufferManager *)calloc(
+            1, sizeof(*lightVolumeGraphicPipeline->deviceBuffer));
+        depthPrepassGraphicPipeline->deviceBuffer = (DeviceBufferManager *)calloc(
+            1, sizeof(*lightVolumeGraphicPipeline->deviceBuffer));
 
         for (uint32_t compIndex = 0; compIndex < particleGraphicPipeline->computePipelineCount; compIndex++)
         {
-            particleGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)malloc(
-                sizeof(*particleGraphicPipeline->computeP[compIndex].deviceBuffer));
+            particleGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)calloc(
+                1, sizeof(*particleGraphicPipeline->computeP[compIndex].deviceBuffer));
         }
         for (uint32_t compIndex = 0; compIndex < depthPrepassGraphicPipeline->computePipelineCount; compIndex++)
         {
-            depthPrepassGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)malloc(
-                sizeof(*depthPrepassGraphicPipeline->computeP[compIndex].deviceBuffer));
+            depthPrepassGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)calloc(
+                1, sizeof(*depthPrepassGraphicPipeline->computeP[compIndex].deviceBuffer));
         }
 
         // COMMAND POOLS
@@ -204,10 +204,10 @@ public:
         particleGraphicPipeline->maxFrames = dsmParticle->scImagesLen;
         depthPrepassGraphicPipeline->maxFrames = dsmDepthPrePass->scImagesLen;
 
-        createMsaaColorResources(ld->device, pd, dsm);
+        createMsaaColorResources(ld, pd, dsm);
 
         createMsaaDepthResources(
-            ld->device, pd,
+            ld, pd,
             dsm); // Pipeline grafica de geometria con multisampling
 
         createDepthImageResources(
@@ -445,6 +445,15 @@ public:
             &deviceManager->lDevice[0]->displayManager->graphicPipeline[1],
             deviceManager->lDevice[0]->device);
     };
+
+    void metaCleanup()
+    {
+        DeviceManager *dm = this->deviceManager.getStruct();
+        LogicalDevice *ld = dm->lDevice[0];
+        DisplayManager *dispM = ld->displayManager;
+        GraphicPipelineToSurface *gdp = &dispM->graphicPipeline[0];
+        cleanup(dm, ld, dispM, gdp, dm->logCallback);
+    }
 
     void metaDrawFrame(SDL_Window *window, float deltaTime)
     {

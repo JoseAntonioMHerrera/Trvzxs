@@ -1,10 +1,11 @@
 #pragma once
 #include <vulkan/vulkan.h>
+#include "vma_bridge.h"
 
 typedef struct CommonImage
 {
     VkImage            image;
-    VkDeviceMemory     imageMemory;
+    VmaAllocation      allocation;
     VkImageView        imageView;
     VkImageView*       mipsImageViews;
     VkSampleCountFlags numSamples;

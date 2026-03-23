@@ -74,6 +74,22 @@ VkResult vmaBridgeMapMemory(VmaAllocator  allocator,
 void vmaBridgeUnmapMemory(VmaAllocator  allocator,
                           VmaAllocation allocation);
 
+// --- Image operations ---
+
+// Create an image with VMA suballocation. Replaces vkCreateImage +
+// vkAllocateMemory + vkBindImageMemory. The VkImageCreateInfo is passed
+// directly since images have too many parameters for a simplified wrapper.
+VkResult vmaBridgeCreateImage(VmaAllocator              allocator,
+                              const VkImageCreateInfo*  imageInfo,
+                              VmaBridgeMemoryUsage      memUsage,
+                              VkImage*                  outImage,
+                              VmaAllocation*            outAllocation);
+
+// Destroy a VMA-managed image. Replaces vkDestroyImage + vkFreeMemory.
+void vmaBridgeDestroyImage(VmaAllocator  allocator,
+                           VkImage       image,
+                           VmaAllocation allocation);
+
 #ifdef __cplusplus
 }
 #endif

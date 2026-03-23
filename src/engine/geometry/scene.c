@@ -33,48 +33,30 @@ uint32_t getModelIndicesLenFromScene(const SCENE* const scene)
 
 uint32_t* getModelIndicesFromScene(const SCENE* const scene)
 {
-    printf("DEBUG: Starting getModelIndicesFromScene\n");
     assert(scene->modelsManager.packedModelIndex.itemsLen > 0);
-    printf("DEBUG: packedModelIndex.itemsLen = %u\n", scene->modelsManager.packedModelIndex.itemsLen);
 
     uint32_t* indices = malloc(sizeof(uint32_t) * scene->modelsManager.packedModelIndex.itemsLen);
-    printf("DEBUG: Allocated memory for %u indices\n", scene->modelsManager.packedModelIndex.itemsLen);
-
     initIndicesScene(indices, scene->modelsManager.packedModelIndex.itemsLen);
-    printf("DEBUG: Initialized indices array\n");
 
     uint32_t indicesStorageIterator = 0;
 
     // Copy individual array of objects indices to scene indices array
     uint32_t iteratorStorageIndices = 0;
-    uint32_t totalSceneObjects      = scene->modelsManager.modelLen;
-    printf("DEBUG: Total scene objects = %u\n", totalSceneObjects);
 
     for (int i = 0; i < scene->modelsManager.modelLen; i++)
     {
         uint32_t currentObjectIndicesLen = scene->modelsManager.pModel[i].indices.itemsLen;
-        printf("DEBUG: Processing model %d with %u indices\n", i, currentObjectIndicesLen);
-
-        uint32_t startPositionOffset = iteratorStorageIndices; // flag current offset
-        printf("DEBUG: Start position offset = %u\n", startPositionOffset);
+        uint32_t startPositionOffset     = iteratorStorageIndices;
 
         uint32_t iteratorReadIndices = 0;
         for (iteratorStorageIndices; iteratorStorageIndices < (startPositionOffset + currentObjectIndicesLen);
              iteratorStorageIndices++)
         {
-            // printf("ITERATOR:%d\n", indicesStorageIterator);
-            /*printf("DEBUG: Copying index %u from model %d position %u to global position %u\n",
-                   scene->modelsManager.pModel[i].indices.items[iteratorReadIndices], i, iteratorReadIndices,
-                   indicesStorageIterator);*/
-
             indices[indicesStorageIterator] = scene->modelsManager.pModel[i].indices.items[iteratorReadIndices];
             indicesStorageIterator++;
             iteratorReadIndices++;
         }
-        printf("DEBUG: Finished processing model %d, indicesStorageIterator = %u\n", i, indicesStorageIterator);
     }
-
-    printf("DEBUG: Completed getModelIndicesFromScene, returning indices array\n");
     return indices;
 }
 
@@ -198,38 +180,24 @@ uint32_t getVolumetricLightVerticesLenFromScene(const SCENE* const scene)
 GEOM_VERTEX* getLightVolumesVerticesFromScene(const SCENE* const scene)
 {
     assert(scene->lightManager.packedLightLen > 0);
-    printf("FLAG 1 getVolumetricLightsVerticesFromScene %d\n",
-           scene->lightManager.pLight[0].model.meshManager.pMesh[0].verticesLen);
-    printf("FLAG 1 lightlen %d\n", scene->lightManager.lightLen);
-    printf("FLAG 1 meshlen %d\n", scene->lightManager.pLight[0].model.meshManager.meshesLen);
     GEOM_VERTEX* pVertex                = malloc(sizeof(GEOM_VERTEX) * scene->lightManager.packedLightLen);
     uint32_t     indicesStorageIterator = 0;
-    printf("FLAG 2 getVolumetricLightsVerticesFromScene\n");
 
     // Copy individual array of objects indices to scene indices array
     for (int i = 0; i < scene->lightManager.lightLen; i++)
     {
-        printf("FLAG BAGGGGGGGGG\n");
         for (int j = 0; j < scene->lightManager.pLight[i].model.meshManager.meshesLen; j++)
         {
             for (int indexObjVertex = 0;
                  indexObjVertex < scene->lightManager.pLight[i].model.meshManager.pMesh[j].verticesLen;
                  indexObjVertex++)
             {
-                printf("FLAG 2.5 getVolumetricLightsVerticesFromScene\n");
-                // printf("ITERATOR:%d\n", indicesStorageIterator);
                 pVertex[indicesStorageIterator] =
                     scene->lightManager.pLight[i].model.meshManager.pMesh[j].pVertice[indexObjVertex];
-                printf("%f, %f, %f", pVertex[indicesStorageIterator].point.x, pVertex[indicesStorageIterator].point.y,
-                       pVertex[indicesStorageIterator].point.z);
-                // printf("ITERATOR:%d %d %d\n",
-                // pVertex[indexObjVertex].point.x,pVertex[indexObjVertex].point.y,pVertex[indexObjVertex].point.z);
                 indicesStorageIterator++;
-                printf("INDEX STORAGE ITERATOR %d\n", indicesStorageIterator);
             }
         }
     }
-    printf("FLAG 3 getVolumetricLightsVerticesFromScene\n");
 
     return pVertex;
 }
@@ -426,69 +394,25 @@ void fillModelInstancesIndices(Models3DManager* man)
 
 void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
 {
-    printf("INIT SCENE WITH MODELSLen:%d\n", modelLen);
     uint32_t indexOffsetForModelIndices   = 0;
     uint32_t indexOffset                  = 0;
     uint32_t vertexOffset                 = 0;
     scene->modelsManager.modelInstanceLen = 0;
-    // printScene(objects, sceneLen);
 
     for (int objIndex = 0; objIndex < modelLen; objIndex++)
     {
-        printf("=== PROCESSING MODEL %d/%d ===\n", objIndex, modelLen - 1);
-        printf("loop %d fillSceneWithModels\n", objIndex);
-
-        // Debug before assignment
-        printf("Before assignment - pModel[%d] address: %p\n", objIndex, &pModel[objIndex]);
-
         scene->modelsManager.pModel[objIndex] = pModel[objIndex];
 
-        // Debug after assignment
-        printf("After assignment - scene->modelsManager.pModel[%d] address: %p\n", objIndex,
-               &scene->modelsManager.pModel[objIndex]);
-
         Model3D* model = &(scene)->modelsManager.pModel[objIndex];
-        printf("Model pointer: %p\n", model);
 
-        // Debug model properties before offset calculations
-        printf("Model %d properties BEFORE offset calculation:\n", objIndex);
-        printf("  - indices.itemsLen: %d\n", model->indices.itemsLen);
-        printf("  - meshManager.totalMeshVerticesLen: %d\n", model->meshManager.totalMeshVerticesLen);
-        printf("  - Current indexOffset: %d\n", indexOffset);
-        printf("  - Current vertexOffset: %d\n", vertexOffset);
-        printf("  - Instance Count: %d\n", model->instanceCount);
-        // Set offsets with debug
-        printf("Setting indiceOffset to: %d\n", indexOffset);
         model->indiceOffset = indexOffset;
-
-        printf("Incrementing indexOffset by %d (from %d to %d)\n", model->indices.itemsLen, indexOffset,
-               indexOffset + model->indices.itemsLen);
         indexOffset += model->indices.itemsLen;
 
-        printf("Setting vertexOffset to: %d\n", vertexOffset);
         model->vertexOffset = vertexOffset;
-
-        printf("Incrementing vertexOffset by %d (from %d to %d)\n", model->meshManager.totalMeshVerticesLen,
-               vertexOffset, vertexOffset + model->meshManager.totalMeshVerticesLen);
         vertexOffset += model->meshManager.totalMeshVerticesLen;
 
-        // Debug final model state
-        printf("Model %d properties AFTER offset calculation:\n", objIndex);
-        printf("  - indiceOffset: %d\n", model->indiceOffset);
-        printf("  - vertexOffset: %d\n", model->vertexOffset);
-        printf("  - Running totals - indexOffset: %d, vertexOffset: %d\n", indexOffset, vertexOffset);
-
-        // Validate offsets make sense
-        if (model->indiceOffset < 0 || model->vertexOffset < 0)
-        {
-            printf("ERROR: Negative offset detected for model %d!\n", objIndex);
-        }
         scene->modelsManager.modelInstanceLen += model->instanceCount;
-        printf("=== MODEL %d PROCESSING COMPLETE ===\n\n", objIndex);
     }
-
-    printf("FINAL TOTALS: indexOffset=%d, vertexOffset=%d\n instanceCount=%d\n", indexOffset, vertexOffset,
-           scene->modelsManager.modelInstanceLen);
 
     // printf("TRAS ITERAR EL BUCLE DE OBJETOS\n");
 

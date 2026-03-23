@@ -521,17 +521,27 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, 
 
 void cleanupSwapChain(LogicalDevice* ld, DisplayManager* dm)
 {
-    for (size_t i = 0; i < dm->graphicPipeline->swapchain->framebuffersLen; i++)
-    {
-        vkDestroyFramebuffer(ld->device, dm->graphicPipeline->swapchain->p_framebuffers[i], NULL);
-    }
+    GraphicSwapchain* sc = dm->graphicPipeline->swapchain;
 
-    for (size_t i = 0; i < dm->graphicPipeline->swapchain->scImageViewLen; i++)
-    {
-        vkDestroyImageView(ld->device, dm->graphicPipeline->swapchain->p_scImageView[i], NULL);
-    }
+    for (size_t i = 0; i < sc->framebuffersLen; i++)
+        vkDestroyFramebuffer(ld->device, sc->p_framebuffers[i], NULL);
 
-    vkDestroySwapchainKHR(ld->device, dm->graphicPipeline->swapchain->VkSwapchain, VK_NULL_HANDLE);
+    for (size_t i = 0; i < sc->scImageViewLen; i++)
+        vkDestroyImageView(ld->device, sc->p_scImageView[i], NULL);
+
+    // Destroy VMA-managed swapchain images (MSAA, depth, gbuffer, normals)
+    if (sc->msaaColorRes)
+        vmaBridgeDestroyImage(ld->allocator, sc->msaaColorRes->image, sc->msaaColorRes->allocation);
+    if (sc->msaaDepthRes)
+        vmaBridgeDestroyImage(ld->allocator, sc->msaaDepthRes->image, sc->msaaDepthRes->allocation);
+    if (sc->gBuffer)
+        vmaBridgeDestroyImage(ld->allocator, sc->gBuffer->image, sc->gBuffer->allocation);
+    if (sc->nBuffer)
+        vmaBridgeDestroyImage(ld->allocator, sc->nBuffer->image, sc->nBuffer->allocation);
+    if (sc->depthImage.common)
+        vmaBridgeDestroyImage(ld->allocator, sc->depthImage.common->image, sc->depthImage.common->allocation);
+
+    vkDestroySwapchainKHR(ld->device, sc->VkSwapchain, VK_NULL_HANDLE);
 }
 
 void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window)
@@ -539,8 +549,8 @@ void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window
     vkDeviceWaitIdle(ld->device);
     cleanupSwapChain(ld, ld->displayManager);
     createSwapChain(pd, ld, ld->displayManager, ld->displayManager->graphicPipeline, window);
-    createMsaaColorResources(ld->device, pd, ld->displayManager->graphicPipeline->swapchain);
-    createMsaaDepthResources(ld->device, pd, ld->displayManager->graphicPipeline->swapchain);
+    createMsaaColorResources(ld, pd, ld->displayManager->graphicPipeline->swapchain);
+    createMsaaDepthResources(ld, pd, ld->displayManager->graphicPipeline->swapchain);
     for (uint32_t i = 0; i < ld->displayManager->graphicPipeline->swapchain->scImagesLen; i++)
     {
         ld->displayManager->graphicPipeline->swapchain->p_scImageView[i] = createImageView(
