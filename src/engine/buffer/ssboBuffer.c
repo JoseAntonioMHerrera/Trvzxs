@@ -81,8 +81,8 @@ int createReadbackLightPass1SSBOBuffers(PhysicalDevice* pd, LogicalDevice* ld, u
         malloc(sizeof(*ssbos->buffersMapped) *
                ssbosLen); // TODO: ubosLen useless here, len is determined by maxframes from the graphics pipeline
 
-    ssbos->buffers            = (VkBuffer*) malloc(sizeof(VkBuffer) * ssbosLen);
-    ssbos->allocations        = (VmaAllocation*) malloc(sizeof(VmaAllocation) * ssbosLen);
+    ssbos->buffers            = (VkBuffer*) calloc(ssbosLen, sizeof(VkBuffer));
+    ssbos->allocations        = (VmaAllocation*) calloc(ssbosLen, sizeof(VmaAllocation));
     ssbos->buffersLen         = ssbosLen;
     ssbos->readBackBufferSize = WINDOW_WIDTH * WINDOW_HEIGHT;
 

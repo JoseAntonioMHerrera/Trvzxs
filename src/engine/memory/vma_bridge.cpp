@@ -110,4 +110,32 @@ extern "C"
         vmaUnmapMemory(allocator, allocation);
     }
 
+    // --- Image operations ---
+
+    VkResult vmaBridgeCreateImage(VmaAllocator              allocator,
+                                  const VkImageCreateInfo*  imageInfo,
+                                  VmaBridgeMemoryUsage      memUsage,
+                                  VkImage*                  outImage,
+                                  VmaAllocation*            outAllocation)
+    {
+        VmaAllocationCreateInfo allocInfo = {};
+        switch (memUsage)
+        {
+        case VMA_BRIDGE_MEMORY_GPU_ONLY:
+            allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+            break;
+        case VMA_BRIDGE_MEMORY_CPU_TO_GPU:
+            allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+            allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+            break;
+        }
+
+        return vmaCreateImage(allocator, imageInfo, &allocInfo, outImage, outAllocation, nullptr);
+    }
+
+    void vmaBridgeDestroyImage(VmaAllocator allocator, VkImage image, VmaAllocation allocation)
+    {
+        vmaDestroyImage(allocator, image, allocation);
+    }
+
 } // extern "C"

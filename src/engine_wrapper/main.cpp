@@ -336,7 +336,7 @@ int main()
                     }
                     break;
                 case SDL_QUIT:
-                    exit(0);
+                    running = 0;
                     break;
                 }
             }
@@ -364,6 +364,13 @@ int main()
             // Aquí puedes añadir tus comandos de dibujo
             //        SDL_RenderPresent(renderer);
         }
+
+        engine->metaCleanup();
+#ifndef RENDERDOC_ENABLED
+        delete engine;
+#endif
+        SDL_DestroyWindow(window);
+        SDL_Quit();
     }
     catch (const std::exception &e)
     {

@@ -53,9 +53,9 @@ void createTextureImage(PhysicalDevice* pd, LogicalDevice* ld, GraphicPipelineTo
 
     stbi_image_free(pixels);
 
-    createVkImage(ld->device, pd, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+    createVkImage(ld->allocator, pd, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT),
-                  (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), (*texture)->common, width, height, (*texture)->mipLevels, 1,
+                  (*texture)->common, width, height, (*texture)->mipLevels, 1,
                   VK_SHARING_MODE_CONCURRENT);
 
     // TODO DELETE INDIRECTION FROM COMMAND POOLS AND VQUEUE
@@ -74,6 +74,8 @@ void createTextureImage(PhysicalDevice* pd, LogicalDevice* ld, GraphicPipelineTo
 
     generateImageMipmaps((*pd->gpu), ld, gdp->commandPool, (*ld->queueManager.graphicsQueue), (*texture)->common->image,
                          (*texture)->textWidth, (*texture)->textHeight, (*texture)->mipLevels, VK_FORMAT_R8G8B8A8_SRGB);
+
+    vmaBridgeDestroyBuffer(ld->allocator, stagingBuffer, stagingAlloc);
 
     createTextureSampler(pd, ld, *texture, (*texture)->mipLevels);
 }
@@ -138,10 +140,10 @@ void createHiZImageResources(PhysicalDevice* pd, LogicalDevice* ld, GraphicPipel
     Texture2D* hiZTexture = gChain->hiZBuffer;
 
     // Create the Hi-Z image with proper usage flags
-    createVkImage(ld->device, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
+    createVkImage(ld->allocator, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
                       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, hiZTexture->common, width, height, hiZTexture->mipLevels, 1,
+                  hiZTexture->common, width, height, hiZTexture->mipLevels, 1,
                   VK_SHARING_MODE_EXCLUSIVE);
 
     // Transition the entire image to depth-stencil optimal layout

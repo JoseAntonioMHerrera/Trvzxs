@@ -111,18 +111,70 @@ VkDebugUtilsMessengerEXT *createDebugCallbackForVulkan(const VkInstance *instanc
     return callback_messenger;
 }
 
+static void destroyDeviceBufferVma(VmaAllocator allocator, DeviceBufferManager *dbm)
+{
+    if (!dbm) return;
+
+    // Vertex buffer
+    if (dbm->buffer)
+        vmaBridgeDestroyBuffer(allocator, *dbm->buffer, *dbm->bufferAlloc);
+
+    // Index buffer
+    if (dbm->indexBuffer)
+        vmaBridgeDestroyBuffer(allocator, *dbm->indexBuffer, *dbm->indexBufferAlloc);
+
+    // UBOs
+    if (dbm->pUbo)
+    {
+        for (uint32_t i = 0; i < dbm->pUbo->uniformBuffersLen; i++)
+            vmaBridgeDestroyBuffer(allocator, dbm->pUbo->uniformBuffers[i], dbm->pUbo->uniformAllocations[i]);
+    }
+
+    // SSBOs
+    if (dbm->ssbos)
+    {
+        for (uint32_t i = 0; i < dbm->ssbos->buffersLen; i++)
+        {
+            if (dbm->ssbos->allocations[i])
+                vmaBridgeDestroyBuffer(allocator, dbm->ssbos->buffers[i], dbm->ssbos->allocations[i]);
+        }
+        if (dbm->ssbos->readbackAlloc)
+            vmaBridgeDestroyBuffer(allocator, dbm->ssbos->readbackBuffer, dbm->ssbos->readbackAlloc);
+    }
+}
+
+static void destroyCommonImageVma(VmaAllocator allocator, CommonImage *img)
+{
+    if (img)
+        vmaBridgeDestroyImage(allocator, img->image, img->allocation);
+}
+
+
 void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, GraphicPipelineToSurface *gdp, VkDebugUtilsMessengerEXT *logCallback)
 {
     vkDeviceWaitIdle(dm->lDevice[dm->deviceIndex]->device);
     cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager);
-    vmaBridgeDestroyBuffer(ld->allocator, *gdp->deviceBuffer->buffer, *gdp->deviceBuffer->bufferAlloc);
-    vmaBridgeDestroyBuffer(ld->allocator, *gdp->deviceBuffer->indexBuffer, *gdp->deviceBuffer->indexBufferAlloc);
-    vkDestroyRenderPass(ld->device, gdp->renderPass, NULL);
+
+    // Destroy VMA-managed resources for all pipelines
+    // Pipeline 0: models (gdp)
+    destroyDeviceBufferVma(ld->allocator, dispM->graphicPipeline[0].deviceBuffer);
+    if (dispM->graphicPipeline[0].texture && dispM->graphicPipeline[0].texture->common)
+        destroyCommonImageVma(ld->allocator, dispM->graphicPipeline[0].texture->common);
+
+    // Pipeline 1: particles (graphics + compute)
+    destroyDeviceBufferVma(ld->allocator, dispM->graphicPipeline[1].deviceBuffer);
+    for (uint32_t c = 0; c < dispM->graphicPipeline[1].computePipelineCount; c++)
+        destroyDeviceBufferVma(ld->allocator, dispM->graphicPipeline[1].computeP[c].deviceBuffer);
+
+    // Pipeline 2: light volumes
+    destroyDeviceBufferVma(ld->allocator, dispM->graphicPipeline[2].deviceBuffer);
+
+    vkDestroyRenderPass(ld->device, *gdp->renderPass, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->transferCommandPool, NULL);
-    vkDestroyPipeline(ld->device, gdp->pipeline, NULL);
+    vkDestroyPipeline(ld->device, *gdp->pipeline, NULL);
     vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL);
-    vkDestroyPipelineLayout(ld->device, gdp->pipelineLayout, NULL);
+    vkDestroyPipelineLayout(ld->device, *gdp->pipelineLayout, NULL);
     cleanupSyncObjects(ld->device, gdp);
 
     // VMA allocator must be destroyed after all VMA-managed resources are freed
@@ -133,11 +185,11 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
 
     if (logCallback)
     {
-        destroyDebugCallbackForVulkan(&dm->instance, dm->logCallback);
+        destroyDebugCallbackForVulkan(dm->instance, dm->logCallback);
     }
 
-    vkDestroySurfaceKHR(dm->instance, dispM->surface, NULL);
-    vkDestroyInstance(dm->instance, NULL);
+    vkDestroySurfaceKHR(*dm->instance, dispM->surface, NULL);
+    vkDestroyInstance(*dm->instance, NULL);
 }
 
 void createInstance(VkInstance **instance, SDL_Window *window)
