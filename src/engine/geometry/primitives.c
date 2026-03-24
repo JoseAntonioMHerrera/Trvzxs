@@ -5,19 +5,7 @@
 #include "primitives.h"
 #include "model.h"
 
-void printParticle(const ParticleInstance* particle)
-{
-    printf("Particle Data:\n");
-    printf("Position: (x: %.4f, y: %.4f, z: %.4f)\n", particle->position[0], particle->position[1],
-           particle->position[2]);
-
-    printf("Velocity: (x: %.4f, y: %.4f, z: %.4f)\n", particle->velocity[0], particle->velocity[1],
-           particle->velocity[2]);
-
-    printf("Color: (r: %.4f, g: %.4f, b: %.4f, a: %.4f)\n", particle->color[0], particle->color[1], particle->color[2],
-           particle->color[3]);
-    printf("------------------------\n");
-}
+void printParticle(const ParticleInstance* particle) {}
 // Helper function to create a vertex
 GEOM_VERTEX* create_vertex(float x, float y, float z, float r, float g, float b, float u, float v)
 {
@@ -129,52 +117,10 @@ Model3D* create_plane(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t s
     return model;
 }
 
-void print_cube(const GEOM_OBJECT* cube)
-{
-    printf("Cube Information:\n");
-    printf("Number of vertices: %u\n", cube->dataLen);
-    printf("Number of indices: %u\n", cube->indicesLen);
-    printf("Vertex offset: %u\n", cube->vertexOffset);
+void print_cube(const GEOM_OBJECT* cube) {}
 
-    printf("\nVertices:\n");
-    for (uint32_t i = 0; i < cube->dataLen; i++)
-    {
-        printf("Vertex %u: (%.2f, %.2f, %.2f) UV: (%.2f, %.2f) Normal: (%.2f, %.2f, %.2f)\n", i, cube->data[i].point.x,
-               cube->data[i].point.y, cube->data[i].point.z, cube->data[i].textCoords.u, cube->data[i].textCoords.v);
-    };
-
-    printf("\nIndices:\n");
-    for (uint32_t i = 0; i < cube->indicesLen; i += 3)
-    {
-        printf("Triangle %u: %u, %u, %u\n", i / 3, cube->indices[i], cube->indices[i + 1], cube->indices[i + 2]);
-    }
-}
-
-void print_geom_vertex(const GEOM_VERTEX* vertices, uint32_t verticesLen)
-{
-    printf("Vertices Information:\n");
-    printf("Number of vertices: %u\n", verticesLen);
-
-    printf("\nVertices:\n");
-    for (uint32_t i = 0; i < verticesLen; i++)
-    {
-        printf("Vertex %u: (%.2f, %.2f, %.2f) UV: (%.2f, %.2f) Normal: (%.2f, %.2f, %.2f)\n", i, vertices[i].point.x,
-               vertices[i].point.y, vertices[i].point.z, vertices[i].textCoords.u, vertices[i].textCoords.v);
-    };
-}
-void printTrzVertex(const TrzVertex* vertices, uint32_t verticesLen)
-{
-    printf("Vertices Information:\n");
-    printf("Number of vertices: %u\n", verticesLen);
-
-    printf("\nVertices:\n");
-    for (uint32_t i = 0; i < verticesLen; i++)
-    {
-        printf("Vertex %u: (%.2f, %.2f, %.2f) UV: (%.2f, %.2f) Normal: (%.2f, %.2f, %.2f)\n", i, vertices[i].point[0],
-               vertices[i].point[1], vertices[i].point[2], vertices[i].textCoords[0], vertices[i].textCoords[1],
-               vertices[i].normal[0], vertices[i].normal[1], vertices[i].normal[2]);
-    };
-}
+void print_geom_vertex(const GEOM_VERTEX* vertices, uint32_t verticesLen) {}
+void printTrzVertex(const TrzVertex* vertices, uint32_t verticesLen) {}
 // Cube
 
 Model3D* create_quad(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t size)

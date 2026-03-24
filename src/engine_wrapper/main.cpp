@@ -146,7 +146,6 @@ int main()
         const float cubeSize = 3.0f;
         const float spacing = 3.0f;
         const float totalSize = cubeSize + spacing;
-        printf("mainCpp\n");
         LightVolume *light = static_cast<LightVolume *>(malloc(sizeof(LightVolume)));
         GEOM_VERTEX_POSITION *cubeLightPosition = new GEOM_VERTEX_POSITION{0.0, 0.0, 0.0};
         light->model = *create_cube_no_vertex_optimization(cubeLightPosition, 10);

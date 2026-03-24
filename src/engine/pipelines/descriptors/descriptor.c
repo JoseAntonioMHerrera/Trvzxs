@@ -56,12 +56,10 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
 
     if (vkAllocateDescriptorSets(device, &allocInfo, gdp->descriptorSet) != VK_SUCCESS)
     {
-        printf("FAILED AT CREATION vkAllocateDescriptorSets\n");
     }
 
     for (size_t i = 0; i < maxFrames; i++)
     {
-        printf("HOLA HOLA %lu\n", (i - 1 + maxFrames) % maxFrames);
         VkDescriptorBufferInfo transformUBOInfo[2] = {
             {
                 .buffer = gdp->deviceBuffer->pUbo->uniformBuffers[i],
@@ -111,7 +109,6 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
             .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
             .imageView   = gdp->swapchain->nBuffer->imageView,
         };
-        printf("ADIOS ADIOS\n");
         VkWriteDescriptorSet descriptorWrite[] = {
             {
                 .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -210,7 +207,6 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
                 .pTexelBufferView = VK_NULL_HANDLE, // Optional
             },                                      // TODO: add preprocessing for switching readbackbuffers debugging
         };
-        printf("UPDATE\n");
         vkUpdateDescriptorSets(device, 9, descriptorWrite, 0, VK_NULL_HANDLE);
     }
 }
