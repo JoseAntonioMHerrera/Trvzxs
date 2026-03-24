@@ -90,6 +90,15 @@ void vmaBridgeDestroyImage(VmaAllocator  allocator,
                            VkImage       image,
                            VmaAllocation allocation);
 
+// --- Statistics ---
+
+// Build a JSON string with VMA allocation statistics.
+// Caller must free the returned string with vmaBridgeFreeStatsString().
+char* vmaBridgeBuildStatsString(VmaAllocator allocator);
+
+// Free a string previously returned by vmaBridgeBuildStatsString().
+void vmaBridgeFreeStatsString(VmaAllocator allocator, char* statsString);
+
 #ifdef __cplusplus
 }
 #endif

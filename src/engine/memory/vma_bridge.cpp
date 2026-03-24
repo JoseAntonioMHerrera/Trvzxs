@@ -23,14 +23,7 @@ extern "C"
         allocatorInfo.instance               = instance;
         allocatorInfo.vulkanApiVersion       = VK_API_VERSION_1_3;
 
-        VkResult result = vmaCreateAllocator(&allocatorInfo, outAllocator);
-        if (result == VK_SUCCESS)
-        {
-        }
-        else
-        {
-        }
-        return result;
+        return vmaCreateAllocator(&allocatorInfo, outAllocator);
     }
 
     void vmaBridgeDestroyAllocator(VmaAllocator allocator)
@@ -133,6 +126,23 @@ extern "C"
     void vmaBridgeDestroyImage(VmaAllocator allocator, VkImage image, VmaAllocation allocation)
     {
         vmaDestroyImage(allocator, image, allocation);
+    }
+
+    // --- Statistics ---
+
+    char* vmaBridgeBuildStatsString(VmaAllocator allocator)
+    {
+        char* statsString = nullptr;
+        vmaBuildStatsString(allocator, &statsString, VK_TRUE);
+        return statsString;
+    }
+
+    void vmaBridgeFreeStatsString(VmaAllocator allocator, char* statsString)
+    {
+        if (statsString)
+        {
+            vmaFreeStatsString(allocator, statsString);
+        }
     }
 
 } // extern "C"

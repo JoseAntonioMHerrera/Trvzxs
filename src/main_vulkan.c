@@ -153,6 +153,10 @@ static void destroyCommonImageVma(VmaAllocator allocator, CommonImage *img)
 void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, GraphicPipelineToSurface *gdp, VkDebugUtilsMessengerEXT *logCallback)
 {
     vkDeviceWaitIdle(dm->lDevice[dm->deviceIndex]->device);
+
+    // Print VMA suballocation statistics before any resources are freed.
+    printVmaStats(ld);
+
     cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager);
 
     // Destroy VMA-managed resources for all pipelines
@@ -176,6 +180,9 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL);
     vkDestroyPipelineLayout(ld->device, *gdp->pipelineLayout, NULL);
     cleanupSyncObjects(ld->device, gdp);
+
+    // Print VMA suballocation statistics before teardown.
+    printVmaStats(ld);
 
     // VMA allocator must be destroyed after all VMA-managed resources are freed
     // but before vkDestroyDevice — VMA holds internal references to the VkDevice.
