@@ -343,7 +343,6 @@ void createFrameBuffers(GraphicSwapchain* swapManager, VkRenderPass* renderPass,
 
         if (vkCreateFramebuffer(*device, &framebufferInfo, NULL, &swapManager->p_framebuffers[i]) != VK_SUCCESS)
         {
-            printf("vkCreateFramebuffer error on creation!\n");
         }
     }
 }
@@ -470,46 +469,18 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, 
         .preTransform          = swapChainSupportDetails->capabilities.currentTransform,
     };
 
-    printf("Debug Swap Chain Values:\n");
-    printf("Surface Format: %d\n", gps->swapchain->currentSurfaceFormat->format);
-    printf("Color Space: %d\n", gps->swapchain->currentSurfaceFormat->colorSpace);
-    printf("Image Count: %d\n", gps->swapchain->scImagesLen);
-    printf("Image Extent: %dx%d\n", gps->swapchain->currentExtent2D.width, gps->swapchain->currentExtent2D.height);
-    // Also print the available formats:
-    printf("Available formats:\n");
-    for (uint32_t i = 0; i < swapChainSupportDetails->surfaceFormatsLen; i++)
-    {
-        printf("Format %d: format=%d, colorSpace=%d\n", i, swapChainSupportDetails->formats[i].format,
-               swapChainSupportDetails->formats[i].colorSpace);
-    }
-
-    printf("Swap Chain Creation Info:\n");
-    printf("Surface: %p\n", (void*) creationSwapChainInfo.surface);
-    printf("Min Image Count: %d\n", creationSwapChainInfo.minImageCount);
-    printf("Image Format: %d\n", creationSwapChainInfo.imageFormat);
-    printf("Color Space: %d\n", creationSwapChainInfo.imageColorSpace);
-    printf("Image Extent: %dx%d\n", creationSwapChainInfo.imageExtent.width, creationSwapChainInfo.imageExtent.height);
-    printf("Image Array Layers: %d\n", creationSwapChainInfo.imageArrayLayers);
-    printf("Image Usage: %d\n", creationSwapChainInfo.imageUsage);
-    printf("Sharing Mode: %d\n", creationSwapChainInfo.imageSharingMode);
-    printf("Queue Family Index Count: %d\n", creationSwapChainInfo.queueFamilyIndexCount);
-    printf("Queue Family Indices: %d, %d\n", familyIndices[0], familyIndices[1]);
-    printf("Present Mode: %d\n", creationSwapChainInfo.presentMode);
     // TODO fix procesamiento de seleccion de colas, se deja hardcodeado que
     // vamos a usar dos colas distintas 0 presentacion 1 drawing
     VkResult createSwapchainResult =
         vkCreateSwapchainKHR(ld->device, &creationSwapChainInfo, NULL, &gps->swapchain->VkSwapchain);
     if (createSwapchainResult != VK_SUCCESS)
     {
-        printf("Failed to create swap chain! Error code: %d\n", createSwapchainResult);
 
         exit(1);
     }
-    printf("SELECCIONADO EL MODO DE PRESNETACION %d\n", 9);
     vkGetSwapchainImagesKHR(ld->device, gps->swapchain->VkSwapchain, &gps->swapchain->scImagesLen, NULL);
     // displaySwapCh->p_scImages = (VkImage*) malloc(sizeof(VkImage)*
     // displaySwapCh->scImagesLen);
-    printf("SELECCIONADO EL MODO DE PRESNETACION %d\n", 10);
 
     if (vkGetSwapchainImagesKHR(ld->device, gps->swapchain->VkSwapchain, &gps->swapchain->scImagesLen,
                                 gps->swapchain->p_scImages) != VK_SUCCESS)

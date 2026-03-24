@@ -24,7 +24,6 @@ void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device)
 
     // Init compute pipeline for graphics
     assert(computeP);
-    printf("CREATEPARTICLECOMPUTEPIPELINE\n");
     char** computeParticle = (char**) malloc(sizeof(char*));
 
     size_t computeParticleSize = 0;
@@ -32,11 +31,9 @@ void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device)
     readSPVBinaryFile(PARTICLE_COMPUTE, computeParticle, &computeParticleSize);
     // TODOcrear struct para spv, guarde datos y un hilo los lea y escriba en background
     assert(computeParticleSize > 0);
-    printf("CREATEPARTICLECOMPUTEPIPELINE 2\n");
 
     computeP->computeShader = createComputeShaderModule(device, computeParticle, computeParticleSize);
 
-    printf("CREATEPARTICLECOMPUTEPIPELINE 3\n");
 
     VkPipelineShaderStageCreateInfo computeShaderStageInfo = {
         .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -45,18 +42,15 @@ void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device)
         .pName  = "main",
         .pNext  = VK_NULL_HANDLE,
     };
-    printf("CREATEPARTICLECOMPUTEPIPELINE 4\n");
 
     VkComputePipelineCreateInfo pipelineInfo = {
         .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .layout = *computeP->pipelineLayout,
         .stage  = computeShaderStageInfo,
     };
-    printf("CREATEPARTICLECOMPUTEPIPELINE 44\n");
     computeP->pipeline = malloc(sizeof(*computeP->pipeline));
     if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, computeP->pipeline) != VK_SUCCESS)
     {
-        printf("Error creating compute pipeline!");
     }
 }
 
@@ -92,7 +86,6 @@ void createOcclusionCullingComputePipeline(ComputePipeline* computeP, VkDevice d
     computeP->pipeline = malloc(sizeof(*computeP->pipeline));
     if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, computeP->pipeline) != VK_SUCCESS)
     {
-        printf("Error creating compute pipeline!");
     }
 }
 
@@ -108,7 +101,6 @@ void debugParticles(ComputePipeline* computeP, VmaAllocator allocator)
     // Print first few particles
     /*for (int i = 0; i < 1024; i++)
     {
-        printf("Particle %d: pos=(%.2f, %.2f, %.2f), vel=(%.2f, %.2f, %.2f)\n", i, particles[i].position.data[0],
                particles[i].position.data[1], particles[i].position.data[2], particles[i].velocity.data[0],
                particles[i].velocity.data[1], particles[i].velocity.data[2]);
     }*/
@@ -145,7 +137,6 @@ void recordParticleCommandBuffer(GraphicPipelineToSurface* graphicPipeline, Phys
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 1, &barrier,
                          0, NULL);
     uint32_t xWorkDivision = floor(graphicPipeline->scene->particleManager.packedParticleInstanceLen / 256);
-    // printf("WORKGROUP: %d\n", xWorkDivision);
     vkCmdDispatch(computeP->commandBuffer[imageIndex], xWorkDivision ? xWorkDivision : 1, 1, 1);
     // Add barrier for SSBO writes
     VkBufferMemoryBarrier ssboBarrier = {

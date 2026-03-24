@@ -176,7 +176,6 @@ void createHiZImageResources(PhysicalDevice* pd, LogicalDevice* ld, GraphicPipel
         if (vkCreateImageView(ld->device, &viewInfo, VK_NULL_HANDLE, &hiZTexture->common->mipsImageViews[mipLevel]) !=
             VK_SUCCESS)
         {
-            printf("Failed to create Hi-Z mip level %d image view!\n", mipLevel);
             exit(1);
         }
     }
@@ -202,9 +201,7 @@ void createHiZImageResources(PhysicalDevice* pd, LogicalDevice* ld, GraphicPipel
 
     if (vkCreateSampler(ld->device, &samplerInfo, VK_NULL_HANDLE, &hiZTexture->sampler) != VK_SUCCESS)
     {
-        printf("Failed to create Hi-Z sampler!\n");
         exit(1);
     }
 
-    printf("Hi-Z buffer created successfully with %d mip levels (%dx%d)\n", hiZTexture->mipLevels, width, height);
 }

@@ -113,7 +113,8 @@ VkDebugUtilsMessengerEXT *createDebugCallbackForVulkan(const VkInstance *instanc
 
 static void destroyDeviceBufferVma(VmaAllocator allocator, DeviceBufferManager *dbm)
 {
-    if (!dbm) return;
+    if (!dbm)
+        return;
 
     // Vertex buffer
     if (dbm->buffer)
@@ -148,7 +149,6 @@ static void destroyCommonImageVma(VmaAllocator allocator, CommonImage *img)
     if (img)
         vmaBridgeDestroyImage(allocator, img->image, img->allocation);
 }
-
 
 void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, GraphicPipelineToSurface *gdp, VkDebugUtilsMessengerEXT *logCallback)
 {
@@ -222,7 +222,6 @@ void createInstance(VkInstance **instance, SDL_Window *window)
     const char **actual_layers_selected = malloc(sizeof(char *) * 2);
     actual_layers_selected[0] = malloc(sizeof(char) * 256);
     actual_layers_selected[1] = malloc(sizeof(char) * 256);
-    printf("RENDERDOC_LAYER_ENABELED\n");
 #else
     char *layers_to_select[1] = {"VK_LAYER_KHRONOS_validation\0"};
     const char **actual_layers_selected = malloc(sizeof(char *) * 1);
@@ -243,10 +242,8 @@ void createInstance(VkInstance **instance, SDL_Window *window)
         }
     }
 #ifdef RENDERDOC_ENABLED
-    printf("RENDERDOC_LAYER_ENABELED\n");
     actual_layers_selected[actual_number_layers_selected++] = layers_to_select[1];
 #endif
-    printf("SELECCINOADAS %d capas de vvalidacion\n", actual_number_layers_selected);
 
     // Probamos con la configuracion de SDL
 
@@ -257,7 +254,6 @@ void createInstance(VkInstance **instance, SDL_Window *window)
     VkResult result = vkEnumerateInstanceExtensionProperties(NULL, &extensionCountDeb, NULL);
     if (result != VK_SUCCESS)
     {
-        printf("Failed to get extension count\n");
         return;
     }
 
@@ -265,7 +261,6 @@ void createInstance(VkInstance **instance, SDL_Window *window)
     extensions = malloc(extensionCountDeb * sizeof(VkExtensionProperties));
     if (extensions == NULL)
     {
-        printf("Memory allocation failed\n");
         return;
     }
 
@@ -273,22 +268,12 @@ void createInstance(VkInstance **instance, SDL_Window *window)
     result = vkEnumerateInstanceExtensionProperties(NULL, &extensionCountDeb, extensions);
     if (result != VK_SUCCESS)
     {
-        printf("Failed to enumerate extensions\n");
         free(extensions);
         return;
     }
 
-    // Print extensions
-    for (uint32_t i = 0; i < extensionCountDeb; i++)
-    {
-        printf("Extension name: %s, Version: %d\n",
-               extensions[i].extensionName,
-               extensions[i].specVersion);
-    }
-
     uint32_t extensionCount = 0;
     SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, NULL);
-    printf("SELECCINOADAS %d extensiones de SDL\n", extensionCount);
     const char **extensionNames = malloc((extensionCount + 2) * sizeof(char *)); // TODO refactor this method to handle memory properly
     SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, extensionNames);
 
@@ -300,7 +285,6 @@ void createInstance(VkInstance **instance, SDL_Window *window)
     /*
     extensionNames[extensionCount++] = extensionsToSelect[3];
         extensionNames[extensionCount++] = extensionsToSelect[4];*/
-    printf("SELECCINOADAS %d extensiones\n", extensionCount);
     VkValidationFeatureEnableEXT enables[] = {
         VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
         VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
@@ -329,14 +313,12 @@ void createInstance(VkInstance **instance, SDL_Window *window)
         .ppEnabledExtensionNames = (const char *const *)extensionNames,
         .pNext = &validationFeatures,
     };
-    printf("JUSTO ANTES DEL VKCREATEINSTANCE\n");
     // TODO: Para asegurar portabilidad entre sistemas con sdl, leer la direccion de la propia funcion vkGetInstanceProdAddr
     // a traves de SDL en vez de llamarla directamente como hacemos en createDebugCallbackForVulkan
     VkResult debug = vkCreateInstance(&instance_info, NULL, *instance);
 
     if (debug != VK_SUCCESS)
     {
-        printf("ERROR AL CREAR INSTANCE: %d \n", debug);
         exit(EXIT_FAILURE);
     }
     assert(instance != NULL);

@@ -218,10 +218,8 @@ public:
         /*createHiZImageResources(
             pd, ld,
             depthPrepassGraphicPipeline);*/
-        printf("RETORNO DEPTHIMAGE\n");
         createGeometryBufferResources(pd, ld,
                                       dispM->graphicPipeline->swapchain);
-        printf("RETORNO GeometryBufferResources\n");
         createNormalsBufferResources(pd, ld,
                                      dispM->graphicPipeline->swapchain);
         std::cout << "RETORNO normalsBuffer" << '\n';
@@ -304,13 +302,11 @@ public:
         createModelInstanceTransformationsUniformBuffersMapped(
             pd, ld, gdp->maxFrames, gdp->deviceBuffer->pUbo,
             gdp->scene->modelsManager.modelInstanceLen);
-        printf("HOLAHOLAHOOPLHAOLAHOLAHOLA  \n");
         createLightInstanceTransformationsUniformBuffersMapped(
             pd, ld, lightVolumeGraphicPipeline->maxFrames,
             lightVolumeGraphicPipeline->deviceBuffer->pUbo,
             lightVolumeGraphicPipeline->scene->lightManager
                 .lightInstanceCount);
-        printf("HOLAHOLAHOOPLHAOLAHOLAHOLA  \n");
 
         std::cout
             << "RETORNO UNIFORMBUFFERS MAPPED TRANSFORM MATRIX"
@@ -416,20 +412,16 @@ public:
         dm->logCallback = createDebugCallbackForVulkan(dm->instance);
         dispM->currentFrame = 0;
         std::cout << "Init vulkan ended." << std::endl;
-        printf("FLAG");
         this->displayManager =
             MetaObject<DisplayManager, void (*)(DisplayManager *)>(
                 dispM, freeDisplayManager);
-        printf("FLAG");
         this->vkInstance = MetaObject<VkInstance, void (*)(VkInstance *)>(
             *instance, freeInstance);
-        printf("FLAG");
         this->scene.addCamera3D(scene->getCamera3D());
     }
     // TODO: Bulk init of everything, refactor onDemand
     MetaEngine()
     {
-        printf("EN EL CONSTRUCTOR DE METAENGINE\n");
     };
 
     void firstFrameInitialPass()

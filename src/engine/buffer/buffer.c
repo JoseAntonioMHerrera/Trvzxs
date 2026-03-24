@@ -9,7 +9,6 @@ void createVkBuffer(VmaAllocator allocator, VkDeviceSize size, VkBufferUsageFlag
     VkResult result = vmaBridgeCreateBuffer(allocator, size, usage, sharingMode, memUsage, buffer, allocation);
     if (result != VK_SUCCESS)
     {
-        printf("ERROR: createVkBuffer failed with VkResult: %d\n", result);
         exit(1);
     }
 }
@@ -21,7 +20,6 @@ void createVkBufferMapped(VmaAllocator allocator, VkDeviceSize size, VkBufferUsa
     VkResult result = vmaBridgeCreateBufferMapped(allocator, size, usage, sharingMode, buffer, allocation, mappedPtr);
     if (result != VK_SUCCESS)
     {
-        printf("ERROR: createVkBufferMapped failed with VkResult: %d\n", result);
         exit(1);
     }
 }
@@ -29,14 +27,9 @@ void createVkBufferMapped(VmaAllocator allocator, VkDeviceSize size, VkBufferUsa
 void createGeometryIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* objects,
                                 CommandPools* commandPool)
 {
-    printf("=== CREATING GEOMETRY INDEX BUFFER ===\n");
-    printf("Index count: %u\n", objects->modelsManager.packedModelIndex.itemsLen);
 
     VkDeviceSize bufferSize =
         sizeof(*objects->modelsManager.packedModelIndex.items) * objects->modelsManager.packedModelIndex.itemsLen;
-    printf("Index buffer size calculation: sizeof(uint32_t)=%zu * indexCount=%u = %llu bytes (%.2f KB)\n",
-           sizeof(uint32_t), objects->modelsManager.packedModelIndex.itemsLen, (unsigned long long) bufferSize,
-           (double) bufferSize / 1024.0);
 
     dbm->stagingBuffer = malloc(sizeof(*dbm->stagingBuffer));
     dbm->stagingAlloc  = malloc(sizeof(*dbm->stagingAlloc));
@@ -59,12 +52,10 @@ void createGeometryIndiceBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBuf
                *(ld->queueManager.transferQueue));
 
     vmaBridgeDestroyBuffer(ld->allocator, *dbm->stagingBuffer, *dbm->stagingAlloc);
-    printf("=== INDEX BUFFER CREATION COMPLETE ===\n");
 }
 void createParticleIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                                  CommandPools* commandPool)
 {
-    printf("=== CREATING PARTICLE INDICE BUFFER ===\n");
 
     VkDeviceSize particleIndicesBufferSize =
         sizeof(*(scene->particleManager.pPackedParticleIndices)) * scene->particleManager.packedParticleIndicesLen;
@@ -91,14 +82,10 @@ void createParticleIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, DeviceBu
                *(ld->queueManager.transferQueue));
 
     vmaBridgeDestroyBuffer(ld->allocator, *dbm->stagingBuffer, *dbm->stagingAlloc);
-    printf("=== PARTICLE INDICE BUFFER CREATION COMPLETE ===\n");
 }
 void createGeometryBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                           CommandPools* commandPool)
 {
-    printf("=== CREATING GEOMETRY BUFFER ===\n");
-    printf("PACKEDMODELVERTEXLEN %d\n", scene->modelsManager.packedModelVertexLen);
-    printf("PACKEDMODELINDICESLEN %d\n", scene->modelsManager.packedModelIndex.itemsLen);
 
     VkDeviceSize geometryBufferSize =
         sizeof(*(scene->modelsManager.pPackedModelVertex)) * scene->modelsManager.packedModelVertexLen;
@@ -125,13 +112,11 @@ void createGeometryBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferMan
                *(ld->queueManager.transferQueue));
 
     vmaBridgeDestroyBuffer(ld->allocator, *dbm->stagingBuffer, *dbm->stagingAlloc);
-    printf("=== GEOMETRY BUFFER CREATION COMPLETE ===\n");
 }
 
 void createLightVolumeVertexBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                                    CommandPools* commandPool)
 {
-    printf("=== CREATING LIGHT VOLUME VERTEX BUFFER ===\n");
 
     VkDeviceSize lightsBufferSize = sizeof(*(scene->lightManager.pPackedLight)) * scene->lightManager.packedLightLen;
 
@@ -157,13 +142,11 @@ void createLightVolumeVertexBuffer(PhysicalDevice* pd, LogicalDevice* ld, Device
                *(ld->queueManager.transferQueue));
 
     vmaBridgeDestroyBuffer(ld->allocator, *dbm->stagingBuffer, *dbm->stagingAlloc);
-    printf("=== LIGHT VOLUME VERTEX BUFFER CREATION COMPLETE ===\n");
 }
 
 void createLightVolumeIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                                     CommandPools* commandPool)
 {
-    printf("=== CREATING LIGHT VOLUME INDEX BUFFER ===\n");
 
     VkDeviceSize bufferSize =
         sizeof(*(scene->lightManager.packedLightIndex.items)) * scene->lightManager.packedLightIndex.itemsLen;
@@ -189,13 +172,11 @@ void createLightVolumeIndiceBuffers(PhysicalDevice* pd, LogicalDevice* ld, Devic
                *(ld->queueManager.transferQueue));
 
     vmaBridgeDestroyBuffer(ld->allocator, *dbm->stagingBuffer, *dbm->stagingAlloc);
-    printf("=== LIGHT VOLUME INDEX BUFFER CREATION COMPLETE ===\n");
 }
 
 void createParticleBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferManager* dbm, SCENE* scene,
                           CommandPools* commandPool)
 {
-    printf("=== CREATING PARTICLE BUFFER ===\n");
 
     VkDeviceSize particleBufferSize =
         sizeof(*(scene->particleManager.pPackedParticleVertex)) * scene->particleManager.packedParticleVertexLen;
@@ -223,5 +204,4 @@ void createParticleBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferMan
                *(ld->queueManager.transferQueue));
 
     vmaBridgeDestroyBuffer(ld->allocator, *dbm->stagingBuffer, *dbm->stagingAlloc);
-    printf("=== PARTICLE BUFFER CREATION COMPLETE ===\n");
 }

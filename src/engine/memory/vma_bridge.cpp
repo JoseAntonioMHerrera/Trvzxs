@@ -26,11 +26,9 @@ extern "C"
         VkResult result = vmaCreateAllocator(&allocatorInfo, outAllocator);
         if (result == VK_SUCCESS)
         {
-            printf("VMA allocator created successfully\n");
         }
         else
         {
-            printf("ERROR: Failed to create VMA allocator! VkResult: %d\n", result);
         }
         return result;
     }
@@ -40,7 +38,6 @@ extern "C"
         if (allocator != VK_NULL_HANDLE)
         {
             vmaDestroyAllocator(allocator);
-            printf("VMA allocator destroyed\n");
         }
     }
 

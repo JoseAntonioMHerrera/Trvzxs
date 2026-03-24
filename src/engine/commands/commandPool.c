@@ -23,7 +23,6 @@ void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, Graphic
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
         .queueFamilyIndex = pd->queueFamilyIndices.transferFamily,
     };
-    printf("UQsE\n");
     //gdp->commandPool->transferCommandPool = malloc(sizeof(*gdp->commandPool->transferCommandPool));
     if (vkCreateCommandPool(device, &transferPoolInfo, VK_NULL_HANDLE, &(gdp->commandPool->transferCommandPool)) != VK_SUCCESS) {
 

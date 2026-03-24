@@ -30,7 +30,6 @@ int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssb
 
     ParticleInstance* particles = malloc(sizeof(ParticleInstance) * scene->particleManager.packedParticleInstanceLen);
 
-    printf("TRAS INICIALIZAR LAS PARTICULAS\n");
 
     VkDeviceSize particlesBufferSize = sizeof(ParticleInstance) * scene->particleManager.packedParticleInstanceLen;
 
@@ -38,14 +37,12 @@ int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssb
     VmaAllocation stagingAlloc;
     createVkBuffer(ld->allocator, particlesBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
                    VMA_BRIDGE_MEMORY_CPU_TO_GPU, &stagingBuffer, &stagingAlloc);
-    printf("TRAS INICIALIZAR LAS PARTICULAS STAGING BUFFER\n");
 
     void* data;
     vmaBridgeMapMemory(ld->allocator, stagingAlloc, &data);
     memcpy(data, scene->particleManager.pParticleInstance, (size_t) particlesBufferSize);
     vmaBridgeUnmapMemory(ld->allocator, stagingAlloc);
 
-    printf("TRAS COPIAR PARTICLE DATA A LA GPU DESDE STAGING BUFFER\n");
 
     for (size_t ssboIndex = 0; ssboIndex < ssbosLen; ssboIndex++)
     {
@@ -55,7 +52,6 @@ int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssb
                        VK_SHARING_MODE_EXCLUSIVE, VMA_BRIDGE_MEMORY_GPU_ONLY, &ssbos->buffers[ssboIndex],
                        &ssbos->allocations[ssboIndex]);
 
-        printf("TRAS CREAR EL VKBUFFER DE LAS PARTICULAS\n");
         copyBuffer(ld, stagingBuffer, ssbos->buffers[ssboIndex], particlesBufferSize, commandPool->transferCommandPool,
                    *ld->queueManager.transferQueue);
     }

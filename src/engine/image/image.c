@@ -74,7 +74,6 @@ void transitionImageLayout(LogicalDevice* ld, VkCommandPool commandPool, VkImage
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
     {
-        // printf("Moving from COLOR ATTACHTMENT OPTIMAL TO PRESENT SRC KHR\n");
         barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         barrier.dstAccessMask = 0;
 
@@ -122,7 +121,6 @@ void createVkImage(VmaAllocator allocator, PhysicalDevice* pd, VkFormat format, 
                                            &commonImage->image, &commonImage->allocation);
     if (result != VK_SUCCESS)
     {
-        printf("ERROR: createVkImage failed with VkResult: %d\n", result);
         exit(1);
     }
 }
@@ -238,7 +236,6 @@ void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, Comman
 
     for (uint32_t i = 1; i < mipLevels; i++)
     {
-        printf("EN EL BUCLE %d\n", i);
         barrier.subresourceRange.baseMipLevel = i - 1;
         barrier.oldLayout                     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout                     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -320,12 +317,10 @@ VkSampleCountFlagBits getMaxUsableSampleCount(PhysicalDevice* phyDevice)
 
 void createMsaaColorResources(LogicalDevice* ld, PhysicalDevice* pd, GraphicSwapchain* dsm)
 {
-    printf("INI createMSSAACOLORRESOURCES\n");
     dsm->msaaColorRes    = malloc(sizeof(*dsm->msaaColorRes));
     VkFormat colorFormat = dsm->currentSurfaceFormat->format;
     // dsm->msaaColorRes->numSamples = getMaxUsableSampleCount(pd);
     dsm->msaaColorRes->numSamples = VK_SAMPLE_COUNT_1_BIT;
-    printf("ANTES DE LLAMAR A CREACTEVKIMAGE EN MSAA COLOR RESOURCES\n");
     createVkImage(ld->allocator, pd, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                   dsm->msaaColorRes, dsm->currentExtent2D.width,
@@ -340,7 +335,6 @@ void createMsaaDepthResources(LogicalDevice* ld, PhysicalDevice* pd, GraphicSwap
     VkFormat depthFormat = findDepthImageFormat(pd->gpu);
     // dsm->msaaDepthRes->numSamples = getMaxUsableSampleCount(pd);
     dsm->msaaDepthRes->numSamples = VK_SAMPLE_COUNT_1_BIT;
-    printf("ANTES DE LLAMAR A CREACTEVKIMAGE EN MSAA DEPTH RESOURCES\n");
     createVkImage(ld->allocator, pd, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, dsm->msaaDepthRes,
                   dsm->currentExtent2D.width, dsm->currentExtent2D.height, 1, dsm->msaaDepthRes->numSamples,
