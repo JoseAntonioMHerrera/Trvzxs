@@ -1,4 +1,5 @@
 #include "deviceManagment.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <SDL.h>
@@ -207,6 +208,18 @@ void initPhysicalDeviceQueues(PhysicalDevice* pd)
     vkGetPhysicalDeviceMemoryProperties(*pd->gpu, pd->memProperties);
 }
 
+// findMemoryType — Pre-VMA manual memory type selection.
+//
+// This function searched VkPhysicalDeviceMemoryProperties for a memory type
+// matching the requested property flags (e.g. DEVICE_LOCAL, HOST_VISIBLE).
+// It was called by createVkBuffer() and createVkImage() before every allocation.
+//
+// Superseded by VMA's VMA_MEMORY_USAGE_AUTO, which handles memory type selection
+// internally based on allocation hints (HOST_ACCESS_SEQUENTIAL_WRITE, etc.),
+// with automatic fallback across memory types and ReBAR/SAM awareness.
+//
+// Retained for reference — no callers remain in the engine.
+/*
 uint32_t findMemoryType(PhysicalDevice* pd, uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
 
@@ -225,6 +238,7 @@ uint32_t findMemoryType(PhysicalDevice* pd, uint32_t typeFilter, VkMemoryPropert
 
     exit(1);
 }
+*/
 #define FOR(var, start, end, step) for (int var = (start); var < (end); var += (step))
 void physicalDeviceTest(VkPhysicalDevice* gPhysicalDevice)
 {
@@ -400,6 +414,19 @@ void destroyVmaAllocator(LogicalDevice* ld)
     {
         vmaBridgeDestroyAllocator(ld->allocator);
         ld->allocator = VK_NULL_HANDLE;
+    }
+}
+
+void printVmaStats(LogicalDevice* ld)
+{
+    if (ld->allocator == VK_NULL_HANDLE)
+        return;
+
+    char* statsString = vmaBridgeBuildStatsString(ld->allocator);
+    if (statsString)
+    {
+        fprintf(stderr, "=== VMA Statistics ===\n%s\n=== End VMA Statistics ===\n", statsString);
+        vmaBridgeFreeStatsString(ld->allocator, statsString);
     }
 }
 
