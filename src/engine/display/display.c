@@ -1,5 +1,6 @@
 #include "camera.h"
 #include "computePipeline.h"
+#include "deletionQueue.h"
 #include "displayManager.h"
 #include "particle.h"
 #include <assert.h>
@@ -158,6 +159,11 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
                     UINT64_MAX);
 
     vkWaitForFences(device, 1, &gdp->inFlightFence[dm->currentFrame], VK_TRUE, UINT64_MAX);
+
+    // Fences confirmed GPU finished with this frame's commands.
+    // Safe to destroy any resources enqueued MAX_FRAMES_IN_FLIGHT frames ago.
+    flushDeletionQueue(&ld->deletionQueue, ld->device, ld->allocator);
+    advanceDeletionQueue(&ld->deletionQueue);
 
     updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames);
 
