@@ -12,68 +12,59 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
     // Calculate the difference in seconds
     float time = (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_nsec - startTime.tv_nsec) / 1e9f;
 
-    uint32_t transformationsCount = scene->modelsManager.modelInstanceLen;
-    //     scene->modelsManager.modelInstanceLen, scene->lightManager.lightInstanceCount);
+    // Allocate for full capacity (sum of all instanceCount) — compaction fills only the live portion.
+    // modelInstanceLen cannot be used here because the fill loop overwrites it with the live count,
+    // which would shrink the allocation on the next frame and cause a buffer overflow if instances
+    // are re-enabled.
+    uint32_t totalCapacity = 0;
+    for (uint32_t i = 0; i < scene->modelsManager.modelLen; i++)
+    {
+        totalCapacity += scene->modelsManager.pModel[i].instanceCount;
+    }
 
-    MODEL_VIEW_PROJECTION* pTransformations = malloc(sizeof(MODEL_VIEW_PROJECTION) * transformationsCount);
-    // sizeof(MODEL_VIEW_PROJECTION) * transformationsCount);
-    uint32_t transformationsIdx = 0;
+    MODEL_VIEW_PROJECTION* pTransformations = malloc(sizeof(MODEL_VIEW_PROJECTION) * totalCapacity);
+    uint32_t               transformationsIdx = 0;
+
     for (uint32_t modelIdx = 0; modelIdx < scene->modelsManager.modelLen; modelIdx++)
     {
-        Model3D model = scene->modelsManager.pModel[modelIdx];
-        for (uint32_t instanceIdx = 0; instanceIdx < model.instanceCount; instanceIdx++)
+        Model3D* model = &scene->modelsManager.pModel[modelIdx];
+
+        // Offset for this model = how many live transforms written so far
+        scene->modelsManager.instanceOffset.items[modelIdx] = transformationsIdx;
+        uint32_t modelStartIdx                              = transformationsIdx;
+
+        // Skip entire model if disabled or destroyed — no instance iteration needed
+        if (model->alive != 1)
         {
+            model->liveInstanceCount = 0;
+            continue;
+        }
 
-            glm_mat4_copy(model.pModelInstance[instanceIdx].m, pTransformations[transformationsIdx].model);
+        for (uint32_t instanceIdx = 0; instanceIdx < model->instanceCount; instanceIdx++)
+        {
+            if (model->pModelInstance[instanceIdx].alive != 1)
+            {
+                continue;
+            }
 
-            // Print model matrix values
-            /*       for (int i = 0; i < 4; i++)
-                   {
-                       for (int j = 0; j < 4; j++)
-                       {
-               pTransformations[transformationsIdx].model[i][j]);
-                       }
-                   }*/
-
-            // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
-            //            up(%.1f,%.1f,%.1f)\n",
-            // camera.eye[0], camera.eye[1], camera.eye[2], camera.center[0], camera.center[1], camera.center[2],
-            // camera.up[0], camera.up[1], camera.up[2]);
+            glm_mat4_copy(model->pModelInstance[instanceIdx].m, pTransformations[transformationsIdx].model);
 
             vec4 view;
             glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsIdx].view);
 
-            // Print view matrix values
-            /*            for (int i = 0; i < 4; i++)
-                        {
-                            for (int j = 0; j < 4; j++)
-                            {
-               pTransformations[transformationsIdx].view[i][j]);
-                            }
-                        }
-            */
-            // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
             float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
-            //    aspectRatio,
-            // dsm->currentExtent2D.width, dsm->currentExtent2D.height);
-
-            vec4 proj;
             glm_perspective(glm_rad(45.0f), aspectRatio, 2.0f, 500.0f, pTransformations[transformationsIdx].proj);
-
-            // Adjust for Vulkan's coordinate system
             pTransformations[transformationsIdx].proj[1][1] *= -1;
 
-            // Print projection matrix values
-            /*      for (int i = 0; i < 4; i++)
-                  {
-                      for (int j = 0; j < 4; j++)
-                      {
-                      }
-                  }
-      */
             transformationsIdx++;
         }
+
+        // Per-model live count — read by the draw loop
+        model->liveInstanceCount = transformationsIdx - modelStartIdx;
     }
+
+    // Update modelInstanceLen to the actual live count for the memcpy
+    scene->modelsManager.modelInstanceLen = transformationsIdx;
 
     return pTransformations;
 }

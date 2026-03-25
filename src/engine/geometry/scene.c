@@ -2,6 +2,7 @@
 #include "light.h"
 #include "vertex.h"
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 void apply_offset_to_indices(TRVZXS_SIZE* indices, size_t num_indices, TRVZXS_SIZE offset)
 {
@@ -332,6 +333,9 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
 
         Model3D* model = &(scene)->modelsManager.pModel[objIndex];
 
+        // Initialize lifecycle fields for runtime disable/enable/destroy
+        model->alive = 1;
+
         model->indiceOffset = indexOffset;
         indexOffset += model->indices.itemsLen;
 
@@ -452,4 +456,148 @@ void fillSceneWithParticleData(SCENE* scene, ParticleGroup* particleGroups, uint
     scene->particleManager.packedParticleInstanceLen = packedParticleInstancesOffset;
 
     fillParticleGroupsInstancesIndices(&scene->particleManager);
+}
+
+// ---------------------------------------------------------------------------
+// Runtime model lifecycle — instance-level toggle
+// ---------------------------------------------------------------------------
+
+void disableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex)
+{
+    if (modelIndex >= man->modelLen)
+    {
+        fprintf(stderr, "[disableInstance] modelIndex %u out of range (modelLen=%u)\n", modelIndex, man->modelLen);
+        return;
+    }
+
+    Model3D* model = &man->pModel[modelIndex];
+
+    if (!model->alive)
+    {
+        fprintf(stderr, "[disableInstance] model %u is permanently destroyed\n", modelIndex);
+        return;
+    }
+
+    if (instanceIndex >= model->instanceCount)
+    {
+        fprintf(stderr, "[disableInstance] instanceIndex %u out of range (instanceCount=%u)\n", instanceIndex,
+                model->instanceCount);
+        return;
+    }
+
+    Model3DInstance* inst = &model->pModelInstance[instanceIndex];
+
+    if (inst->alive != 1)
+    {
+        return;
+    }
+
+    inst->alive = 0;
+}
+
+void enableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex)
+{
+    if (modelIndex >= man->modelLen)
+    {
+        fprintf(stderr, "[enableInstance] modelIndex %u out of range (modelLen=%u)\n", modelIndex, man->modelLen);
+        return;
+    }
+
+    Model3D* model = &man->pModel[modelIndex];
+
+    if (!model->alive)
+    {
+        fprintf(stderr, "[enableInstance] model %u is permanently destroyed, cannot re-enable\n", modelIndex);
+        return;
+    }
+
+    if (instanceIndex >= model->instanceCount)
+    {
+        fprintf(stderr, "[enableInstance] instanceIndex %u out of range (instanceCount=%u)\n", instanceIndex,
+                model->instanceCount);
+        return;
+    }
+
+    Model3DInstance* inst = &model->pModelInstance[instanceIndex];
+
+    if (inst->alive == 2)
+    {
+        fprintf(stderr, "[enableInstance] instance %u of model %u is permanently destroyed, cannot re-enable\n",
+                instanceIndex, modelIndex);
+        return;
+    }
+
+    inst->alive = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Runtime model lifecycle — model-level toggle
+// ---------------------------------------------------------------------------
+
+void disableModel(Models3DManager* man, uint32_t modelIndex)
+{
+    if (modelIndex >= man->modelLen)
+    {
+        fprintf(stderr, "[disableModel] modelIndex %u out of range (modelLen=%u)\n", modelIndex, man->modelLen);
+        return;
+    }
+
+    Model3D* model = &man->pModel[modelIndex];
+
+    if (model->alive == 0)
+    {
+        fprintf(stderr, "[disableModel] model %u is permanently destroyed, cannot disable\n", modelIndex);
+        return;
+    }
+
+    model->alive = 2;
+}
+
+void enableModel(Models3DManager* man, uint32_t modelIndex)
+{
+    if (modelIndex >= man->modelLen)
+    {
+        fprintf(stderr, "[enableModel] modelIndex %u out of range (modelLen=%u)\n", modelIndex, man->modelLen);
+        return;
+    }
+
+    Model3D* model = &man->pModel[modelIndex];
+
+    if (model->alive == 0)
+    {
+        fprintf(stderr, "[enableModel] model %u is permanently destroyed, cannot re-enable\n", modelIndex);
+        return;
+    }
+
+    model->alive = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Runtime model lifecycle — permanent destruction
+// ---------------------------------------------------------------------------
+
+void destroyModel(Models3DManager* man, uint32_t modelIndex)
+{
+    if (modelIndex >= man->modelLen)
+    {
+        fprintf(stderr, "[destroyModel] modelIndex %u out of range (modelLen=%u)\n", modelIndex, man->modelLen);
+        return;
+    }
+
+    Model3D* model = &man->pModel[modelIndex];
+
+    if (!model->alive)
+    {
+        return;
+    }
+
+    // Mark as permanently dead
+    model->alive = 0;
+
+    if (model->pModelInstance)
+    {
+        free(model->pModelInstance);
+        model->pModelInstance     = NULL;
+        model->modelInstanceCount = 0;
+    }
 }

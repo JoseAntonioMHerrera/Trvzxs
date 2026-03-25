@@ -48,3 +48,31 @@ void fillSceneWithInstancedModelData(Models3DManager* man, Model3DInstance** ins
                                      uint32_t totalInstanceDataLen);
 void fillSceneWithInstancedLightVolumeData(LightManager* lan, LightVolumeInstance** instanceData,
                                            uint32_t totalInstanceDataLen);
+
+// --- Runtime model lifecycle: instance-level toggle ---
+
+// Disable a single instance: sets alive = 0.
+void disableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex);
+
+// Re-enable a disabled instance: sets alive = 1.
+// Refuses if the instance is permanently destroyed (alive == 2).
+void enableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex);
+
+// --- Runtime model lifecycle: model-level toggle ---
+
+// Disable all instances of a model: sets all instance alive flags to 0.
+void disableModel(Models3DManager* man, uint32_t modelIndex);
+
+// Re-enable all instances of a model: sets all instance alive flags to 1.
+// No-op if the model was permanently destroyed (alive == 0).
+void enableModel(Models3DManager* man, uint32_t modelIndex);
+
+// --- Runtime model lifecycle: permanent destruction ---
+
+// Permanently destroy a single instance: sets alive = INSTANCE_DESTROYED.
+// The slot remains as wasted space. Cannot be re-enabled.
+void destroyInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex);
+
+// Permanently destroy a model: marks model alive = MODEL_DESTROYED,
+// frees CPU-side instance data. Cannot be re-enabled.
+void destroyModel(Models3DManager* man, uint32_t modelIndex);
