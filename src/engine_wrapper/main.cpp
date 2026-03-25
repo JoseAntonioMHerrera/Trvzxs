@@ -326,6 +326,55 @@ int main()
                     {
                         keys[event.key.keysym.scancode] = 1;
                     }
+                    // E key: enable model 0 (all instances alive)
+                    if (event.key.keysym.scancode == SDL_SCANCODE_E)
+                    {
+                        enableModel(&scene->getScene()->modelsManager, 0);
+                        std::cout << "[demo] Model 0 enabled" << std::endl;
+                    }
+                    // R key: disable model 0 (all instances skipped)
+                    if (event.key.keysym.scancode == SDL_SCANCODE_R)
+                    {
+                        disableModel(&scene->getScene()->modelsManager, 0);
+                        std::cout << "[demo] Model 0 disabled" << std::endl;
+                    }
+                    // I key: toggle instance 0 of model 0
+                    if (event.key.keysym.scancode == SDL_SCANCODE_I)
+                    {
+                        Models3DManager *man = &scene->getScene()->modelsManager;
+                        Model3DInstance *inst = &man->pModel[0].pModelInstance[0];
+                        if (inst->alive == 1)
+                        {
+                            disableInstance(man, 0, 0);
+                            std::cout << "[demo] Instance 0 of model 0 disabled" << std::endl;
+                        }
+                        else
+                        {
+                            enableInstance(man, 0, 0);
+                            std::cout << "[demo] Instance 0 of model 0 re-enabled" << std::endl;
+                        }
+                    }
+                    // T key: toggle model 0 visibility
+                    if (event.key.keysym.scancode == SDL_SCANCODE_T)
+                    {
+                        Models3DManager *man = &scene->getScene()->modelsManager;
+                        if (man->pModel[0].alive == 1)
+                        {
+                            disableModel(man, 0);
+                            std::cout << "[demo] Model 0 disabled" << std::endl;
+                        }
+                        else
+                        {
+                            enableModel(man, 0);
+                            std::cout << "[demo] Model 0 re-enabled" << std::endl;
+                        }
+                    }
+                    // K key: permanently destroy model 0
+                    if (event.key.keysym.scancode == SDL_SCANCODE_K)
+                    {
+                        destroyModel(&scene->getScene()->modelsManager, 0);
+                        std::cout << "[demo] Model 0 permanently destroyed" << std::endl;
+                    }
                     break;
 
                 case SDL_KEYUP:

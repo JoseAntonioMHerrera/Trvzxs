@@ -300,12 +300,13 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
 
     for (int indexModel = 0; indexModel < sceneModels->modelsManager.modelLen; indexModel++)
     {
-        vkCmdDrawIndexed(
-            gdp->commandBuffer[dm->currentFrame], sceneModels->modelsManager.pModel[indexModel].indices.itemsLen,
-            sceneModels->modelsManager.pModel[indexModel].instanceCount,
-            sceneModels->modelsManager.pModel[indexModel].indiceOffset,
-            sceneModels->modelsManager.pModel[indexModel].vertexOffset,
-            sceneModels->modelsManager.instanceOffset.items[indexModel]); // TODO numero de indices a dibujar
+        if (sceneModels->modelsManager.pModel[indexModel].liveInstanceCount > 0)
+            vkCmdDrawIndexed(
+                gdp->commandBuffer[dm->currentFrame], sceneModels->modelsManager.pModel[indexModel].indices.itemsLen,
+                sceneModels->modelsManager.pModel[indexModel].liveInstanceCount,
+                sceneModels->modelsManager.pModel[indexModel].indiceOffset,
+                sceneModels->modelsManager.pModel[indexModel].vertexOffset,
+                sceneModels->modelsManager.instanceOffset.items[indexModel]);
     }
 
     // LIGHT SUBPASS

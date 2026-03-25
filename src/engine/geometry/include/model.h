@@ -16,10 +16,21 @@ typedef struct Mesh3DManager
     uint32_t totalMeshVerticesLen;
     // vec4     boundingBox[2];
 } Mesh3DManager;
+// Instance-level alive flag values
+#define INSTANCE_ALIVE     1
+#define INSTANCE_DISABLED  0
+#define INSTANCE_DESTROYED 2
+
+// Model-level alive flag values
+#define MODEL_ALIVE     1
+#define MODEL_DISABLED  2
+#define MODEL_DESTROYED 0
+
 typedef struct Model3DInstance
 {
     mat4                   m;
     GEOM_VERTEX_COLOR_RGBA color;
+    uint32_t               alive;
 } Model3DInstance;
 
 typedef struct Model3D
@@ -29,8 +40,16 @@ typedef struct Model3D
 
     uint32_t vertexOffset;
     uint32_t indiceOffset;
-    uint32_t instanceCount;
+    uint32_t instanceCount; // Total allocated instances (capacity), immutable after init
     uint32_t instanceIndex;
+
+    // Number of live instances. Computed each frame by the UBO fill loop —
+    // not maintained by toggle functions. Read by the draw loop.
+    uint32_t liveInstanceCount;
+
+    // Model-level lifecycle: 1 = alive, 2 = disabled, 0 = permanently destroyed.
+    // Fill loop skips the entire model when alive != 1.
+    uint32_t alive;
 
     Model3DInstance* pModelInstance;
     uint32_t         modelInstanceCount;
