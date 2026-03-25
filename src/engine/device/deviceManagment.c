@@ -397,6 +397,10 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
     // Create VMA allocator after the logical device and queues are ready.
     // The allocator must exist before any buffer or image allocation.
     createVmaAllocator(*instance, pd, ld);
+
+    // Initialize the deletion queue after VMA — it defers resource destruction
+    // by MAX_FRAMES_IN_FLIGHT frames so in-flight command buffers never reference freed memory.
+    initDeletionQueue(&ld->deletionQueue);
 }
 
 void createVmaAllocator(VkInstance instance, PhysicalDevice* pd, LogicalDevice* ld)

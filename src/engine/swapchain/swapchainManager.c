@@ -1,5 +1,6 @@
 #include "swapchainManager.h"
 #include "image.h"
+#include "deletionQueue.h"
 // TODO: maybe move this function  def/decl to image.h
 VkImageView createImageView(GraphicSwapchain* dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels,
                             VkImageAspectFlags aspectMask)
@@ -493,24 +494,27 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, 
 void cleanupSwapChain(LogicalDevice* ld, DisplayManager* dm)
 {
     GraphicSwapchain* sc = dm->graphicPipeline->swapchain;
+    DeletionQueue*    dq = &ld->deletionQueue;
 
+    // Framebuffers reference image views — destroy first.
     for (size_t i = 0; i < sc->framebuffersLen; i++)
         vkDestroyFramebuffer(ld->device, sc->p_framebuffers[i], NULL);
 
+    // Swapchain presentation image views
     for (size_t i = 0; i < sc->scImageViewLen; i++)
-        vkDestroyImageView(ld->device, sc->p_scImageView[i], NULL);
+        deferDestroyImageView(dq, sc->p_scImageView[i]);
 
-    // Destroy VMA-managed swapchain images (MSAA, depth, gbuffer, normals)
+    // Enqueue VMA-managed swapchain images (MSAA, depth, gbuffer, normals)
     if (sc->msaaColorRes)
-        vmaBridgeDestroyImage(ld->allocator, sc->msaaColorRes->image, sc->msaaColorRes->allocation);
+        deferDestroyImage(dq, sc->msaaColorRes->image, sc->msaaColorRes->allocation);
     if (sc->msaaDepthRes)
-        vmaBridgeDestroyImage(ld->allocator, sc->msaaDepthRes->image, sc->msaaDepthRes->allocation);
+        deferDestroyImage(dq, sc->msaaDepthRes->image, sc->msaaDepthRes->allocation);
     if (sc->gBuffer)
-        vmaBridgeDestroyImage(ld->allocator, sc->gBuffer->image, sc->gBuffer->allocation);
+        deferDestroyImage(dq, sc->gBuffer->image, sc->gBuffer->allocation);
     if (sc->nBuffer)
-        vmaBridgeDestroyImage(ld->allocator, sc->nBuffer->image, sc->nBuffer->allocation);
+        deferDestroyImage(dq, sc->nBuffer->image, sc->nBuffer->allocation);
     if (sc->depthImage.common)
-        vmaBridgeDestroyImage(ld->allocator, sc->depthImage.common->image, sc->depthImage.common->allocation);
+        deferDestroyImage(dq, sc->depthImage.common->image, sc->depthImage.common->allocation);
 
     vkDestroySwapchainKHR(ld->device, sc->VkSwapchain, VK_NULL_HANDLE);
 }

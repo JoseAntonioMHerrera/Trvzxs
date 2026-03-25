@@ -24,6 +24,7 @@
 #include "textureManager.h"
 #include "primitives.h"
 #include "scene.h"
+#include "deletionQueue.h"
 
 void destroyDebugCallbackForVulkan(VkInstance *instance, VkDebugUtilsMessengerEXT *callback_messenger)
 {
@@ -111,24 +112,25 @@ VkDebugUtilsMessengerEXT *createDebugCallbackForVulkan(const VkInstance *instanc
     return callback_messenger;
 }
 
-static void destroyDeviceBufferVma(VmaAllocator allocator, DeviceBufferManager *dbm)
+// Enqueue all GPU resources in a DeviceBufferManager for deferred destruction.
+static void deferDestroyDeviceBuffer(DeletionQueue* queue, DeviceBufferManager* dbm)
 {
     if (!dbm)
         return;
 
     // Vertex buffer
     if (dbm->buffer)
-        vmaBridgeDestroyBuffer(allocator, *dbm->buffer, *dbm->bufferAlloc);
+        deferDestroyBuffer(queue, *dbm->buffer, *dbm->bufferAlloc);
 
     // Index buffer
     if (dbm->indexBuffer)
-        vmaBridgeDestroyBuffer(allocator, *dbm->indexBuffer, *dbm->indexBufferAlloc);
+        deferDestroyBuffer(queue, *dbm->indexBuffer, *dbm->indexBufferAlloc);
 
     // UBOs
     if (dbm->pUbo)
     {
         for (uint32_t i = 0; i < dbm->pUbo->uniformBuffersLen; i++)
-            vmaBridgeDestroyBuffer(allocator, dbm->pUbo->uniformBuffers[i], dbm->pUbo->uniformAllocations[i]);
+            deferDestroyBuffer(queue, dbm->pUbo->uniformBuffers[i], dbm->pUbo->uniformAllocations[i]);
     }
 
     // SSBOs
@@ -137,17 +139,18 @@ static void destroyDeviceBufferVma(VmaAllocator allocator, DeviceBufferManager *
         for (uint32_t i = 0; i < dbm->ssbos->buffersLen; i++)
         {
             if (dbm->ssbos->allocations[i])
-                vmaBridgeDestroyBuffer(allocator, dbm->ssbos->buffers[i], dbm->ssbos->allocations[i]);
+                deferDestroyBuffer(queue, dbm->ssbos->buffers[i], dbm->ssbos->allocations[i]);
         }
         if (dbm->ssbos->readbackAlloc)
-            vmaBridgeDestroyBuffer(allocator, dbm->ssbos->readbackBuffer, dbm->ssbos->readbackAlloc);
+            deferDestroyBuffer(queue, dbm->ssbos->readbackBuffer, dbm->ssbos->readbackAlloc);
     }
 }
 
-static void destroyCommonImageVma(VmaAllocator allocator, CommonImage *img)
+// Enqueue a CommonImage's VkImage + VmaAllocation for deferred destruction.
+static void deferDestroyCommonImage(DeletionQueue* queue, CommonImage* img)
 {
     if (img)
-        vmaBridgeDestroyImage(allocator, img->image, img->allocation);
+        deferDestroyImage(queue, img->image, img->allocation);
 }
 
 void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, GraphicPipelineToSurface *gdp, VkDebugUtilsMessengerEXT *logCallback)
@@ -159,19 +162,21 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
 
     cleanupSwapChain(dm->lDevice[dm->deviceIndex], ld->displayManager);
 
-    // Destroy VMA-managed resources for all pipelines
+    DeletionQueue* dq = &ld->deletionQueue;
+
+    // Enqueue VMA-managed resources for all pipelines into the deletion queue.
     // Pipeline 0: models (gdp)
-    destroyDeviceBufferVma(ld->allocator, dispM->graphicPipeline[0].deviceBuffer);
+    deferDestroyDeviceBuffer(dq, dispM->graphicPipeline[0].deviceBuffer);
     if (dispM->graphicPipeline[0].texture && dispM->graphicPipeline[0].texture->common)
-        destroyCommonImageVma(ld->allocator, dispM->graphicPipeline[0].texture->common);
+        deferDestroyCommonImage(dq, dispM->graphicPipeline[0].texture->common);
 
     // Pipeline 1: particles (graphics + compute)
-    destroyDeviceBufferVma(ld->allocator, dispM->graphicPipeline[1].deviceBuffer);
+    deferDestroyDeviceBuffer(dq, dispM->graphicPipeline[1].deviceBuffer);
     for (uint32_t c = 0; c < dispM->graphicPipeline[1].computePipelineCount; c++)
-        destroyDeviceBufferVma(ld->allocator, dispM->graphicPipeline[1].computeP[c].deviceBuffer);
+        deferDestroyDeviceBuffer(dq, dispM->graphicPipeline[1].computeP[c].deviceBuffer);
 
     // Pipeline 2: light volumes
-    destroyDeviceBufferVma(ld->allocator, dispM->graphicPipeline[2].deviceBuffer);
+    deferDestroyDeviceBuffer(dq, dispM->graphicPipeline[2].deviceBuffer);
 
     vkDestroyRenderPass(ld->device, *gdp->renderPass, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
@@ -180,6 +185,10 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL);
     vkDestroyPipelineLayout(ld->device, *gdp->pipelineLayout, NULL);
     cleanupSyncObjects(ld->device, gdp);
+
+    // Flush all deferred deletions (both from the last 1-2 frames and the
+    // resources just enqueued above), then free the queue's internal arrays.
+    destroyDeletionQueue(dq, ld->device, ld->allocator);
 
     // Print VMA suballocation statistics before teardown.
     printVmaStats(ld);
