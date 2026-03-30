@@ -369,6 +369,12 @@ int main()
                             std::cout << "[demo] Model 0 re-enabled" << std::endl;
                         }
                     }
+                    // J key: permanently destroy instance 0 of model 0
+                    if (event.key.keysym.scancode == SDL_SCANCODE_J)
+                    {
+                        destroyInstance(&scene->getScene()->modelsManager, 0, 0);
+                        std::cout << "[demo] Instance 0 of model 0 permanently destroyed" << std::endl;
+                    }
                     // K key: permanently destroy model 0
                     if (event.key.keysym.scancode == SDL_SCANCODE_K)
                     {

@@ -85,7 +85,7 @@ target_compile_definitions(engine_mod
 
 target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS} )
 # Create library target
-target_sources(engine_mod PUBLIC ${ENGINE_SOURCES} ${ENGINE_HEADERS} ${CGLM_HEADERS})
+target_sources(engine_mod PRIVATE ${ENGINE_SOURCES} ${ENGINE_HEADERS} ${CGLM_HEADERS})
 # Link libraries to the executable target
 target_link_libraries(engine_mod
     PRIVATE
