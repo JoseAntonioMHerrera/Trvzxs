@@ -576,6 +576,40 @@ void enableModel(Models3DManager* man, uint32_t modelIndex)
 // Runtime model lifecycle — permanent destruction
 // ---------------------------------------------------------------------------
 
+void destroyInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex)
+{
+    if (modelIndex >= man->modelLen)
+    {
+        fprintf(stderr, "[destroyInstance] modelIndex %u out of range (modelLen=%u)\n", modelIndex, man->modelLen);
+        return;
+    }
+
+    Model3D* model = &man->pModel[modelIndex];
+
+    if (!model->alive)
+    {
+        fprintf(stderr, "[destroyInstance] model %u is permanently destroyed\n", modelIndex);
+        return;
+    }
+
+    if (instanceIndex >= model->instanceCount)
+    {
+        fprintf(stderr, "[destroyInstance] instanceIndex %u out of range (instanceCount=%u)\n", instanceIndex,
+                model->instanceCount);
+        return;
+    }
+
+    Model3DInstance* inst = &model->pModelInstance[instanceIndex];
+
+    if (inst->alive == INSTANCE_DESTROYED)
+    {
+        fprintf(stderr, "[destroyInstance] instance %u of model %u is already destroyed\n", instanceIndex, modelIndex);
+        return;
+    }
+
+    inst->alive = INSTANCE_DESTROYED;
+}
+
 void destroyModel(Models3DManager* man, uint32_t modelIndex)
 {
     if (modelIndex >= man->modelLen)

@@ -37,6 +37,7 @@ add_executable(${PROJECT_NAME})
 # iterate CMakeLists
 add_subdirectory(src)
 add_subdirectory(include)
+add_subdirectory(test)
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
