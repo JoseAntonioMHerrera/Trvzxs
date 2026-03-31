@@ -159,9 +159,13 @@ void test_enable_after_disable_then_destroy_refused(void)
 
     disableInstance(&man, 0, 0);
     destroyInstance(&man, 0, 0);
+
+    CAPTURE_STDERR_BEGIN();
     enableInstance(&man, 0, 0);
+    CAPTURE_STDERR_END();
 
     ASSERT_EQ(man.pModel[0].pModelInstance[0].alive, INSTANCE_DESTROYED);
+    ASSERT_STDERR_CONTAINS("[enableInstance] instance 0 of model 0 is permanently destroyed");
 
     free_test_manager(&man);
 }
@@ -287,6 +291,59 @@ void test_multi_model_independence(void)
 }
 
 // ---------------------------------------------------------------------------
+// Access pattern: mirrors demo keybind code that dereferences pModelInstance
+// before calling guarded API functions
+// ---------------------------------------------------------------------------
+
+void test_query_instance_alive_after_model_destroyed(void)
+{
+    Models3DManager man = make_test_manager(1, 4);
+
+    destroyModel(&man, 0);
+
+    // queryInstanceAlive must return -1 (pModelInstance is NULL after destroy)
+    ASSERT_EQ(queryInstanceAlive(&man, 0, 0), -1);
+
+    // Mirrors demo toggle pattern: query state, then call API
+    int state = queryInstanceAlive(&man, 0, 0);
+    if (state == INSTANCE_ALIVE)
+    {
+        disableInstance(&man, 0, 0);
+    }
+    else
+    {
+        CAPTURE_STDERR_BEGIN();
+        enableInstance(&man, 0, 0);
+        CAPTURE_STDERR_END();
+        ASSERT_STDERR_CONTAINS("[enableInstance] model 0 is permanently destroyed");
+    }
+
+    free_test_manager(&man);
+}
+
+void test_query_instance_alive_states(void)
+{
+    Models3DManager man = make_test_manager(1, 4);
+
+    ASSERT_EQ(queryInstanceAlive(&man, 0, 0), INSTANCE_ALIVE);
+
+    disableInstance(&man, 0, 0);
+    ASSERT_EQ(queryInstanceAlive(&man, 0, 0), INSTANCE_DISABLED);
+
+    enableInstance(&man, 0, 0);
+    ASSERT_EQ(queryInstanceAlive(&man, 0, 0), INSTANCE_ALIVE);
+
+    destroyInstance(&man, 0, 0);
+    ASSERT_EQ(queryInstanceAlive(&man, 0, 0), INSTANCE_DESTROYED);
+
+    // Out of range returns -1
+    ASSERT_EQ(queryInstanceAlive(&man, 99, 0), -1);
+    ASSERT_EQ(queryInstanceAlive(&man, 0, 99), -1);
+
+    free_test_manager(&man);
+}
+
+// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
@@ -307,6 +364,8 @@ int main(void)
     RUN_TEST(test_disable_enable_model_roundtrip);
     RUN_TEST(test_out_of_range_model_index_no_crash);
     RUN_TEST(test_out_of_range_instance_index_no_crash);
+    RUN_TEST(test_query_instance_alive_after_model_destroyed);
+    RUN_TEST(test_query_instance_alive_states);
     RUN_TEST(test_multi_model_independence);
 
     TEST_SUMMARY();

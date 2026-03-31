@@ -635,3 +635,23 @@ void destroyModel(Models3DManager* man, uint32_t modelIndex)
         model->modelInstanceCount = 0;
     }
 }
+
+int queryInstanceAlive(const Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex)
+{
+    if (modelIndex >= man->modelLen)
+        return -1;
+
+    const Model3D* model = &man->pModel[modelIndex];
+    if (!model->pModelInstance || instanceIndex >= model->instanceCount)
+        return -1;
+
+    return model->pModelInstance[instanceIndex].alive;
+}
+
+int queryModelAlive(const Models3DManager* man, uint32_t modelIndex)
+{
+    if (modelIndex >= man->modelLen)
+        return -1;
+
+    return man->pModel[modelIndex].alive;
+}

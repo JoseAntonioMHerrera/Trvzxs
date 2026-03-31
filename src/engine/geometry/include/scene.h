@@ -9,7 +9,6 @@
 #include "light.h"
 #include "model.h"
 #include "particle.h"
-#include "gpuDrivenCommandGen.h"
 
 typedef struct SCENE
 {
@@ -21,8 +20,6 @@ typedef struct SCENE
 
     ParticleGroupManager particleManager;
     uint32_t             particleGroupsLen;
-    // RenderableObject*    renderables;
-    // uint32_t             packedRenderablesCount;
 
     Camera3D camera;
 
@@ -76,3 +73,12 @@ void destroyInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanc
 // Permanently destroy a model: marks model alive = MODEL_DESTROYED,
 // frees CPU-side instance data. Cannot be re-enabled.
 void destroyModel(Models3DManager* man, uint32_t modelIndex);
+
+// --- Runtime model lifecycle: queries ---
+
+// Returns the alive state of an instance, or -1 if the model/instance index
+// is out of range or the model is destroyed (pModelInstance freed).
+int queryInstanceAlive(const Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex);
+
+// Returns the alive state of a model, or -1 if modelIndex is out of range.
+int queryModelAlive(const Models3DManager* man, uint32_t modelIndex);
