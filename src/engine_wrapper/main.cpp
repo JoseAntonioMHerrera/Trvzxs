@@ -342,8 +342,8 @@ int main()
                     if (event.key.keysym.scancode == SDL_SCANCODE_I)
                     {
                         Models3DManager *man = &scene->getScene()->modelsManager;
-                        Model3DInstance *inst = &man->pModel[0].pModelInstance[0];
-                        if (inst->alive == 1)
+                        int state = queryInstanceAlive(man, 0, 0);
+                        if (state == INSTANCE_ALIVE)
                         {
                             disableInstance(man, 0, 0);
                             std::cout << "[demo] Instance 0 of model 0 disabled" << std::endl;
@@ -358,7 +358,7 @@ int main()
                     if (event.key.keysym.scancode == SDL_SCANCODE_T)
                     {
                         Models3DManager *man = &scene->getScene()->modelsManager;
-                        if (man->pModel[0].alive == 1)
+                        if (queryModelAlive(man, 0) == MODEL_ALIVE)
                         {
                             disableModel(man, 0);
                             std::cout << "[demo] Model 0 disabled" << std::endl;
