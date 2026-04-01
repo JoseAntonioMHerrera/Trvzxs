@@ -345,6 +345,9 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
         scene->modelsManager.modelInstanceLen += model->instanceCount;
     }
 
+    // Immutable capacity for buffer creation and descriptor range sizing
+    scene->modelsManager.modelInstanceCapacity = scene->modelsManager.modelInstanceLen;
+
     (scene)->modelsManager.packedModelVertexLen = getModelVerticesLenFromScene(scene);
     (scene)->modelsManager.pPackedModelVertex   = getModelVerticesFromScene(scene);
 
@@ -396,6 +399,13 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
         printLightVolume(pLight);
         LightVolume* light = &(scene)->lightManager.pLight[objIndex];
 
+        // Initialize lifecycle fields
+        light->alive = LIGHT_ALIVE;
+        for (uint32_t i = 0; i < light->lightVolumeInstanceCount; i++)
+        {
+            light->pLightVolumeInstance[i].alive = LIGHT_INSTANCE_ALIVE;
+        }
+
         // apply_offset_to_indices(light->model.indices.items, light->model.indices.itemsLen,
         // vertexIndexOffsetForModelIndices); vertexIndexOffsetForModelIndices +=
         // light->model.meshManager.totalMeshVerticesLen;
@@ -405,6 +415,9 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
         vertexOffset += light->model.meshManager.totalMeshVerticesLen;
         scene->lightManager.lightInstanceCount += light->lightVolumeInstanceCount;
     }
+
+    // Immutable capacity for buffer creation and descriptor range sizing
+    scene->lightManager.lightInstanceCapacity = scene->lightManager.lightInstanceCount;
 
     (scene)->lightManager.packedLightLen = getVolumetricLightVerticesLenFromScene(scene);
     (scene)->lightManager.pPackedLight   = getLightVolumesVerticesFromScene(scene);
@@ -654,4 +667,206 @@ int queryModelAlive(const Models3DManager* man, uint32_t modelIndex)
         return -1;
 
     return man->pModel[modelIndex].alive;
+}
+
+// ---------------------------------------------------------------------------
+// Runtime light lifecycle — instance-level toggle
+// ---------------------------------------------------------------------------
+
+void disableLightInstance(LightManager* man, uint32_t lightIndex, uint32_t instanceIndex)
+{
+    if (lightIndex >= man->lightLen)
+    {
+        fprintf(stderr, "[disableLightInstance] lightIndex %u out of range (lightLen=%u)\n", lightIndex, man->lightLen);
+        return;
+    }
+
+    LightVolume* light = &man->pLight[lightIndex];
+
+    if (!light->alive)
+    {
+        fprintf(stderr, "[disableLightInstance] light %u is permanently destroyed\n", lightIndex);
+        return;
+    }
+
+    if (instanceIndex >= light->lightVolumeInstanceCount)
+    {
+        fprintf(stderr, "[disableLightInstance] instanceIndex %u out of range (count=%u)\n", instanceIndex,
+                light->lightVolumeInstanceCount);
+        return;
+    }
+
+    LightVolumeInstance* inst = &light->pLightVolumeInstance[instanceIndex];
+
+    if (inst->alive != LIGHT_INSTANCE_ALIVE)
+    {
+        return;
+    }
+
+    inst->alive = LIGHT_INSTANCE_DISABLED;
+}
+
+void enableLightInstance(LightManager* man, uint32_t lightIndex, uint32_t instanceIndex)
+{
+    if (lightIndex >= man->lightLen)
+    {
+        fprintf(stderr, "[enableLightInstance] lightIndex %u out of range (lightLen=%u)\n", lightIndex, man->lightLen);
+        return;
+    }
+
+    LightVolume* light = &man->pLight[lightIndex];
+
+    if (!light->alive)
+    {
+        fprintf(stderr, "[enableLightInstance] light %u is permanently destroyed, cannot re-enable\n", lightIndex);
+        return;
+    }
+
+    if (instanceIndex >= light->lightVolumeInstanceCount)
+    {
+        fprintf(stderr, "[enableLightInstance] instanceIndex %u out of range (count=%u)\n", instanceIndex,
+                light->lightVolumeInstanceCount);
+        return;
+    }
+
+    LightVolumeInstance* inst = &light->pLightVolumeInstance[instanceIndex];
+
+    if (inst->alive == LIGHT_INSTANCE_DESTROYED)
+    {
+        fprintf(stderr, "[enableLightInstance] instance %u of light %u is permanently destroyed, cannot re-enable\n",
+                instanceIndex, lightIndex);
+        return;
+    }
+
+    inst->alive = LIGHT_INSTANCE_ALIVE;
+}
+
+// ---------------------------------------------------------------------------
+// Runtime light lifecycle — light-level toggle
+// ---------------------------------------------------------------------------
+
+void disableLight(LightManager* man, uint32_t lightIndex)
+{
+    if (lightIndex >= man->lightLen)
+    {
+        fprintf(stderr, "[disableLight] lightIndex %u out of range (lightLen=%u)\n", lightIndex, man->lightLen);
+        return;
+    }
+
+    LightVolume* light = &man->pLight[lightIndex];
+
+    if (light->alive == LIGHT_DESTROYED)
+    {
+        fprintf(stderr, "[disableLight] light %u is permanently destroyed, cannot disable\n", lightIndex);
+        return;
+    }
+
+    light->alive = LIGHT_DISABLED;
+}
+
+void enableLight(LightManager* man, uint32_t lightIndex)
+{
+    if (lightIndex >= man->lightLen)
+    {
+        fprintf(stderr, "[enableLight] lightIndex %u out of range (lightLen=%u)\n", lightIndex, man->lightLen);
+        return;
+    }
+
+    LightVolume* light = &man->pLight[lightIndex];
+
+    if (light->alive == LIGHT_DESTROYED)
+    {
+        fprintf(stderr, "[enableLight] light %u is permanently destroyed, cannot re-enable\n", lightIndex);
+        return;
+    }
+
+    light->alive = LIGHT_ALIVE;
+}
+
+// ---------------------------------------------------------------------------
+// Runtime light lifecycle — permanent destruction
+// ---------------------------------------------------------------------------
+
+void destroyLightInstance(LightManager* man, uint32_t lightIndex, uint32_t instanceIndex)
+{
+    if (lightIndex >= man->lightLen)
+    {
+        fprintf(stderr, "[destroyLightInstance] lightIndex %u out of range (lightLen=%u)\n", lightIndex, man->lightLen);
+        return;
+    }
+
+    LightVolume* light = &man->pLight[lightIndex];
+
+    if (!light->alive)
+    {
+        fprintf(stderr, "[destroyLightInstance] light %u is permanently destroyed\n", lightIndex);
+        return;
+    }
+
+    if (instanceIndex >= light->lightVolumeInstanceCount)
+    {
+        fprintf(stderr, "[destroyLightInstance] instanceIndex %u out of range (count=%u)\n", instanceIndex,
+                light->lightVolumeInstanceCount);
+        return;
+    }
+
+    LightVolumeInstance* inst = &light->pLightVolumeInstance[instanceIndex];
+
+    if (inst->alive == LIGHT_INSTANCE_DESTROYED)
+    {
+        fprintf(stderr, "[destroyLightInstance] instance %u of light %u is already destroyed\n", instanceIndex,
+                lightIndex);
+        return;
+    }
+
+    inst->alive = LIGHT_INSTANCE_DESTROYED;
+}
+
+void destroyLight(LightManager* man, uint32_t lightIndex)
+{
+    if (lightIndex >= man->lightLen)
+    {
+        fprintf(stderr, "[destroyLight] lightIndex %u out of range (lightLen=%u)\n", lightIndex, man->lightLen);
+        return;
+    }
+
+    LightVolume* light = &man->pLight[lightIndex];
+
+    if (!light->alive)
+    {
+        return;
+    }
+
+    light->alive = LIGHT_DESTROYED;
+
+    if (light->pLightVolumeInstance)
+    {
+        free(light->pLightVolumeInstance);
+        light->pLightVolumeInstance     = NULL;
+        light->lightVolumeInstanceCount = 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Runtime light lifecycle — queries
+// ---------------------------------------------------------------------------
+
+int queryLightInstanceAlive(const LightManager* man, uint32_t lightIndex, uint32_t instanceIndex)
+{
+    if (lightIndex >= man->lightLen)
+        return -1;
+
+    const LightVolume* light = &man->pLight[lightIndex];
+    if (!light->pLightVolumeInstance || instanceIndex >= light->lightVolumeInstanceCount)
+        return -1;
+
+    return light->pLightVolumeInstance[instanceIndex].alive;
+}
+
+int queryLightAlive(const LightManager* man, uint32_t lightIndex)
+{
+    if (lightIndex >= man->lightLen)
+        return -1;
+
+    return man->pLight[lightIndex].alive;
 }

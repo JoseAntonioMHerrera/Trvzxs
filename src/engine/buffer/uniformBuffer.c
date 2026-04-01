@@ -102,71 +102,63 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
     // Calculate the difference in seconds
     float time = (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_nsec - startTime.tv_nsec) / 1e9f;
 
-    uint32_t transformationsLen = scene->lightManager.lightInstanceCount;
-    //      scene->lightManager.lightInstanceCount);
-
-    LightTransformations* pTransformations = malloc(sizeof(LightTransformations) * transformationsLen);
-    //       sizeof(LightTransformations) * transformationsLen);
+    // Allocate for full capacity — compaction fills only the live portion.
+    // lightInstanceCapacity is immutable; lightInstanceCount gets overwritten with live count below.
+    LightTransformations* pTransformations =
+        malloc(sizeof(LightTransformations) * scene->lightManager.lightInstanceCapacity);
 
     uint32_t transformationsCount = 0;
     for (uint32_t lightIdx = 0; lightIdx < scene->lightManager.lightLen; lightIdx++)
     {
-        LightVolume light = scene->lightManager.pLight[lightIdx];
-        for (uint32_t instanceIdx = 0; instanceIdx < light.lightVolumeInstanceCount; instanceIdx++)
+        LightVolume* light = &scene->lightManager.pLight[lightIdx];
+
+        // Offset for this light = how many live transforms written so far
+        scene->lightManager.instanceOffset.items[lightIdx] = transformationsCount;
+        uint32_t lightStartIdx                             = transformationsCount;
+
+        // Skip entire light if disabled or destroyed
+        if (light->alive != LIGHT_ALIVE)
         {
+            light->liveInstanceCount = 0;
+            continue;
+        }
+
+        for (uint32_t instanceIdx = 0; instanceIdx < light->lightVolumeInstanceCount; instanceIdx++)
+        {
+            if (light->pLightVolumeInstance[instanceIdx].alive != LIGHT_INSTANCE_ALIVE)
+            {
+                continue;
+            }
+
             mat4 auxModelInstance;
             glm_mat4_identity(auxModelInstance);
 
-            vec3 scale = {light.pLightVolumeInstance[instanceIdx].scale, light.pLightVolumeInstance[instanceIdx].scale,
-                          light.pLightVolumeInstance[instanceIdx].scale};
-            glm_translate_make(auxModelInstance, light.pLightVolumeInstance[instanceIdx].position);
+            vec3 scale = {light->pLightVolumeInstance[instanceIdx].scale,
+                          light->pLightVolumeInstance[instanceIdx].scale,
+                          light->pLightVolumeInstance[instanceIdx].scale};
+            glm_translate_make(auxModelInstance, light->pLightVolumeInstance[instanceIdx].position);
             glm_scale(auxModelInstance, scale);
 
-            // Model matrix: rotate around Z-axis
             glm_mat4_copy(auxModelInstance, pTransformations[transformationsCount].mvp.model);
 
-            // Print model matrix values
-            /*         for (int i = 0; i < 4; i++)
-                     {
-                         for (int j = 0; j < 4; j++)
-                         {
-               pTransformations[transformationsCount].mvp.model[i][j]);
-                         }
-                     }
-         */
-            // View matrix: camera at (2,2,2) looking at (0,0,0) with up vector (0,0,1)
-
-            Camera3D* camInstance = (Camera3D*) malloc(sizeof(pTransformations[transformationsCount].camera));
-            glm_vec2_copy(camera.screenSize, camInstance->screenSize);
-            glm_vec3_copy(camera.eye, camInstance->eye);
-            glm_vec3_copy(camera.center, camInstance->center);
-            glm_vec3_copy(camera.up, camInstance->up);
-            pTransformations[transformationsCount].camera = *camInstance;
+            // Camera — stack copy, no heap allocation
+            Camera3D camInstance;
+            glm_vec2_copy(camera.screenSize, camInstance.screenSize);
+            glm_vec3_copy(camera.eye, camInstance.eye);
+            glm_vec3_copy(camera.center, camInstance.center);
+            glm_vec3_copy(camera.up, camInstance.up);
+            pTransformations[transformationsCount].camera = camInstance;
 
             vec3 result;
-            getRotatingPositionAroundLight(light.pLightVolumeInstance[instanceIdx].position, result, deltaTime, 3);
+            getRotatingPositionAroundLight(light->pLightVolumeInstance[instanceIdx].position, result, deltaTime, 3);
 
             glm_vec3_copy(result, pTransformations[transformationsCount].data.position);
-            pTransformations[transformationsCount].data.color = light.pLightVolumeInstance[instanceIdx].color;
-            pTransformations[transformationsCount].data.scale = light.pLightVolumeInstance[instanceIdx].scale;
-            vec4 view;
+            pTransformations[transformationsCount].data.color = light->pLightVolumeInstance[instanceIdx].color;
+            pTransformations[transformationsCount].data.scale = light->pLightVolumeInstance[instanceIdx].scale;
+
             glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsCount].mvp.view);
 
-            // Print view matrix values
-            /*              for (int i = 0; i < 4; i++)
-                          {
-                              for (int j = 0; j < 4; j++)
-                              {
-               pTransformations[transformationsCount].mvp.view[i][j]);
-                              }
-                          }
-       */
-            // Projection matrix: 45 degree FOV, aspect ratio based on swap chain extent
             float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
-            //          aspectRatio,
-            //      dsm->currentExtent2D.width, dsm->currentExtent2D.height);
-
-            vec4 proj;
             glm_perspective(glm_rad(45.0f), aspectRatio, 0.1f, 500.0f, pTransformations[transformationsCount].mvp.proj);
 
             // Adjust for Vulkan's coordinate system
@@ -176,18 +168,16 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
                          pTransformations[transformationsCount].mvp.view, proj_view);
 
             glm_mat4_inv(proj_view, pTransformations[transformationsCount].mInverseVP);
-            // Print projection matrix values
-            /*       for (int i = 0; i < 4; i++)
-                   {
-                       for (int j = 0; j < 4; j++)
-                       {
-               pTransformations[transformationsCount].mvp.proj[i][j]);
-                       }
-                   }
-*/
+
             transformationsCount++;
         }
+
+        // Per-light live count — read by the draw loop
+        light->liveInstanceCount = transformationsCount - lightStartIdx;
     }
+
+    // Update lightInstanceCount to the actual live count for the memcpy
+    scene->lightManager.lightInstanceCount = transformationsCount;
 
     return pTransformations;
 }

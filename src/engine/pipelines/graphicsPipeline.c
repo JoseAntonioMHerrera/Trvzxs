@@ -323,18 +323,14 @@ void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* pa
         //TODO revisar uso de variable offsets para escalabilidad
     for (int indexLight = 0; indexLight < sceneLightVolumes->lightManager.lightLen; indexLight++)
     {
+        if (sceneLightVolumes->lightManager.pLight[indexLight].liveInstanceCount == 0)
+        {
+            continue;
+        }
 
-        // Model vertex draw call
-        /*vkCmdDrawIndexed(
-            gdp->commandBuffer[dm->currentFrame],
-            sceneLightVolumes->lightManager.pLight[indexLight].model.indices.itemsLen,
-            sceneLightVolumes->lightManager.pLight[indexLight].model.instanceCount,
-            sceneLightVolumes->lightManager.pLight[indexLight].model.indiceOffset,
-            sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
-            sceneLightVolumes->lightManager.instanceOffset.items[indexLight]);*///TODO refactorizar onDemmand index buffers lights
         vkCmdDraw(gdp->commandBuffer[dm->currentFrame],
                   sceneLightVolumes->lightManager.pLight[indexLight].model.meshManager.totalMeshVerticesLen,
-                  sceneLightVolumes->lightManager.pLight[indexLight].lightVolumeInstanceCount,
+                  sceneLightVolumes->lightManager.pLight[indexLight].liveInstanceCount,
                   sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
                   sceneLightVolumes->lightManager.instanceOffset.items[indexLight]);
     }

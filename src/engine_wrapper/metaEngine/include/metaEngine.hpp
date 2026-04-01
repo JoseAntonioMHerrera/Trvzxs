@@ -301,12 +301,12 @@ public:
                 sizeof(*lightVolumeGraphicPipeline->deviceBuffer->pUbo));
         createModelInstanceTransformationsUniformBuffersMapped(
             pd, ld, gdp->maxFrames, gdp->deviceBuffer->pUbo,
-            gdp->scene->modelsManager.modelInstanceLen);
+            gdp->scene->modelsManager.modelInstanceCapacity);
         createLightInstanceTransformationsUniformBuffersMapped(
             pd, ld, lightVolumeGraphicPipeline->maxFrames,
             lightVolumeGraphicPipeline->deviceBuffer->pUbo,
             lightVolumeGraphicPipeline->scene->lightManager
-                .lightInstanceCount);
+                .lightInstanceCapacity);
 
         std::cout
             << "RETORNO UNIFORMBUFFERS MAPPED TRANSFORM MATRIX"
