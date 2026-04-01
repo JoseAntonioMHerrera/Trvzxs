@@ -61,7 +61,8 @@ typedef struct Models3DManager
 {
     Model3D* pModel;
     uint32_t modelLen;
-    uint32_t modelInstanceLen;
+    uint32_t modelInstanceCapacity; // total instance slots across all models (immutable after init)
+    uint32_t modelInstanceLen;      // live instance count (updated per frame by UBO fill)
 
     GEOM_VERTEX* pPackedModelVertex;
     uint32_t     packedModelVertexLen;

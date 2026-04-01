@@ -82,3 +82,23 @@ int queryInstanceAlive(const Models3DManager* man, uint32_t modelIndex, uint32_t
 
 // Returns the alive state of a model, or -1 if modelIndex is out of range.
 int queryModelAlive(const Models3DManager* man, uint32_t modelIndex);
+
+// --- Runtime light lifecycle: instance-level toggle ---
+
+void disableLightInstance(LightManager* man, uint32_t lightIndex, uint32_t instanceIndex);
+void enableLightInstance(LightManager* man, uint32_t lightIndex, uint32_t instanceIndex);
+
+// --- Runtime light lifecycle: light-level toggle ---
+
+void disableLight(LightManager* man, uint32_t lightIndex);
+void enableLight(LightManager* man, uint32_t lightIndex);
+
+// --- Runtime light lifecycle: permanent destruction ---
+
+void destroyLightInstance(LightManager* man, uint32_t lightIndex, uint32_t instanceIndex);
+void destroyLight(LightManager* man, uint32_t lightIndex);
+
+// --- Runtime light lifecycle: queries ---
+
+int queryLightInstanceAlive(const LightManager* man, uint32_t lightIndex, uint32_t instanceIndex);
+int queryLightAlive(const LightManager* man, uint32_t lightIndex);

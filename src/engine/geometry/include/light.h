@@ -3,6 +3,16 @@
 #include "model.h"
 #include "camera.h"
 
+// Light-instance alive flag values (same semantics as model instances)
+#define LIGHT_INSTANCE_ALIVE     1
+#define LIGHT_INSTANCE_DISABLED  0
+#define LIGHT_INSTANCE_DESTROYED 2
+
+// Light-type alive flag values (same semantics as model types)
+#define LIGHT_ALIVE     1
+#define LIGHT_DISABLED  2
+#define LIGHT_DESTROYED 0
+
 typedef struct LightProperties
 {
     uint8_t  transparency;
@@ -15,7 +25,8 @@ typedef struct LightVolumeInstance
     vec3                   position; // TODO empaquetar informacion en vec4 estructuras para gpu
     float                  padding;
     float                  scale;
-    float                  padding2[3];
+    uint32_t               alive;      // LIGHT_INSTANCE_ALIVE/DISABLED/DESTROYED
+    float                  padding2[2]; // std140 requires 48-byte struct size (vec4 alignment)
 } LightVolumeInstance;
 typedef struct LightTransformations
 {
@@ -30,8 +41,9 @@ typedef struct LightVolume
     LightProperties      properties;
     Model3D              model;
     LightVolumeInstance* pLightVolumeInstance;
-    uint32_t             lightVolumeInstanceCount;
-
+    uint32_t             lightVolumeInstanceCount; // total allocated (capacity)
+    uint32_t             liveInstanceCount;        // computed per frame by UBO fill
+    uint32_t             alive;                    // LIGHT_ALIVE/DISABLED/DESTROYED
 } LightVolume;
 
 typedef struct LightManager
@@ -39,7 +51,8 @@ typedef struct LightManager
     LightVolume* pLight;
     uint32_t     lightLen;
 
-    uint32_t lightInstanceCount;
+    uint32_t lightInstanceCapacity; // total instance slots across all lights (immutable after init)
+    uint32_t lightInstanceCount;    // live instance count (updated per frame by UBO fill)
 
     GEOM_VERTEX* pPackedLight;
     uint32_t     packedLightLen;

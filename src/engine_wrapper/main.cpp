@@ -381,6 +381,43 @@ int main()
                         destroyModel(&scene->getScene()->modelsManager, 0);
                         std::cout << "[demo] Model 0 permanently destroyed" << std::endl;
                     }
+                    // L key: toggle light 0 visibility
+                    if (event.key.keysym.scancode == SDL_SCANCODE_L)
+                    {
+                        LightManager *lm = &scene->getScene()->lightManager;
+                        if (queryLightAlive(lm, 0) == LIGHT_ALIVE)
+                        {
+                            disableLight(lm, 0);
+                            std::cout << "[demo] Light 0 disabled" << std::endl;
+                        }
+                        else
+                        {
+                            enableLight(lm, 0);
+                            std::cout << "[demo] Light 0 re-enabled" << std::endl;
+                        }
+                    }
+                    // O key: toggle light instance 0 of light 0
+                    if (event.key.keysym.scancode == SDL_SCANCODE_O)
+                    {
+                        LightManager *lm = &scene->getScene()->lightManager;
+                        int state = queryLightInstanceAlive(lm, 0, 0);
+                        if (state == LIGHT_INSTANCE_ALIVE)
+                        {
+                            disableLightInstance(lm, 0, 0);
+                            std::cout << "[demo] Light instance 0 of light 0 disabled" << std::endl;
+                        }
+                        else
+                        {
+                            enableLightInstance(lm, 0, 0);
+                            std::cout << "[demo] Light instance 0 of light 0 re-enabled" << std::endl;
+                        }
+                    }
+                    // P key: permanently destroy light instance 0 of light 0
+                    if (event.key.keysym.scancode == SDL_SCANCODE_P)
+                    {
+                        destroyLightInstance(&scene->getScene()->lightManager, 0, 0);
+                        std::cout << "[demo] Light instance 0 of light 0 permanently destroyed" << std::endl;
+                    }
                     break;
 
                 case SDL_KEYUP:
