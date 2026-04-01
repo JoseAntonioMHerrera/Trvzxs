@@ -30,6 +30,7 @@ target_include_directories(engine_mod PUBLIC
     optimizations/include
     memory/
     lifecycle/include
+    rendergraph/include
     "include/"
     "display/include"
     ${CMAKE_SOURCE_DIR}/src/ #TODO move entryfiles to the library to engine folder tree
@@ -50,6 +51,7 @@ file(GLOB_RECURSE ENGINE_SOURCES
     "texture/*.c"
     "memory/*.cpp"
     "lifecycle/*.c"
+    "rendergraph/*.c"
     "commands/*.c"
     "${CMAKE_SOURCE_DIR}/src/*.c" #TODO move entryfiles to the library to engine folder tree
 )
@@ -71,6 +73,7 @@ file(GLOB_RECURSE ENGINE_HEADERS
     "image/include/*.h"
     "display/include/*.h"
     "lifecycle/include/*.h"
+    "rendergraph/include/*.h"
     "pipelines/constants/include/*.h"
     "optimizations/include/*.h"
     "${CMAKE_SOURCE_DIR}/src/*.h"
