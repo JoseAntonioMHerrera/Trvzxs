@@ -222,6 +222,8 @@ public:
                                       dispM->graphicPipeline->swapchain);
         createNormalsBufferResources(pd, ld,
                                      dispM->graphicPipeline->swapchain);
+        createGBufferSampler(ld->device,
+                             dispM->graphicPipeline->swapchain);
         std::cout << "RETORNO normalsBuffer" << '\n';
         createRenderPass(
             pd, dispM->graphicPipeline[0].swapchain, ld->device,

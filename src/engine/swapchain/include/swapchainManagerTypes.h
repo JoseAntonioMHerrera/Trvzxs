@@ -32,6 +32,7 @@ typedef struct GraphicSwapchain
     // G-Buffer
     CommonImage*     gBuffer;
     CommonImage*     nBuffer;
+    VkSampler        gBufferSampler; // Nearest-neighbor sampler for G-buffer reads (screen-space UV)
     DepthBufferImage depthImage;
 
     // Depth + occlussion resources

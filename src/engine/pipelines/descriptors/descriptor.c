@@ -15,7 +15,7 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineTo
                                         },
                                               {
                                                   .type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                  .descriptorCount = maxFrames,
+                                                  .descriptorCount = maxFrames * 3, // texture + gBuffer + nBuffer
                                         },
                                               {
                                                   .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -102,11 +102,13 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
         };
 
         VkDescriptorImageInfo gBuffer = {
-            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .sampler     = gdp->swapchain->gBufferSampler,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .imageView   = gdp->swapchain->gBuffer->imageView,
         };
         VkDescriptorImageInfo nBuffer = {
-            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .sampler     = gdp->swapchain->gBufferSampler,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .imageView   = gdp->swapchain->nBuffer->imageView,
         };
         VkWriteDescriptorSet descriptorWrite[] = {
@@ -167,22 +169,22 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
                 .dstSet           = gdp->descriptorSet[i],
                 .dstBinding       = 5,
                 .dstArrayElement  = 0,
-                .descriptorType   = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+                .descriptorType   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 .descriptorCount  = 1,
                 .pBufferInfo      = VK_NULL_HANDLE,
-                .pImageInfo       = &gBuffer,       // Optional
-                .pTexelBufferView = VK_NULL_HANDLE, // Optional
+                .pImageInfo       = &gBuffer,
+                .pTexelBufferView = VK_NULL_HANDLE,
             },
             {
                 .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet           = gdp->descriptorSet[i],
                 .dstBinding       = 6,
                 .dstArrayElement  = 0,
-                .descriptorType   = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+                .descriptorType   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 .descriptorCount  = 1,
                 .pBufferInfo      = VK_NULL_HANDLE,
-                .pImageInfo       = &nBuffer,       // Optional
-                .pTexelBufferView = VK_NULL_HANDLE, // Optional
+                .pImageInfo       = &nBuffer,
+                .pTexelBufferView = VK_NULL_HANDLE,
             },
             {
                 .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -257,14 +259,14 @@ void createDescriptorSetLayout(LogicalDevice* ld, GraphicPipelineToSurface* gdp,
     VkDescriptorSetLayoutBinding gBufferBinding = {
         .binding            = 5,
         .descriptorCount    = 1,
-        .descriptorType     = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+        .descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         .pImmutableSamplers = VK_NULL_HANDLE,
         .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT,
     };
     VkDescriptorSetLayoutBinding nBufferBinding = {
         .binding            = 6,
         .descriptorCount    = 1,
-        .descriptorType     = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+        .descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         .pImmutableSamplers = VK_NULL_HANDLE,
         .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT,
     };

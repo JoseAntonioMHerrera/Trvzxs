@@ -27,8 +27,8 @@ layout(binding = 7) uniform UniformBufferObject {
     LightInstance lightInstance[2000]; // Migrar a SSBO buffers
 } ubo;
 
-layout(input_attachment_index = 0, binding = 5) uniform subpassInput geometryBuffer;
-layout(input_attachment_index = 1, binding = 6) uniform subpassInput normalsBuffer;
+layout(binding = 5) uniform sampler2D geometryBuffer;
+layout(binding = 6) uniform sampler2D normalsBuffer;
 
 layout(location = 0) in vec3 point;
 layout(location = 1) in vec3 baryIn;
@@ -101,9 +101,10 @@ vec3 calculateBlinnPhong(vec3 worldPos, vec3 normal, vec3 albedo) {
 }
 
 void main() {
-    // Read from G-buffer (we'll just verify it works)
-    vec4 geoData = subpassLoad(geometryBuffer);
-    vec4 normalData = subpassLoad(normalsBuffer);
+    // Read from G-buffer via screen-space UV
+    vec2 screenUV = gl_FragCoord.xy / ubo.lightInstance[instanceIndex].camera.screenSize;
+    vec4 geoData = texture(geometryBuffer, screenUV);
+    vec4 normalData = texture(normalsBuffer, screenUV);
 
      // Calculate distance to nearest edge
     float edgeDistance = min(min(baryIn.x, baryIn.y), baryIn.z);

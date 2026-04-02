@@ -155,38 +155,33 @@ void createRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device
         .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
         .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         .samples        = VK_SAMPLE_COUNT_1_BIT,
     };
 
     VkAttachmentReference2 geometryAttachmentRef = {
         .sType      = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .attachment = 2,
-        .layout     = VK_IMAGE_LAYOUT_GENERAL,
+        .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
     };
 
     VkAttachmentDescription2 gNormalsAttachment = {
-        .sType   = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-        .format  = (findNormalsBufferFormat(pd->gpu)),
-        .loadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // Changed to STORE since
-                                                 // we'll use it
+        .sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format         = (findNormalsBufferFormat(pd->gpu)),
+        .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
         .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
         .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // TODO chance of
-                                                                    // optimization changing
-                                                                    // the layout to a more
-                                                                    // specific one like
-                                                                    // READ_OPTIMAL
-        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .samples        = VK_SAMPLE_COUNT_1_BIT,
     };
 
     VkAttachmentReference2 gNormalsAttachmentRef = {
         .sType      = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .attachment = 3,
-        .layout     = VK_IMAGE_LAYOUT_GENERAL,
+        .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
     };
 
@@ -211,10 +206,10 @@ void createRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device
         .sType                   = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
         .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
         .colorAttachmentCount    = lightColorAttachmentCount,
-        .inputAttachmentCount    = lightInputAttachmentCount,
+        .inputAttachmentCount    = 0,
         .pColorAttachments       = lightColorAttachtmentsRef,
         .pDepthStencilAttachment = &depthAttachmentRef,
-        .pInputAttachments       = lightInputAttachmentRef,
+        .pInputAttachments       = NULL,
         .pResolveAttachments     = NULL,
         .pNext                   = NULL,
     };
@@ -254,17 +249,12 @@ void createRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device
             .sType        = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
             .srcSubpass   = 0,
             .dstSubpass   = 1,
-            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
-                            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // Add for layout
-                                                                  // transition
-            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // Add for layout
-                                                               // transition
-            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-                             VK_ACCESS_MEMORY_WRITE_BIT, // Add for layout transition
-            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-                             VK_ACCESS_MEMORY_READ_BIT, // Add for layout transition
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                             VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
         },
         {
@@ -503,6 +493,10 @@ void cleanupSwapChain(LogicalDevice* ld, DisplayManager* dm)
     // Swapchain presentation image views
     for (size_t i = 0; i < sc->scImageViewLen; i++)
         deferDestroyImageView(dq, sc->p_scImageView[i]);
+
+    // G-buffer sampler (shared by gBuffer + nBuffer reads)
+    if (sc->gBufferSampler != VK_NULL_HANDLE)
+        vkDestroySampler(ld->device, sc->gBufferSampler, NULL);
 
     // Enqueue VMA-managed swapchain images (MSAA, depth, gbuffer, normals)
     if (sc->msaaColorRes)
