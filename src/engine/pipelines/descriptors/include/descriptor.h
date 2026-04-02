@@ -21,3 +21,4 @@
 void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp);
 void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphic, GraphicPipelineToSurface* lightGraphic, Texture2D* texture);
 void createDescriptorSetLayout(LogicalDevice *ld, GraphicPipelineToSurface* gdp, uint32_t maxFrames);
+void updateGBufferDescriptors(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp);

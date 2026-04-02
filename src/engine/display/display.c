@@ -161,7 +161,6 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     vkWaitForFences(device, 1, &particleGraphics->computeP->computeInFlightFence[dm->currentFrame], VK_TRUE,
                     UINT64_MAX);
-
     vkWaitForFences(device, 1, &gdp->inFlightFence[dm->currentFrame], VK_TRUE, UINT64_MAX);
 
     // Fences confirmed GPU finished with this frame's commands.
@@ -182,8 +181,10 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     {
     case VK_SUCCESS:
         break;
+    case VK_SUBOPTIMAL_KHR:
     case VK_ERROR_OUT_OF_DATE_KHR:
-        recreateSwapChain(pd, ld, window);
+        recreateSwapChain(pd, ld, window, rg);
+        dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
         return;
     default:
         exit(1);

@@ -622,4 +622,14 @@ public:
         // std::cout << "RETORNAMOS EL CONTROL DESDE DRAW FRAME" <<
         // std::endl;
     }
+
+    void metaRecreateSwapchain(SDL_Window *window)
+    {
+        DeviceManager *deviceManager = this->deviceManager.getStruct();
+        recreateSwapChain(
+            deviceManager->pDevice,
+            deviceManager->lDevice[0],
+            window,
+            &this->renderGraph);
+    }
 };

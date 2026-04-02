@@ -24,7 +24,8 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* disp
 
 void cleanupSwapChain(LogicalDevice* ld, DisplayManager* dm);
 
-void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window);
+typedef struct RenderGraph RenderGraph;
+void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window, RenderGraph* rg);
 void createRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device, GraphicPipelineToSurface* gdp);
 void createPreDepthRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device,
                               GraphicPipelineToSurface* gdp);

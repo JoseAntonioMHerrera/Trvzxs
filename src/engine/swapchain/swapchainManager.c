@@ -1,6 +1,8 @@
 #include "swapchainManager.h"
 #include "image.h"
 #include "deletionQueue.h"
+#include "descriptor.h"
+#include "renderGraph.h"
 // TODO: maybe move this function  def/decl to image.h
 VkImageView createImageView(GraphicSwapchain* dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels,
                             VkImageAspectFlags aspectMask)
@@ -489,6 +491,7 @@ void cleanupSwapChain(LogicalDevice* ld, DisplayManager* dm)
     // Framebuffers reference image views — destroy first.
     for (size_t i = 0; i < sc->framebuffersLen; i++)
         vkDestroyFramebuffer(ld->device, sc->p_framebuffers[i], NULL);
+    sc->framebuffersLen = 0;
 
     // Swapchain presentation image views
     for (size_t i = 0; i < sc->scImageViewLen; i++)
@@ -498,35 +501,84 @@ void cleanupSwapChain(LogicalDevice* ld, DisplayManager* dm)
     if (sc->gBufferSampler != VK_NULL_HANDLE)
         vkDestroySampler(ld->device, sc->gBufferSampler, NULL);
 
+    // Destroy image views for depth/gbuffer/normals (not deferred — they're
+    // recreated immediately in recreateSwapChain, and the underlying images
+    // are deferred below).
+    if (sc->depthImage.common && sc->depthImage.common->imageView != VK_NULL_HANDLE)
+        vkDestroyImageView(ld->device, sc->depthImage.common->imageView, NULL);
+    if (sc->gBuffer && sc->gBuffer->imageView != VK_NULL_HANDLE)
+        vkDestroyImageView(ld->device, sc->gBuffer->imageView, NULL);
+    if (sc->nBuffer && sc->nBuffer->imageView != VK_NULL_HANDLE)
+        vkDestroyImageView(ld->device, sc->nBuffer->imageView, NULL);
+
     // Enqueue VMA-managed swapchain images (MSAA, depth, gbuffer, normals)
     if (sc->msaaColorRes)
         deferDestroyImage(dq, sc->msaaColorRes->image, sc->msaaColorRes->allocation);
     if (sc->msaaDepthRes)
         deferDestroyImage(dq, sc->msaaDepthRes->image, sc->msaaDepthRes->allocation);
     if (sc->gBuffer)
+    {
         deferDestroyImage(dq, sc->gBuffer->image, sc->gBuffer->allocation);
+        free(sc->gBuffer);
+        sc->gBuffer = NULL;
+    }
     if (sc->nBuffer)
+    {
         deferDestroyImage(dq, sc->nBuffer->image, sc->nBuffer->allocation);
+        free(sc->nBuffer);
+        sc->nBuffer = NULL;
+    }
     if (sc->depthImage.common)
+    {
         deferDestroyImage(dq, sc->depthImage.common->image, sc->depthImage.common->allocation);
+        free(sc->depthImage.common);
+        sc->depthImage.common = NULL;
+    }
 
     vkDestroySwapchainKHR(ld->device, sc->VkSwapchain, VK_NULL_HANDLE);
 }
 
-void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window)
+void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window, RenderGraph* rg)
 {
     vkDeviceWaitIdle(ld->device);
     cleanupSwapChain(ld, ld->displayManager);
     createSwapChain(pd, ld, ld->displayManager, ld->displayManager->graphicPipeline, window);
-    createMsaaColorResources(ld, pd, ld->displayManager->graphicPipeline->swapchain);
-    createMsaaDepthResources(ld, pd, ld->displayManager->graphicPipeline->swapchain);
-    for (uint32_t i = 0; i < ld->displayManager->graphicPipeline->swapchain->scImagesLen; i++)
+
+    GraphicSwapchain* sc = ld->displayManager->graphicPipeline->swapchain;
+
+    createMsaaColorResources(ld, pd, sc);
+    createMsaaDepthResources(ld, pd, sc);
+    createDepthImageResources(pd, ld, sc);
+    createGeometryBufferResources(pd, ld, sc);
+    createNormalsBufferResources(pd, ld, sc);
+    createGBufferSampler(ld->device, sc);
+
+    for (uint32_t i = 0; i < sc->scImagesLen; i++)
     {
-        ld->displayManager->graphicPipeline->swapchain->p_scImageView[i] = createImageView(
-            ld->displayManager->graphicPipeline->swapchain, ld->device,
-            ld->displayManager->graphicPipeline->swapchain->currentSurfaceFormat->format,
-            ld->displayManager->graphicPipeline->swapchain->p_scImages[i], 1, VK_IMAGE_ASPECT_COLOR_BIT);
+        sc->p_scImageView[i] = createImageView(
+            sc, ld->device, sc->currentSurfaceFormat->format,
+            sc->p_scImages[i], 1, VK_IMAGE_ASPECT_COLOR_BIT);
     }
-    createFrameBuffers(ld->displayManager->graphicPipeline->swapchain, ld->displayManager->graphicPipeline->renderPass,
-                       &ld->device);
+
+    // Re-write G-buffer/normals descriptors (bindings 5/6) with new image views
+    GraphicPipelineToSurface* gdp = ld->displayManager->graphicPipeline;
+    updateGBufferDescriptors(gdp->maxFrames, ld->device, gdp);
+
+    // Update render graph external resource handles to point at the new images
+    if (rg)
+    {
+        rg->resources[0].image     = sc->p_scImages[0];
+        rg->resources[0].imageView = sc->p_scImageView[0];
+
+        rg->resources[1].image     = sc->depthImage.common->image;
+        rg->resources[1].imageView = sc->depthImage.common->imageView;
+
+        rg->resources[2].image     = sc->gBuffer->image;
+        rg->resources[2].imageView = sc->gBuffer->imageView;
+
+        rg->resources[3].image     = sc->nBuffer->image;
+        rg->resources[3].imageView = sc->nBuffer->imageView;
+
+        rgOnSwapchainResize(rg, sc->currentExtent2D.width, sc->currentExtent2D.height);
+    }
 }
