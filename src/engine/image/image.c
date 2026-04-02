@@ -185,7 +185,7 @@ void createGeometryBufferResources(PhysicalDevice* pd, LogicalDevice* ld, Graphi
     VkFormat format = (findGeometryBufferFormat(pd->gpu));
     dispM->gBuffer  = malloc(sizeof(*dispM->gBuffer));
     createVkImage(ld->allocator, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
-                  VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                   dispM->gBuffer, dispM->currentExtent2D.width,
                   dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_CONCURRENT);
 
@@ -198,12 +198,36 @@ void createNormalsBufferResources(PhysicalDevice* pd, LogicalDevice* ld, Graphic
     VkFormat format = (findNormalsBufferFormat(pd->gpu));
     dispM->nBuffer  = malloc(sizeof(*dispM->nBuffer));
     createVkImage(ld->allocator, pd, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
-                  VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                   dispM->nBuffer, dispM->currentExtent2D.width,
                   dispM->currentExtent2D.height, 1, 1, VK_SHARING_MODE_CONCURRENT);
 
     dispM->nBuffer->imageView =
         createImageView(dispM, ld->device, format, dispM->nBuffer->image, 1, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void createGBufferSampler(VkDevice device, GraphicSwapchain* sc)
+{
+    VkSamplerCreateInfo samplerInfo = {
+        .sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter               = VK_FILTER_NEAREST,
+        .minFilter               = VK_FILTER_NEAREST,
+        .mipmapMode              = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+        .addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .mipLodBias              = 0.0f,
+        .anisotropyEnable        = VK_FALSE,
+        .compareEnable           = VK_FALSE,
+        .minLod                  = 0.0f,
+        .maxLod                  = 0.0f,
+        .borderColor             = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
+        .unnormalizedCoordinates = VK_FALSE,
+    };
+    if (vkCreateSampler(device, &samplerInfo, NULL, &sc->gBufferSampler) != VK_SUCCESS)
+    {
+        exit(1);
+    }
 }
 
 void generateImageMipmaps(VkPhysicalDevice physDevice, LogicalDevice* ld, CommandPools* commandPool, VkQueue queue,

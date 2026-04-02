@@ -32,3 +32,4 @@ void                  createMsaaDepthResources(LogicalDevice* ld, PhysicalDevice
 void                  createGeometryBufferResources(PhysicalDevice* pd, LogicalDevice* ld, GraphicSwapchain* dispM);
 void                  createNormalsBufferResources(PhysicalDevice* pd, LogicalDevice* ld, GraphicSwapchain* dispM);
 void                  createDepthImageResources(PhysicalDevice* pd, LogicalDevice* ld, GraphicSwapchain* dispM);
+void                  createGBufferSampler(VkDevice device, GraphicSwapchain* sc);

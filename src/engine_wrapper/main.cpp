@@ -94,12 +94,12 @@ void updateCamera(Camera3D *camera, float deltaTime)
     glm_vec3_add(camera->center, movement, camera->center);
 }
 
-uint32_t getRandomDouble(double max)
+float getRandomDouble(double max)
 {
     static std::random_device rd;
     static std::mt19937 gen(rd());
     std::uniform_real_distribution<double> dis(0.0, max);
-    return (uint32_t)dis(gen);
+    return (float)dis(gen);
 }
 uint32_t min(uint32_t a, uint32_t b)
 {
@@ -161,7 +161,7 @@ int main()
             float x = 0.0;
             float y = 0.0;
             float z = 0.0;
-            vec4 tempPos = {partInstanceIndex, partInstanceIndex, partInstanceIndex, 0.0f};
+            vec4 tempPos = {(float)partInstanceIndex, (float)partInstanceIndex, (float)partInstanceIndex, 0.0f};
             glm_vec4_copy(tempPos, pParticleInstance[partInstanceIndex].position);
 
             vec4 tempVel = {

@@ -327,7 +327,7 @@ public:
         {
 
             Model3DInstance *modelInstance = (Model3DInstance *)malloc(sizeof(Model3DInstance));
-            vec3 vRPosition = {(instanceIndex == 0 ? 5 : 0), (instanceIndex == 0 ? 0 : 0), 0.0f};
+            vec3 vRPosition = {(instanceIndex == 0 ? 5.0f : 0.0f), (instanceIndex == 0 ? 0.0f : 0.0f), 0.0f};
             glm_translate_make(modelInstance->m, vRPosition);
             vec3 vRScale = {1.0f, 1.0f, 1.0f};
             modelInstance->alive = 1.0;
