@@ -28,6 +28,10 @@ void rgCompile(RenderGraph* rg);
 
 void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex);
 
+// --- Debug ---
+
+void rgDumpCompiled(const RenderGraph* rg);
+
 // --- Swapchain resize ---
 
 void rgOnSwapchainResize(RenderGraph* rg, uint32_t newWidth, uint32_t newHeight);

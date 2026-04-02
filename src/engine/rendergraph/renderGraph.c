@@ -1,6 +1,7 @@
 #include "renderGraph.h"
 #include "physicalDevice.h"
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -123,22 +124,27 @@ void rgPassSetCallback(RenderGraph* rg, uint32_t passIndex, RGPassExecuteFn fn, 
 // Topological sort (Kahn's algorithm)
 // ---------------------------------------------------------------------------
 
+static void rgAddEdge(uint32_t adj[][RG_MAX_PASSES], uint32_t adjCount[], uint32_t inDegree[],
+                      uint32_t from, uint32_t to)
+{
+    for (uint32_t a = 0; a < adjCount[from]; a++)
+    {
+        if (adj[from][a] == to)
+            return; // duplicate
+    }
+    adj[from][adjCount[from]++] = to;
+    inDegree[to]++;
+}
+
 static void rgTopologicalSort(RenderGraph* rg)
 {
-    // For each resource, find which pass writes it
+    // Build edges incrementally: process passes in declaration order so that
+    // writerOf tracks the most-recent writer at each point. This correctly
+    // creates RAW (read-after-write) and WAW (write-after-write) edges even
+    // when multiple passes write the same resource.
     uint32_t writerOf[RG_MAX_RESOURCES];
     memset(writerOf, 0xFF, sizeof(writerOf));
 
-    for (uint32_t p = 0; p < rg->passCount; p++)
-    {
-        for (uint32_t o = 0; o < rg->passes[p].outputCount; o++)
-        {
-            uint32_t resIdx  = rg->passes[p].outputs[o].resourceIndex;
-            writerOf[resIdx] = p;
-        }
-    }
-
-    // Build in-degree and adjacency
     uint32_t inDegree[RG_MAX_PASSES];
     memset(inDegree, 0, sizeof(inDegree));
 
@@ -148,29 +154,37 @@ static void rgTopologicalSort(RenderGraph* rg)
 
     for (uint32_t p = 0; p < rg->passCount; p++)
     {
+        // RAW edges: this pass reads a resource → depends on its current writer
         for (uint32_t i = 0; i < rg->passes[p].inputCount; i++)
         {
             uint32_t resIdx = rg->passes[p].inputs[i].resourceIndex;
             uint32_t writer = writerOf[resIdx];
-
             if (writer != UINT32_MAX && writer != p)
-            {
-                // Check for duplicate edges
-                bool duplicate = false;
-                for (uint32_t a = 0; a < adjCount[writer]; a++)
-                {
-                    if (adj[writer][a] == p)
-                    {
-                        duplicate = true;
-                        break;
-                    }
-                }
-                if (!duplicate)
-                {
-                    adj[writer][adjCount[writer]++] = p;
-                    inDegree[p]++;
-                }
-            }
+                rgAddEdge(adj, adjCount, inDegree, writer, p);
+        }
+
+        // WAW edges + update writerOf: this pass writes a resource → depends
+        // on the previous writer (if any), then becomes the new writer
+        for (uint32_t o = 0; o < rg->passes[p].outputCount; o++)
+        {
+            uint32_t resIdx     = rg->passes[p].outputs[o].resourceIndex;
+            uint32_t prevWriter = writerOf[resIdx];
+            if (prevWriter != UINT32_MAX && prevWriter != p)
+                rgAddEdge(adj, adjCount, inDegree, prevWriter, p);
+            writerOf[resIdx] = p;
+        }
+    }
+
+    // Second pass: catch RAW edges where the reader was registered before the
+    // writer (reverse-order registration). writerOf now has the final writers.
+    for (uint32_t p = 0; p < rg->passCount; p++)
+    {
+        for (uint32_t i = 0; i < rg->passes[p].inputCount; i++)
+        {
+            uint32_t resIdx = rg->passes[p].inputs[i].resourceIndex;
+            uint32_t writer = writerOf[resIdx];
+            if (writer != UINT32_MAX && writer != p)
+                rgAddEdge(adj, adjCount, inDegree, writer, p);
         }
     }
 
@@ -275,7 +289,8 @@ static void rgComputeBarriers(RenderGraph* rg)
                 pass->barrierDstStageMask |= usage->stageMask;
 
                 assert(pass->imageBarrierCount < RG_MAX_BARRIERS_PER_PASS);
-                pass->imageBarriers[pass->imageBarrierCount++] = barrier;
+                pass->imageBarrierResourceIdx[pass->imageBarrierCount] = usage->resourceIndex;
+                pass->imageBarriers[pass->imageBarrierCount++]         = barrier;
 
                 res->currentLayout = usage->layout;
             }
@@ -449,18 +464,17 @@ static void rgCreateRenderPassForPass(RenderGraph* rg, RGPass* pass)
 
 static void rgCreateFramebuffersForPass(RenderGraph* rg, RGPass* pass)
 {
-    VkImageView imageViews[RG_MAX_RESOURCE_USAGES * 2];
-    uint32_t    imageViewCount = 0;
+    // Collect resource indices for attachments (outputs first, then input-only)
+    uint32_t attachResIdx[RG_MAX_RESOURCE_USAGES * 2];
+    uint32_t attachCount = 0;
 
-    // Outputs first (same order as rgCreateRenderPassForPass)
     for (uint32_t o = 0; o < pass->outputCount; o++)
     {
         RGResource* res = &rg->resources[pass->outputs[o].resourceIndex];
         if (res->type == RG_IMAGE)
-            imageViews[imageViewCount++] = res->imageView;
+            attachResIdx[attachCount++] = pass->outputs[o].resourceIndex;
     }
 
-    // Then inputs not already in outputs
     for (uint32_t i = 0; i < pass->inputCount; i++)
     {
         RGResource* res = &rg->resources[pass->inputs[i].resourceIndex];
@@ -477,24 +491,33 @@ static void rgCreateFramebuffersForPass(RenderGraph* rg, RGPass* pass)
             }
         }
         if (!alreadyAdded)
-            imageViews[imageViewCount++] = res->imageView;
+            attachResIdx[attachCount++] = pass->inputs[i].resourceIndex;
     }
 
     pass->framebuffers = malloc(sizeof(VkFramebuffer) * rg->swapchainImageCount);
 
-    for (uint32_t i = 0; i < rg->swapchainImageCount; i++)
+    for (uint32_t fi = 0; fi < rg->swapchainImageCount; fi++)
     {
+        VkImageView imageViews[RG_MAX_RESOURCE_USAGES * 2];
+        for (uint32_t a = 0; a < attachCount; a++)
+        {
+            RGResource* res = &rg->resources[attachResIdx[a]];
+            // Use per-frame image view if available (swapchain images),
+            // otherwise use the single shared image view
+            imageViews[a] = (res->perFrameImageViews) ? res->perFrameImageViews[fi] : res->imageView;
+        }
+
         VkFramebufferCreateInfo fbInfo = {
             .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass      = pass->renderPass,
-            .attachmentCount = imageViewCount,
+            .attachmentCount = attachCount,
             .pAttachments    = imageViews,
             .width           = rg->swapchainWidth,
             .height          = rg->swapchainHeight,
             .layers          = 1,
         };
 
-        VkResult result = vkCreateFramebuffer(rg->device, &fbInfo, NULL, &pass->framebuffers[i]);
+        VkResult result = vkCreateFramebuffer(rg->device, &fbInfo, NULL, &pass->framebuffers[fi]);
         assert(result == VK_SUCCESS);
     }
 }
@@ -613,6 +636,9 @@ void rgCompile(RenderGraph* rg)
     }
 
     rg->isCompiled = true;
+
+    if (rg->debugLog)
+        rgDumpCompiled(rg);
 }
 
 // ---------------------------------------------------------------------------
@@ -632,21 +658,9 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
         // changes per frame (e.g. swapchain color attachment)
         for (uint32_t b = 0; b < pass->imageBarrierCount; b++)
         {
-            uint32_t resIdx = UINT32_MAX;
-
-            // Find which resource this barrier belongs to by matching the stored image
-            // against input resource images. For external resources whose image changes
-            // per frame, patch the barrier with the current handle.
-            for (uint32_t i = 0; i < pass->inputCount; i++)
-            {
-                RGResource* res = &rg->resources[pass->inputs[i].resourceIndex];
-                if (res->type == RG_IMAGE && res->isExternal)
-                {
-                    // Match by resource index: barrier was created for this input
-                    // in the same order during rgComputeBarriers
-                    pass->imageBarriers[b].image = res->image;
-                }
-            }
+            RGResource* res = &rg->resources[pass->imageBarrierResourceIdx[b]];
+            if (res->type == RG_IMAGE && res->isExternal)
+                pass->imageBarriers[b].image = res->image;
         }
 
         // Insert pre-pass barriers
@@ -680,7 +694,9 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
                     clearValues[clearCount++] = (VkClearValue){.color = {{0.0f, 0.0f, 0.0f, 1.0f}}};
             }
 
-            // Input-only attachments
+            // Input-only attachments — no clear value needed (loadOp = LOAD),
+            // but Vulkan requires clearValueCount >= highest attachment index + 1
+            // that uses LOAD_OP_CLEAR. Pad with dummy values to keep indices aligned.
             for (uint32_t i = 0; i < pass->inputCount; i++)
             {
                 bool isAlsoOutput = false;
@@ -696,9 +712,23 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
                 {
                     RGResource* res = &rg->resources[pass->inputs[i].resourceIndex];
                     if (res->type == RG_IMAGE)
-                        clearValues[clearCount++] = (VkClearValue){.color = {{0.0f, 0.0f, 0.0f, 1.0f}}};
+                        clearValues[clearCount++] = (VkClearValue){0};
                 }
             }
+            // Only provide clear values if any attachment uses LOAD_OP_CLEAR
+            // (i.e., first write this frame). Otherwise set count to 0 to avoid
+            // the BestPractices warning.
+            bool hasClearAttachment = false;
+            for (uint32_t o = 0; o < pass->outputCount; o++)
+            {
+                if (pass->outputs[o].resolvedInitialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+                {
+                    hasClearAttachment = true;
+                    break;
+                }
+            }
+            if (!hasClearAttachment)
+                clearCount = 0;
 
             VkRenderPassBeginInfo rpBegin = {
                 .sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -723,6 +753,328 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
                 pass->execute(cmd, pass, pass->userData);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Debug dump
+// ---------------------------------------------------------------------------
+
+static const char* rgLayoutStr(VkImageLayout l)
+{
+    switch (l)
+    {
+    case VK_IMAGE_LAYOUT_UNDEFINED:                        return "UNDEFINED";
+    case VK_IMAGE_LAYOUT_GENERAL:                          return "GENERAL";
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:         return "COLOR_ATTACH";
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return "DEPTH_ATTACH";
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:  return "DEPTH_READ_ONLY";
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:         return "SHADER_READ";
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:             return "TRANSFER_SRC";
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:             return "TRANSFER_DST";
+    case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:                  return "PRESENT_SRC";
+    default:                                               return "?LAYOUT?";
+    }
+}
+
+static const char* rgFormatStr(VkFormat f)
+{
+    switch (f)
+    {
+    case VK_FORMAT_B8G8R8A8_SRGB:    return "B8G8R8A8_SRGB";
+    case VK_FORMAT_B8G8R8A8_UNORM:   return "B8G8R8A8_UNORM";
+    case VK_FORMAT_R8G8B8A8_SRGB:    return "R8G8B8A8_SRGB";
+    case VK_FORMAT_R8G8B8A8_UNORM:   return "R8G8B8A8_UNORM";
+    case VK_FORMAT_R16G16B16A16_SFLOAT: return "R16G16B16A16_SFLOAT";
+    case VK_FORMAT_R32G32B32A32_SFLOAT: return "R32G32B32A32_SFLOAT";
+    case VK_FORMAT_D32_SFLOAT:       return "D32_SFLOAT";
+    case VK_FORMAT_D24_UNORM_S8_UINT: return "D24_UNORM_S8";
+    case VK_FORMAT_D32_SFLOAT_S8_UINT: return "D32_SFLOAT_S8";
+    default:                         return "?FORMAT?";
+    }
+}
+
+static const char* rgLoadOpStr(VkAttachmentLoadOp op)
+{
+    switch (op)
+    {
+    case VK_ATTACHMENT_LOAD_OP_LOAD:      return "LOAD";
+    case VK_ATTACHMENT_LOAD_OP_CLEAR:     return "CLEAR";
+    case VK_ATTACHMENT_LOAD_OP_DONT_CARE: return "DONT_CARE";
+    default:                              return "?";
+    }
+}
+
+static void rgPrintStages(VkPipelineStageFlags s)
+{
+    if (s & VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT)              fprintf(stderr, "TOP_OF_PIPE ");
+    if (s & VK_PIPELINE_STAGE_VERTEX_INPUT_BIT)             fprintf(stderr, "VERTEX_INPUT ");
+    if (s & VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)            fprintf(stderr, "VERT_SHADER ");
+    if (s & VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)     fprintf(stderr, "EARLY_FRAG ");
+    if (s & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)          fprintf(stderr, "FRAG_SHADER ");
+    if (s & VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT)      fprintf(stderr, "LATE_FRAG ");
+    if (s & VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)   fprintf(stderr, "COLOR_OUT ");
+    if (s & VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)           fprintf(stderr, "COMPUTE ");
+    if (s & VK_PIPELINE_STAGE_TRANSFER_BIT)                 fprintf(stderr, "TRANSFER ");
+    if (s & VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT)           fprintf(stderr, "BOTTOM_OF_PIPE ");
+    if (s == 0)                                             fprintf(stderr, "(none)");
+}
+
+static void rgPrintAccess(VkAccessFlags a)
+{
+    if (a & VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)           fprintf(stderr, "COLOR_W ");
+    if (a & VK_ACCESS_COLOR_ATTACHMENT_READ_BIT)            fprintf(stderr, "COLOR_R ");
+    if (a & VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)   fprintf(stderr, "DEPTH_W ");
+    if (a & VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT)    fprintf(stderr, "DEPTH_R ");
+    if (a & VK_ACCESS_SHADER_READ_BIT)                      fprintf(stderr, "SHADER_R ");
+    if (a & VK_ACCESS_SHADER_WRITE_BIT)                     fprintf(stderr, "SHADER_W ");
+    if (a & VK_ACCESS_INPUT_ATTACHMENT_READ_BIT)            fprintf(stderr, "INPUT_R ");
+    if (a & VK_ACCESS_TRANSFER_READ_BIT)                    fprintf(stderr, "XFER_R ");
+    if (a & VK_ACCESS_TRANSFER_WRITE_BIT)                   fprintf(stderr, "XFER_W ");
+    if (a & VK_ACCESS_MEMORY_READ_BIT)                      fprintf(stderr, "MEM_R ");
+    if (a & VK_ACCESS_MEMORY_WRITE_BIT)                     fprintf(stderr, "MEM_W ");
+    if (a == 0)                                             fprintf(stderr, "(none)");
+}
+
+void rgDumpCompiled(const RenderGraph* rg)
+{
+    fprintf(stderr, "\n");
+    fprintf(stderr, "╔══════════════════════════════════════════════════════════════════╗\n");
+    fprintf(stderr, "║                    RENDER GRAPH — COMPILED STATE                ║\n");
+    fprintf(stderr, "╚══════════════════════════════════════════════════════════════════╝\n");
+    fprintf(stderr, "  Swapchain: %ux%u, %u images\n",
+            rg->swapchainWidth, rg->swapchainHeight, rg->swapchainImageCount);
+    fprintf(stderr, "  Resources: %u   Passes: %u\n\n", rg->resourceCount, rg->passCount);
+
+    // ── Resources ──
+    fprintf(stderr, "┌─── RESOURCES ─────────────────────────────────────────────────────\n");
+    for (uint32_t r = 0; r < rg->resourceCount; r++)
+    {
+        const RGResource* res = &rg->resources[r];
+        if (!res->isActive)
+            continue;
+        fprintf(stderr, "│ [%u] %s  fmt=%-20s samples=%u  aspect=%s%s\n",
+                r,
+                res->isExternal ? "EXTERNAL" : "TRANSIENT",
+                rgFormatStr(res->format),
+                res->samples,
+                (res->aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) ? "DEPTH" : "COLOR",
+                (res->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? "|STENCIL" : "");
+        fprintf(stderr, "│       image=%p  imageView=%p  size=%s",
+                (void*) res->image, (void*) res->imageView,
+                res->sizeMode == RG_SIZE_SWAPCHAIN ? "SWAPCHAIN" : "FIXED");
+        if (res->sizeMode == RG_SIZE_FIXED)
+            fprintf(stderr, " (%ux%u)", res->width, res->height);
+        fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "└────────────────────────────────────────────────────────────────────\n\n");
+
+    // ── Execution order ──
+    fprintf(stderr, "┌─── EXECUTION ORDER ───────────────────────────────────────────────\n");
+    for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
+    {
+        fprintf(stderr, "│  step %u → pass[%u]  type=%s\n",
+                orderIdx, rg->executionOrder[orderIdx],
+                rg->passes[rg->executionOrder[orderIdx]].type == RG_PASS_GRAPHICS ? "GRAPHICS" :
+                rg->passes[rg->executionOrder[orderIdx]].type == RG_PASS_COMPUTE  ? "COMPUTE"  : "TRANSFER");
+    }
+    fprintf(stderr, "└────────────────────────────────────────────────────────────────────\n\n");
+
+    // ── Per-pass detail ──
+    for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
+    {
+        uint32_t      passIdx = rg->executionOrder[orderIdx];
+        const RGPass* pass    = &rg->passes[passIdx];
+
+        fprintf(stderr, "┌─── PASS %u (exec step %u) ── %s ─────────────────────────────────\n",
+                passIdx, orderIdx,
+                pass->type == RG_PASS_GRAPHICS ? "GRAPHICS" :
+                pass->type == RG_PASS_COMPUTE  ? "COMPUTE"  : "TRANSFER");
+
+        // Outputs
+        fprintf(stderr, "│  OUTPUTS (%u):\n", pass->outputCount);
+        for (uint32_t o = 0; o < pass->outputCount; o++)
+        {
+            const RGResourceUsage* u = &pass->outputs[o];
+            fprintf(stderr, "│    [res %u] layout=%-14s  resolvedInitial=%-14s  loadOp=%s\n",
+                    u->resourceIndex,
+                    rgLayoutStr(u->layout),
+                    rgLayoutStr(u->resolvedInitialLayout),
+                    rgLoadOpStr(u->resolvedInitialLayout == VK_IMAGE_LAYOUT_UNDEFINED
+                                    ? VK_ATTACHMENT_LOAD_OP_CLEAR
+                                    : VK_ATTACHMENT_LOAD_OP_LOAD));
+            fprintf(stderr, "│           access=");
+            rgPrintAccess(u->accessMask);
+            fprintf(stderr, "  stage=");
+            rgPrintStages(u->stageMask);
+            fprintf(stderr, "\n");
+        }
+
+        // Inputs
+        fprintf(stderr, "│  INPUTS (%u):\n", pass->inputCount);
+        for (uint32_t i = 0; i < pass->inputCount; i++)
+        {
+            const RGResourceUsage* u = &pass->inputs[i];
+            fprintf(stderr, "│    [res %u] layout=%-14s\n",
+                    u->resourceIndex, rgLayoutStr(u->layout));
+            fprintf(stderr, "│           access=");
+            rgPrintAccess(u->accessMask);
+            fprintf(stderr, "  stage=");
+            rgPrintStages(u->stageMask);
+            fprintf(stderr, "\n");
+        }
+
+        // Barriers
+        if (pass->imageBarrierCount > 0)
+        {
+            fprintf(stderr, "│  IMAGE BARRIERS (%u):\n", pass->imageBarrierCount);
+            fprintf(stderr, "│    srcStages=");
+            rgPrintStages(pass->barrierSrcStageMask);
+            fprintf(stderr, "\n│    dstStages=");
+            rgPrintStages(pass->barrierDstStageMask);
+            fprintf(stderr, "\n");
+            for (uint32_t b = 0; b < pass->imageBarrierCount; b++)
+            {
+                const VkImageMemoryBarrier* bar = &pass->imageBarriers[b];
+                fprintf(stderr, "│    barrier[%u]: res=%u  image=%p\n",
+                        b, pass->imageBarrierResourceIdx[b], (void*) bar->image);
+                fprintf(stderr, "│      oldLayout=%-14s → newLayout=%-14s\n",
+                        rgLayoutStr(bar->oldLayout), rgLayoutStr(bar->newLayout));
+                fprintf(stderr, "│      srcAccess=");
+                rgPrintAccess(bar->srcAccessMask);
+                fprintf(stderr, "  dstAccess=");
+                rgPrintAccess(bar->dstAccessMask);
+                fprintf(stderr, "\n");
+            }
+        }
+        else
+        {
+            fprintf(stderr, "│  IMAGE BARRIERS: (none)\n");
+        }
+
+        // Framebuffer info
+        if (pass->type == RG_PASS_GRAPHICS && pass->framebuffers)
+        {
+            fprintf(stderr, "│  FRAMEBUFFERS: %u created  renderPass=%p\n",
+                    rg->swapchainImageCount, (void*) pass->renderPass);
+            for (uint32_t fi = 0; fi < rg->swapchainImageCount; fi++)
+                fprintf(stderr, "│    [%u] fb=%p\n", fi, (void*) pass->framebuffers[fi]);
+        }
+
+        // Clear value decision
+        if (pass->type == RG_PASS_GRAPHICS)
+        {
+            bool hasClear = false;
+            for (uint32_t o = 0; o < pass->outputCount; o++)
+            {
+                if (pass->outputs[o].resolvedInitialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+                {
+                    hasClear = true;
+                    break;
+                }
+            }
+            fprintf(stderr, "│  CLEAR VALUES: %s\n",
+                    hasClear ? "YES (has LOAD_OP_CLEAR attachments)" : "NO (all LOAD_OP_LOAD)");
+        }
+
+        fprintf(stderr, "└────────────────────────────────────────────────────────────────────\n\n");
+    }
+
+    // ── Consistency checks ──
+    fprintf(stderr, "┌─── CONSISTENCY CHECKS ──────────────────────────────────────────\n");
+    bool clean = true;
+
+    for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
+    {
+        uint32_t      passIdx = rg->executionOrder[orderIdx];
+        const RGPass* pass    = &rg->passes[passIdx];
+
+        // Check: barriers reference valid resources with matching images
+        for (uint32_t b = 0; b < pass->imageBarrierCount; b++)
+        {
+            uint32_t        resIdx = pass->imageBarrierResourceIdx[b];
+            const RGResource* res  = &rg->resources[resIdx];
+            if (pass->imageBarriers[b].image != res->image)
+            {
+                fprintf(stderr, "│ ⚠ PASS %u barrier[%u]: image mismatch! barrier=%p res[%u]=%p\n",
+                        passIdx, b, (void*) pass->imageBarriers[b].image, resIdx, (void*) res->image);
+                clean = false;
+            }
+        }
+
+        // Check: depth outputs should include LATE_FRAGMENT_TESTS
+        for (uint32_t o = 0; o < pass->outputCount; o++)
+        {
+            const RGResource* res = &rg->resources[pass->outputs[o].resourceIndex];
+            if ((res->aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) &&
+                !(pass->outputs[o].stageMask & VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT))
+            {
+                fprintf(stderr, "│ ⚠ PASS %u output[%u] res=%u: depth output missing LATE_FRAGMENT_TESTS\n",
+                        passIdx, o, pass->outputs[o].resourceIndex);
+                clean = false;
+            }
+        }
+
+        // Check: all framebuffers for this pass share the same number of attachments
+        // (framebuffers are created identically, so just verify they exist)
+        if (pass->type == RG_PASS_GRAPHICS)
+        {
+            if (!pass->framebuffers)
+            {
+                fprintf(stderr, "│ ⚠ PASS %u: no framebuffers allocated!\n", passIdx);
+                clean = false;
+            }
+            if (pass->renderPass == VK_NULL_HANDLE)
+            {
+                fprintf(stderr, "│ ⚠ PASS %u: renderPass is VK_NULL_HANDLE!\n", passIdx);
+                clean = false;
+            }
+        }
+
+        // Check: external resources used as framebuffer attachments — all framebuffers
+        // use the SAME image view (baked at compile), but swapchain image changes per frame
+        for (uint32_t o = 0; o < pass->outputCount; o++)
+        {
+            const RGResource* res = &rg->resources[pass->outputs[o].resourceIndex];
+            if (res->isExternal && rg->swapchainImageCount > 1)
+            {
+                fprintf(stderr, "│ ℹ PASS %u output res=%u: EXTERNAL image in framebuffer"
+                        " — verify per-frame FB update\n",
+                        passIdx, pass->outputs[o].resourceIndex);
+            }
+        }
+
+        // Check: input resources should have been written by a prior pass
+        for (uint32_t i = 0; i < pass->inputCount; i++)
+        {
+            uint32_t resIdx  = pass->inputs[i].resourceIndex;
+            bool     written = false;
+            for (uint32_t prevOrd = 0; prevOrd < orderIdx; prevOrd++)
+            {
+                uint32_t      prevPass = rg->executionOrder[prevOrd];
+                const RGPass* pp       = &rg->passes[prevPass];
+                for (uint32_t o = 0; o < pp->outputCount; o++)
+                {
+                    if (pp->outputs[o].resourceIndex == resIdx)
+                    {
+                        written = true;
+                        break;
+                    }
+                }
+                if (written)
+                    break;
+            }
+            if (!written)
+            {
+                fprintf(stderr, "│ ⚠ PASS %u input[%u] res=%u: NO prior pass writes this resource!\n",
+                        passIdx, i, resIdx);
+                clean = false;
+            }
+        }
+    }
+
+    if (clean)
+        fprintf(stderr, "│ ✓ All checks passed.\n");
+    fprintf(stderr, "└────────────────────────────────────────────────────────────────────\n\n");
 }
 
 // ---------------------------------------------------------------------------

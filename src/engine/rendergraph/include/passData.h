@@ -1,6 +1,7 @@
 #pragma once
-#include "geometryPipelineTypes.h"
-#include "deviceManagmentTypes.h"
+
+typedef struct GraphicPipelineToSurface GraphicPipelineToSurface;
+typedef struct DisplayManager           DisplayManager;
 
 // Per-pass userData structs — passed to RGPassExecuteFn callbacks via void* userData.
 // Each pass callback casts userData to the appropriate type to access its pipeline,

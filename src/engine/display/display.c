@@ -3,6 +3,7 @@
 #include "deletionQueue.h"
 #include "displayManager.h"
 #include "particle.h"
+#include "renderGraph.h"
 #include "transformations.h"
 #include "mat4.h"
 #include "affine.h"
@@ -122,7 +123,7 @@ void printCamera3D(Camera3D camera) {}
 
 void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, GraphicPipelineToSurface* gdp,
                GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics, VkDevice device,
-               SDL_Window* window, float deltaTime, Camera3D camera)
+               SDL_Window* window, float deltaTime, Camera3D camera, RenderGraph* rg)
 {
 
     VkSemaphore          signalComputeSemaphores[] = {particleGraphics->computeP->computeEndSemaphore[dm->currentFrame],
@@ -195,13 +196,44 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         exit(1);
     }
 
-    recordGraphicsCommandBuffer(gdp, particleGraphics, lightGraphics, dm, dm->currentFrame, pd);
+    // --- Render graph command recording ---
+    {
+        VkCommandBufferBeginInfo beginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        };
+        vkBeginCommandBuffer(gdp->commandBuffer[dm->currentFrame], &beginInfo);
 
-    if (vkEndCommandBuffer(gdp->commandBuffer[dm->currentFrame]) != VK_SUCCESS)
-    {
-    }
-    else
-    {
+        // Compute→graphics ownership transfer for particle SSBO
+        VkBufferMemoryBarrier acquireBarrier = {
+            .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .srcAccessMask       = 0,
+            .dstAccessMask       = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+            .srcQueueFamilyIndex = pd->queueFamilyIndices.computeFamily,
+            .dstQueueFamilyIndex = pd->queueFamilyIndices.graphicsFamily,
+            .buffer              = particleGraphics->computeP->deviceBuffer->ssbos->buffers[dm->currentFrame],
+            .offset              = 0,
+            .size                = VK_WHOLE_SIZE,
+        };
+        vkCmdPipelineBarrier(gdp->commandBuffer[dm->currentFrame],
+                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+                             0, 0, NULL, 1, &acquireBarrier, 0, NULL);
+
+        // Update swapchain image for this frame's color resource (index 0)
+        rg->resources[0].image     = gdp->swapchain->p_scImages[dm->currentFrame];
+        rg->resources[0].imageView = gdp->swapchain->p_scImageView[dm->currentFrame];
+
+        rgExecute(rg, gdp->commandBuffer[dm->currentFrame], dm->currentFrame);
+
+        // Transition swapchain image to present layout
+        transitionImageLayout(NULL, VK_NULL_HANDLE,
+                              gdp->swapchain->p_scImages[dm->currentFrame],
+                              gdp->swapchain->currentSurfaceFormat->format,
+                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 1,
+                              gdp->commandBuffer[dm->currentFrame]);
+
+        vkEndCommandBuffer(gdp->commandBuffer[dm->currentFrame]);
     }
 
     MODEL_VIEW_PROJECTION* uboModels =
