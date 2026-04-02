@@ -1,5 +1,7 @@
 #include "passCallbacks.h"
 #include "passData.h"
+#include "geometryPipelineTypes.h"
+#include "deviceManagmentTypes.h"
 
 // ---------------------------------------------------------------------------
 // Model pass — extracted from startRenderPass() subpass 0

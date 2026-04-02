@@ -57,6 +57,12 @@ typedef struct RGResource
     VkImageView    imageView;
     VkDeviceMemory memory;
 
+    // Per-frame image views for external resources that change per swapchain
+    // image (e.g. the swapchain color attachment). NULL if the same view is
+    // used for all frames. When non-NULL, framebuffers[i] uses
+    // perFrameImageViews[i] instead of imageView.
+    VkImageView* perFrameImageViews;
+
     // Buffer-specific (ignored for RG_IMAGE)
     VkBuffer     buffer;
     VkDeviceSize bufferSize;
@@ -113,6 +119,7 @@ struct RGPass
 
     // Barriers computed by rgComputeBarriers()
     VkImageMemoryBarrier  imageBarriers[RG_MAX_BARRIERS_PER_PASS];
+    uint32_t              imageBarrierResourceIdx[RG_MAX_BARRIERS_PER_PASS];
     uint32_t              imageBarrierCount;
     VkBufferMemoryBarrier bufferBarriers[RG_MAX_BARRIERS_PER_PASS];
     uint32_t              bufferBarrierCount;
@@ -144,4 +151,5 @@ typedef struct RenderGraph
     uint32_t swapchainImageCount;
 
     bool isCompiled;
+    bool debugLog;
 } RenderGraph;

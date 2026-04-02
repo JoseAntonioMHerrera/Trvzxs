@@ -12,6 +12,9 @@ extern "C"
 #include "geometryPipelineTypes.h"
 #include "image.h"
 #include "main_vulkan.h"
+#include "passCallbacks.h"
+#include "passData.h"
+#include "renderGraph.h"
 #include "scene.h"
 #include "ssboBuffer.h"
 #include "swapchainManager.h"
@@ -38,6 +41,10 @@ private:
                         // on/off rendering
     Scene scene;
     uint32_t currentSceneIndex = 0;
+    RenderGraph renderGraph;
+    ModelPassData modelPassData;
+    LightPassData lightPassData;
+    ParticlePassData particlePassData;
 
 public:
     void initVkInstance(SDL_Window *window)
@@ -413,6 +420,153 @@ public:
         std::cout << "RETORNOs INDICE MODEL" << '\n';
         dm->logCallback = createDebugCallbackForVulkan(dm->instance);
         dispM->currentFrame = 0;
+
+        // === RENDER GRAPH SETUP ===
+        rgInit(&this->renderGraph, ld->device, pd,
+               dsm->currentExtent2D.width, dsm->currentExtent2D.height,
+               dsm->scImagesLen);
+        this->renderGraph.debugLog = true;
+
+        // Register external resources
+        uint32_t rColor = rgAddExternalResource(&this->renderGraph, (RGResource){
+            .type       = RG_IMAGE,
+            .format     = dsm->currentSurfaceFormat->format,
+            .samples    = VK_SAMPLE_COUNT_1_BIT,
+            .sizeMode   = RG_SIZE_SWAPCHAIN,
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .image      = dsm->p_scImages[0],
+            .imageView  = dsm->p_scImageView[0],
+            .perFrameImageViews = dsm->p_scImageView,
+            .isExternal = true,
+        });
+
+        uint32_t rDepth = rgAddExternalResource(&this->renderGraph, (RGResource){
+            .type       = RG_IMAGE,
+            .format     = findDepthImageFormat(pd->gpu),
+            .samples    = VK_SAMPLE_COUNT_1_BIT,
+            .sizeMode   = RG_SIZE_SWAPCHAIN,
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .image      = dsm->depthImage.common->image,
+            .imageView  = dsm->depthImage.common->imageView,
+            .isExternal = true,
+        });
+
+        uint32_t rGBuffer = rgAddExternalResource(&this->renderGraph, (RGResource){
+            .type       = RG_IMAGE,
+            .format     = findGeometryBufferFormat(pd->gpu),
+            .samples    = VK_SAMPLE_COUNT_1_BIT,
+            .sizeMode   = RG_SIZE_SWAPCHAIN,
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .image      = dsm->gBuffer->image,
+            .imageView  = dsm->gBuffer->imageView,
+            .isExternal = true,
+        });
+
+        uint32_t rNormals = rgAddExternalResource(&this->renderGraph, (RGResource){
+            .type       = RG_IMAGE,
+            .format     = findNormalsBufferFormat(pd->gpu),
+            .samples    = VK_SAMPLE_COUNT_1_BIT,
+            .sizeMode   = RG_SIZE_SWAPCHAIN,
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .image      = dsm->nBuffer->image,
+            .imageView  = dsm->nBuffer->imageView,
+            .isExternal = true,
+        });
+
+        // Pass 0: Models — writes G-buffer + normals + depth
+        uint32_t pModels = rgAddPass(&this->renderGraph, RG_PASS_GRAPHICS);
+        rgPassAddOutput(&this->renderGraph, pModels, (RGResourceUsage){
+            .resourceIndex = rGBuffer,
+            .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .access     = RG_WRITE,
+        });
+        rgPassAddOutput(&this->renderGraph, pModels, (RGResourceUsage){
+            .resourceIndex = rNormals,
+            .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .access     = RG_WRITE,
+        });
+        rgPassAddOutput(&this->renderGraph, pModels, (RGResourceUsage){
+            .resourceIndex = rDepth,
+            .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                          VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .access     = RG_WRITE,
+        });
+
+        this->modelPassData = (ModelPassData){
+            .pipeline = gdp,
+            .dm       = dispM,
+        };
+        rgPassSetCallback(&this->renderGraph, pModels, executeModelPass, &this->modelPassData);
+
+        // Pass 1: Lights — reads G-buffer + normals, writes color
+        uint32_t pLights = rgAddPass(&this->renderGraph, RG_PASS_GRAPHICS);
+        rgPassAddInput(&this->renderGraph, pLights, (RGResourceUsage){
+            .resourceIndex = rGBuffer,
+            .layout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .accessMask = VK_ACCESS_SHADER_READ_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            .access     = RG_READ,
+        });
+        rgPassAddInput(&this->renderGraph, pLights, (RGResourceUsage){
+            .resourceIndex = rNormals,
+            .layout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .accessMask = VK_ACCESS_SHADER_READ_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            .access     = RG_READ,
+        });
+        rgPassAddInput(&this->renderGraph, pLights, (RGResourceUsage){
+            .resourceIndex = rDepth,
+            .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+            .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            .access     = RG_READ,
+        });
+        rgPassAddOutput(&this->renderGraph, pLights, (RGResourceUsage){
+            .resourceIndex = rColor,
+            .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .access     = RG_WRITE,
+        });
+
+        this->lightPassData = (LightPassData){
+            .pipeline = lightVolumeGraphicPipeline,
+            .dm       = dispM,
+        };
+        rgPassSetCallback(&this->renderGraph, pLights, executeLightPass, &this->lightPassData);
+
+        // Pass 2: Particles — reads + writes color
+        uint32_t pParticles = rgAddPass(&this->renderGraph, RG_PASS_GRAPHICS);
+        rgPassAddInput(&this->renderGraph, pParticles, (RGResourceUsage){
+            .resourceIndex = rColor,
+            .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .accessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .access     = RG_READ,
+        });
+        rgPassAddOutput(&this->renderGraph, pParticles, (RGResourceUsage){
+            .resourceIndex = rColor,
+            .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .access     = RG_WRITE,
+        });
+
+        this->particlePassData = (ParticlePassData){
+            .pipeline = particleGraphicPipeline,
+            .dm       = dispM,
+        };
+        rgPassSetCallback(&this->renderGraph, pParticles, executeParticlePass, &this->particlePassData);
+
+        // Compile: topological sort + barrier generation
+        rgCompile(&this->renderGraph);
+
         std::cout << "Init vulkan ended." << std::endl;
         this->displayManager =
             MetaObject<DisplayManager, void (*)(DisplayManager *)>(
@@ -463,7 +617,8 @@ public:
             &deviceManager->lDevice[0]->displayManager->graphicPipeline[0],
             &deviceManager->lDevice[0]->displayManager->graphicPipeline[1],
             &deviceManager->lDevice[0]->displayManager->graphicPipeline[2],
-            deviceManager->lDevice[0]->device, window, deltaTime, camera);
+            deviceManager->lDevice[0]->device, window, deltaTime, camera,
+            &this->renderGraph);
         // std::cout << "RETORNAMOS EL CONTROL DESDE DRAW FRAME" <<
         // std::endl;
     }

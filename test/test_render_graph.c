@@ -471,6 +471,151 @@ void test_barriers_multiple_resources(void)
     ASSERT_EQ(rg.passes[lights].imageBarriers[1].newLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
+// WAW chain: Lights writes Color, Particles reads+writes Color.
+// Sort must produce Models → Lights → Particles (WAW edge on Color).
+void test_topo_waw_chain(void)
+{
+    RenderGraph    rg;
+    PhysicalDevice pd = make_fake_pd();
+    rgInit(&rg, VK_NULL_HANDLE, &pd, 800, 600, 2);
+
+    uint32_t gbuf  = rgAddExternalResource(&rg, make_ext_image(1, VK_IMAGE_ASPECT_COLOR_BIT));
+    uint32_t norm  = rgAddExternalResource(&rg, make_ext_image(2, VK_IMAGE_ASPECT_COLOR_BIT));
+    uint32_t depth = rgAddExternalResource(&rg, make_ext_image(3, VK_IMAGE_ASPECT_DEPTH_BIT));
+    uint32_t color = rgAddExternalResource(&rg, make_ext_image(4, VK_IMAGE_ASPECT_COLOR_BIT));
+
+    uint32_t models    = rgAddPass(&rg, RG_PASS_GRAPHICS);
+    uint32_t lights    = rgAddPass(&rg, RG_PASS_GRAPHICS);
+    uint32_t particles = rgAddPass(&rg, RG_PASS_GRAPHICS);
+
+    // Models writes gbuf, norm, depth
+    rgPassAddOutput(&rg, models, (RGResourceUsage){
+        .resourceIndex = gbuf, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .access = RG_WRITE,
+    });
+    rgPassAddOutput(&rg, models, (RGResourceUsage){
+        .resourceIndex = norm, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .access = RG_WRITE,
+    });
+    rgPassAddOutput(&rg, models, (RGResourceUsage){
+        .resourceIndex = depth, .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, .access = RG_WRITE,
+    });
+
+    // Lights reads gbuf, norm, depth; writes color
+    rgPassAddInput(&rg, lights, (RGResourceUsage){
+        .resourceIndex = gbuf, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .accessMask = VK_ACCESS_SHADER_READ_BIT,
+        .stageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .access = RG_READ,
+    });
+    rgPassAddInput(&rg, lights, (RGResourceUsage){
+        .resourceIndex = norm, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .accessMask = VK_ACCESS_SHADER_READ_BIT,
+        .stageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .access = RG_READ,
+    });
+    rgPassAddInput(&rg, lights, (RGResourceUsage){
+        .resourceIndex = depth, .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+        .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+        .stageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, .access = RG_READ,
+    });
+    rgPassAddOutput(&rg, lights, (RGResourceUsage){
+        .resourceIndex = color, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .access = RG_WRITE,
+    });
+
+    // Particles reads+writes color (WAW on color after lights)
+    rgPassAddInput(&rg, particles, (RGResourceUsage){
+        .resourceIndex = color, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+        .stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .access = RG_READ,
+    });
+    rgPassAddOutput(&rg, particles, (RGResourceUsage){
+        .resourceIndex = color, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .access = RG_WRITE,
+    });
+
+    rgCompileSortAndBarriers(&rg);
+
+    ASSERT_EQ(rg.executionOrderCount, 3);
+    ASSERT_EQ(rg.executionOrder[0], models);
+    ASSERT_EQ(rg.executionOrder[1], lights);
+    ASSERT_EQ(rg.executionOrder[2], particles);
+}
+
+// Barrier resource index tracking: each barrier must reference the correct
+// resource, not all point to the last external image.
+void test_barrier_resource_index_correctness(void)
+{
+    RenderGraph    rg;
+    PhysicalDevice pd = make_fake_pd();
+    rgInit(&rg, VK_NULL_HANDLE, &pd, 800, 600, 2);
+
+    uint32_t gbuf  = rgAddExternalResource(&rg, make_ext_image(100, VK_IMAGE_ASPECT_COLOR_BIT));
+    uint32_t norm  = rgAddExternalResource(&rg, make_ext_image(200, VK_IMAGE_ASPECT_COLOR_BIT));
+    uint32_t depth = rgAddExternalResource(&rg, make_ext_image(300, VK_IMAGE_ASPECT_DEPTH_BIT));
+    uint32_t color = rgAddExternalResource(&rg, make_ext_image(400, VK_IMAGE_ASPECT_COLOR_BIT));
+
+    uint32_t models = rgAddPass(&rg, RG_PASS_GRAPHICS);
+    uint32_t lights = rgAddPass(&rg, RG_PASS_GRAPHICS);
+
+    rgPassAddOutput(&rg, models, (RGResourceUsage){
+        .resourceIndex = gbuf, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .access = RG_WRITE,
+    });
+    rgPassAddOutput(&rg, models, (RGResourceUsage){
+        .resourceIndex = norm, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .access = RG_WRITE,
+    });
+    rgPassAddOutput(&rg, models, (RGResourceUsage){
+        .resourceIndex = depth, .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, .access = RG_WRITE,
+    });
+
+    rgPassAddInput(&rg, lights, (RGResourceUsage){
+        .resourceIndex = gbuf, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .accessMask = VK_ACCESS_SHADER_READ_BIT,
+        .stageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .access = RG_READ,
+    });
+    rgPassAddInput(&rg, lights, (RGResourceUsage){
+        .resourceIndex = norm, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .accessMask = VK_ACCESS_SHADER_READ_BIT,
+        .stageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .access = RG_READ,
+    });
+    rgPassAddInput(&rg, lights, (RGResourceUsage){
+        .resourceIndex = depth, .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+        .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+        .stageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, .access = RG_READ,
+    });
+    rgPassAddOutput(&rg, lights, (RGResourceUsage){
+        .resourceIndex = color, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .access = RG_WRITE,
+    });
+
+    rgCompileSortAndBarriers(&rg);
+
+    // Lights pass should have 3 barriers, one per input resource
+    ASSERT_EQ(rg.passes[lights].imageBarrierCount, 3);
+
+    // Each barrier must reference its own resource, not all the same
+    ASSERT_EQ(rg.passes[lights].imageBarrierResourceIdx[0], gbuf);
+    ASSERT_EQ(rg.passes[lights].imageBarrierResourceIdx[1], norm);
+    ASSERT_EQ(rg.passes[lights].imageBarrierResourceIdx[2], depth);
+
+    // Each barrier image must match its resource's image handle
+    ASSERT_EQ((uintptr_t) rg.passes[lights].imageBarriers[0].image, 100);
+    ASSERT_EQ((uintptr_t) rg.passes[lights].imageBarriers[1].image, 200);
+    ASSERT_EQ((uintptr_t) rg.passes[lights].imageBarriers[2].image, 300);
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -484,6 +629,7 @@ int main(void)
     RUN_TEST(test_topo_diamond);
     RUN_TEST(test_topo_no_dependencies);
     RUN_TEST(test_topo_reverse_registration);
+    RUN_TEST(test_topo_waw_chain);
 
     printf("\n-- Barrier Generation --\n");
     RUN_TEST(test_barriers_linear_chain);
@@ -491,6 +637,7 @@ int main(void)
     RUN_TEST(test_barriers_same_layout_no_barrier);
     RUN_TEST(test_barriers_resolved_initial_layout);
     RUN_TEST(test_barriers_multiple_resources);
+    RUN_TEST(test_barrier_resource_index_correctness);
 
     TEST_SUMMARY();
 }
