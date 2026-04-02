@@ -213,6 +213,44 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
     }
 }
 
+void updateGBufferDescriptors(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp)
+{
+    for (size_t i = 0; i < maxFrames; i++)
+    {
+        VkDescriptorImageInfo gBuffer = {
+            .sampler     = gdp->swapchain->gBufferSampler,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .imageView   = gdp->swapchain->gBuffer->imageView,
+        };
+        VkDescriptorImageInfo nBuffer = {
+            .sampler     = gdp->swapchain->gBufferSampler,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .imageView   = gdp->swapchain->nBuffer->imageView,
+        };
+        VkWriteDescriptorSet writes[] = {
+            {
+                .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet          = gdp->descriptorSet[i],
+                .dstBinding      = 5,
+                .dstArrayElement = 0,
+                .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .descriptorCount = 1,
+                .pImageInfo      = &gBuffer,
+            },
+            {
+                .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet          = gdp->descriptorSet[i],
+                .dstBinding      = 6,
+                .dstArrayElement = 0,
+                .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .descriptorCount = 1,
+                .pImageInfo      = &nBuffer,
+            },
+        };
+        vkUpdateDescriptorSets(device, 2, writes, 0, VK_NULL_HANDLE);
+    }
+}
+
 void createDescriptorSetLayout(LogicalDevice* ld, GraphicPipelineToSurface* gdp, uint32_t maxFrames)
 {
 

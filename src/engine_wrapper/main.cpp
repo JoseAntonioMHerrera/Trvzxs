@@ -232,6 +232,8 @@ int main()
         std::cout << "ESTO QUE MIERDA ES" << std::endl;
         uint32_t running = 1;
         bool resizing = 0;
+        bool needsSwapchainRecreate = false;
+        int pendingResizeW = 0, pendingResizeH = 0;
         SDL_Event event;
         int initialMouseX, initialMouseY;
         int initialWidth, initialHeight;
@@ -279,6 +281,11 @@ int main()
                 case SDL_MOUSEBUTTONUP:
                     switch (event.button.button)
                     {
+                    case SDL_BUTTON_LEFT:
+                        if (resizing)
+                            needsSwapchainRecreate = true;
+                        resizing = 0;
+                        break;
                     case SDL_BUTTON_RIGHT:
                         // Disable mouse look
                         mouseLookActive = 0;
@@ -288,7 +295,14 @@ int main()
                     break;
 
                 case SDL_MOUSEMOTION:
-                    if (mouseLookActive)
+                    if (resizing)
+                    {
+                        pendingResizeW = initialWidth  + (event.motion.x - initialMouseX);
+                        pendingResizeH = initialHeight + (event.motion.y - initialMouseY);
+                        if (pendingResizeW < 128) pendingResizeW = 128;
+                        if (pendingResizeH < 128) pendingResizeH = 128;
+                    }
+                    else if (mouseLookActive)
                     {
                         float deltaX = event.motion.xrel * mouseSensitivity;
                         float deltaY = event.motion.yrel * mouseSensitivity;
@@ -432,23 +446,42 @@ int main()
                 }
             }
 
-            // Llamada a la función drawFrame
-            if (!resizing)
+            // Apply accumulated resize once per frame (not per mouse event)
+            if (resizing && pendingResizeW > 0)
             {
-                if (deltaTime >= FRAME_TIME)
-                {
-                    updateCamera(scene->getCamera3D(), deltaTime);
-                    // Render and present frame
+                SDL_SetWindowSize(window, pendingResizeW, pendingResizeH);
+                pendingResizeW = 0;
+                pendingResizeH = 0;
+            }
+
+            // Deferred swapchain recreation after resize drag ends
+            if (needsSwapchainRecreate)
+            {
+                engine->metaRecreateSwapchain(window);
+                needsSwapchainRecreate = false;
+
+                // Update camera screen size to match the new swapchain extent
+                int w, h;
+                SDL_Vulkan_GetDrawableSize(window, &w, &h);
+                camera->screenSize[0] = (float) w;
+                camera->screenSize[1] = (float) h;
+            }
+
+            // Llamada a la función drawFrame
+            if (deltaTime >= FRAME_TIME)
+            {
+                updateCamera(scene->getCamera3D(), deltaTime);
+                // Render and present frame
+                if (!resizing)
                     engine->metaDrawFrame(window, (float)deltaTime);
 
-                    lastFrameTime = currentTime;
+                lastFrameTime = currentTime;
 
-                    // Frame pacing: Sleep to align with next vsync
-                    double sleepTime = FRAME_TIME - (getCurrentTime() - currentTime);
-                    if (sleepTime > 0)
-                    {
-                        sleep(sleepTime);
-                    }
+                // Frame pacing: Sleep to align with next vsync
+                double sleepTime = FRAME_TIME - (getCurrentTime() - currentTime);
+                if (sleepTime > 0)
+                {
+                    sleep(sleepTime);
                 }
             }
 
