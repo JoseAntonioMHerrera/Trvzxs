@@ -59,6 +59,11 @@ void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
         .independentBlend  = VK_TRUE,
     };
 
+    VkPhysicalDeviceVulkan12Features features12 = {
+        .sType             = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .timelineSemaphore = VK_TRUE,
+    };
+
     // TODO: moverlo a una funcion o fichero para configuracion de dispositivo y dispositivo logico
     const char* logicalDeviceExtensionNames[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
@@ -72,7 +77,7 @@ void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
         .pEnabledFeatures        = &deviceFeatures,
         .ppEnabledExtensionNames = logicalDeviceExtensionNames,
         .enabledExtensionCount   = 3,
-        .pNext                   = NULL,
+        .pNext                   = &features12,
     };
 
     if (vkCreateDevice(*pd->gpu, &createLogicalDeviceInfo, NULL, &ld->device) != VK_SUCCESS)

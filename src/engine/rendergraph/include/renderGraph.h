@@ -18,6 +18,9 @@ uint32_t rgAddPass(RenderGraph* rg, RGPassType type);
 void rgPassAddInput(RenderGraph* rg, uint32_t passIndex, RGResourceUsage usage);
 void rgPassAddOutput(RenderGraph* rg, uint32_t passIndex, RGResourceUsage usage);
 void rgPassSetCallback(RenderGraph* rg, uint32_t passIndex, RGPassExecuteFn fn, void* userData);
+void rgPassSetQueue(RenderGraph* rg, uint32_t passIndex, RGQueueType queueType);
+void rgSetQueues(RenderGraph* rg, VkQueue graphicsQueue, VkQueue computeQueue,
+                 uint32_t graphicsQueueFamily, uint32_t computeQueueFamily);
 
 // --- Compilation ---
 

@@ -185,6 +185,7 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL);
     vkDestroyPipelineLayout(ld->device, *gdp->pipelineLayout, NULL);
     cleanupSyncObjects(ld->device, gdp);
+    destroyFrameSync(&ld->frameSync, ld->device);
 
     // Flush all deferred deletions (both from the last 1-2 frames and the
     // resources just enqueued above), then free the queue's internal arrays.

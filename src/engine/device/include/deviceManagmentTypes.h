@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include "vma_bridge.h"
 #include "deletionQueue.h"
+#include "timelineSync.h"
 
 typedef struct DisplayManager
 {
@@ -27,6 +28,7 @@ typedef struct LogicalDevice
     DisplayManager* displayManager;
     VmaAllocator    allocator;      // VMA suballocator — one per logical device, manages all GPU memory
     DeletionQueue   deletionQueue;  // Per-frame deferred destruction ring buffer
+    FrameSync       frameSync;      // Timeline semaphores for multi-queue scheduling
 } LogicalDevice;
 
 typedef struct DeviceManager

@@ -37,6 +37,13 @@ typedef enum RGPassType
     RG_PASS_TRANSFER,
 } RGPassType;
 
+typedef enum RGQueueType
+{
+    RG_QUEUE_GRAPHICS,
+    RG_QUEUE_COMPUTE,
+    RG_QUEUE_TRANSFER,
+} RGQueueType;
+
 // --- Resources ---
 
 typedef struct RGResource
@@ -101,8 +108,9 @@ typedef void (*RGPassExecuteFn)(VkCommandBuffer cmd, const RGPass* pass, void* u
 
 struct RGPass
 {
-    RGPassType type;
-    bool       isActive;
+    RGPassType  type;
+    RGQueueType queueType;
+    bool        isActive;
 
     RGResourceUsage inputs[RG_MAX_RESOURCE_USAGES];
     uint32_t        inputCount;
@@ -117,7 +125,8 @@ struct RGPass
     VkRenderPass   renderPass;
     VkFramebuffer* framebuffers; // [swapchainImageCount]
 
-    // Barriers computed by rgComputeBarriers()
+    // Acquire barriers — emitted BEFORE this pass's callback.
+    // When the writer is on a different queue, these use real queue family indices.
     VkImageMemoryBarrier  imageBarriers[RG_MAX_BARRIERS_PER_PASS];
     uint32_t              imageBarrierResourceIdx[RG_MAX_BARRIERS_PER_PASS];
     uint32_t              imageBarrierCount;
@@ -127,6 +136,17 @@ struct RGPass
 
     VkPipelineStageFlags barrierSrcStageMask;
     VkPipelineStageFlags barrierDstStageMask;
+
+    // Release barriers — emitted AFTER this pass's callback when an output
+    // is consumed by a pass on a different queue.
+    VkBufferMemoryBarrier releaseBufferBarriers[RG_MAX_BARRIERS_PER_PASS];
+    uint32_t              releaseBufferBarrierResourceIdx[RG_MAX_BARRIERS_PER_PASS];
+    uint32_t              releaseBufferBarrierCount;
+    VkImageMemoryBarrier  releaseImageBarriers[RG_MAX_BARRIERS_PER_PASS];
+    uint32_t              releaseImageBarrierResourceIdx[RG_MAX_BARRIERS_PER_PASS];
+    uint32_t              releaseImageBarrierCount;
+    VkPipelineStageFlags  releaseSrcStageMask;
+    VkPipelineStageFlags  releaseDstStageMask;
 };
 
 // --- The graph ---
@@ -155,4 +175,11 @@ typedef struct RenderGraph
     bool debugLog;
 
     float deltaTime;
+
+    // Multi-queue support
+    VkQueue  graphicsQueue;
+    VkQueue  computeQueue;
+    uint32_t graphicsQueueFamily;
+    uint32_t computeQueueFamily;
+    bool     hasComputeWork; // set during rgExecute if any compute pass was recorded
 } RenderGraph;
