@@ -395,6 +395,7 @@ public:
         std::cout << "RETORNO COMMANDBUFFER" << '\n';
         createSyncObjects(gdp, &ld->device);
         createSyncObjects(particleGraphicPipeline, &ld->device);
+        createFrameSync(&ld->frameSync, ld->device, gdp->maxFrames);
         std::cout << "RETORNO SYNC" << '\n';
 
         createGeometryBuffer(pd, ld, gdp->deviceBuffer, gdp->scene,
@@ -426,6 +427,11 @@ public:
                dsm->currentExtent2D.width, dsm->currentExtent2D.height,
                dsm->scImagesLen);
         this->renderGraph.debugLog = true;
+        rgSetQueues(&this->renderGraph,
+                    *ld->queueManager.graphicsQueue,
+                    *ld->queueManager.computeQueue,
+                    pd->queueFamilyIndices.graphicsFamily,
+                    pd->queueFamilyIndices.computeFamily);
 
         // Register external resources
         uint32_t rColor = rgAddExternalResource(&this->renderGraph, (RGResource){
@@ -581,6 +587,7 @@ public:
 
         // Pass 3: Particle compute — reads prev SSBO, writes curr SSBO
         uint32_t pParticleCompute = rgAddPass(&this->renderGraph, RG_PASS_COMPUTE);
+        rgPassSetQueue(&this->renderGraph, pParticleCompute, RG_QUEUE_COMPUTE);
         rgPassAddInput(&this->renderGraph, pParticleCompute, (RGResourceUsage){
             .resourceIndex = rSSBOPrev,
             .accessMask    = VK_ACCESS_SHADER_READ_BIT,

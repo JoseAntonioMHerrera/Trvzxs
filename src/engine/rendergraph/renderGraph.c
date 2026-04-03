@@ -120,6 +120,20 @@ void rgPassSetCallback(RenderGraph* rg, uint32_t passIndex, RGPassExecuteFn fn, 
     rg->passes[passIndex].userData = userData;
 }
 
+void rgPassSetQueue(RenderGraph* rg, uint32_t passIndex, RGQueueType queueType)
+{
+    rg->passes[passIndex].queueType = queueType;
+}
+
+void rgSetQueues(RenderGraph* rg, VkQueue graphicsQueue, VkQueue computeQueue,
+                 uint32_t graphicsQueueFamily, uint32_t computeQueueFamily)
+{
+    rg->graphicsQueue       = graphicsQueue;
+    rg->computeQueue        = computeQueue;
+    rg->graphicsQueueFamily = graphicsQueueFamily;
+    rg->computeQueueFamily  = computeQueueFamily;
+}
+
 // ---------------------------------------------------------------------------
 // Topological sort (Kahn's algorithm)
 // ---------------------------------------------------------------------------
@@ -223,6 +237,16 @@ static void rgTopologicalSort(RenderGraph* rg)
 // Barrier generation
 // ---------------------------------------------------------------------------
 
+static uint32_t rgQueueFamily(const RenderGraph* rg, RGQueueType qt)
+{
+    switch (qt)
+    {
+    case RG_QUEUE_COMPUTE:  return rg->computeQueueFamily;
+    case RG_QUEUE_GRAPHICS: return rg->graphicsQueueFamily;
+    default:                return rg->graphicsQueueFamily;
+    }
+}
+
 static void rgComputeBarriers(RenderGraph* rg)
 {
     // Reset resource tracking
@@ -230,6 +254,15 @@ static void rgComputeBarriers(RenderGraph* rg)
     {
         rg->resources[r].currentLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
         rg->resources[r].lastWriterPass = UINT32_MAX;
+    }
+
+    // Reset all release barriers
+    for (uint32_t p = 0; p < rg->passCount; p++)
+    {
+        rg->passes[p].releaseBufferBarrierCount = 0;
+        rg->passes[p].releaseImageBarrierCount  = 0;
+        rg->passes[p].releaseSrcStageMask       = 0;
+        rg->passes[p].releaseDstStageMask       = 0;
     }
 
     for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
@@ -247,6 +280,23 @@ static void rgComputeBarriers(RenderGraph* rg)
         {
             RGResourceUsage* usage = &pass->inputs[i];
             RGResource*      res   = &rg->resources[usage->resourceIndex];
+
+            // Determine if this is a cross-queue edge
+            bool     crossQueue      = false;
+            uint32_t srcQueueFamily  = VK_QUEUE_FAMILY_IGNORED;
+            uint32_t dstQueueFamily  = VK_QUEUE_FAMILY_IGNORED;
+            RGPass*  writerPass      = NULL;
+
+            if (res->lastWriterPass != UINT32_MAX)
+            {
+                writerPass = &rg->passes[res->lastWriterPass];
+                if (writerPass->queueType != pass->queueType)
+                {
+                    crossQueue     = true;
+                    srcQueueFamily = rgQueueFamily(rg, writerPass->queueType);
+                    dstQueueFamily = rgQueueFamily(rg, pass->queueType);
+                }
+            }
 
             if (res->type == RG_IMAGE && res->currentLayout != usage->layout)
             {
@@ -266,9 +316,8 @@ static void rgComputeBarriers(RenderGraph* rg)
                     },
                 };
 
-                if (res->lastWriterPass != UINT32_MAX)
+                if (writerPass)
                 {
-                    RGPass* writerPass = &rg->passes[res->lastWriterPass];
                     for (uint32_t o = 0; o < writerPass->outputCount; o++)
                     {
                         if (writerPass->outputs[o].resourceIndex == usage->resourceIndex)
@@ -292,6 +341,31 @@ static void rgComputeBarriers(RenderGraph* rg)
                 pass->imageBarrierResourceIdx[pass->imageBarrierCount] = usage->resourceIndex;
                 pass->imageBarriers[pass->imageBarrierCount++]         = barrier;
 
+                // Cross-queue: pre-compute release barrier on the writer pass
+                // (not emitted yet — used in Step 6 multi-queue execution)
+                if (crossQueue && writerPass)
+                {
+                    VkImageMemoryBarrier releaseBarrier = barrier;
+                    releaseBarrier.srcQueueFamilyIndex = srcQueueFamily;
+                    releaseBarrier.dstQueueFamilyIndex = dstQueueFamily;
+                    releaseBarrier.dstAccessMask       = 0;
+                    releaseBarrier.srcAccessMask       = 0;
+                    for (uint32_t o = 0; o < writerPass->outputCount; o++)
+                    {
+                        if (writerPass->outputs[o].resourceIndex == usage->resourceIndex)
+                        {
+                            releaseBarrier.srcAccessMask = writerPass->outputs[o].accessMask;
+                            writerPass->releaseSrcStageMask |= writerPass->outputs[o].stageMask;
+                            break;
+                        }
+                    }
+                    writerPass->releaseDstStageMask |= usage->stageMask;
+
+                    assert(writerPass->releaseImageBarrierCount < RG_MAX_BARRIERS_PER_PASS);
+                    writerPass->releaseImageBarrierResourceIdx[writerPass->releaseImageBarrierCount] = usage->resourceIndex;
+                    writerPass->releaseImageBarriers[writerPass->releaseImageBarrierCount++] = releaseBarrier;
+                }
+
                 res->currentLayout = usage->layout;
             }
             else if (res->type == RG_BUFFER && res->lastWriterPass != UINT32_MAX)
@@ -305,7 +379,6 @@ static void rgComputeBarriers(RenderGraph* rg)
                     .size                = VK_WHOLE_SIZE,
                 };
 
-                RGPass* writerPass = &rg->passes[res->lastWriterPass];
                 for (uint32_t o = 0; o < writerPass->outputCount; o++)
                 {
                     if (writerPass->outputs[o].resourceIndex == usage->resourceIndex)
@@ -322,6 +395,30 @@ static void rgComputeBarriers(RenderGraph* rg)
                 assert(pass->bufferBarrierCount < RG_MAX_BARRIERS_PER_PASS);
                 pass->bufferBarrierResourceIdx[pass->bufferBarrierCount] = usage->resourceIndex;
                 pass->bufferBarriers[pass->bufferBarrierCount++]         = barrier;
+
+                // Cross-queue: pre-compute release barrier on the writer pass
+                if (crossQueue)
+                {
+                    VkBufferMemoryBarrier releaseBarrier = barrier;
+                    releaseBarrier.srcQueueFamilyIndex = srcQueueFamily;
+                    releaseBarrier.dstQueueFamilyIndex = dstQueueFamily;
+                    releaseBarrier.dstAccessMask       = 0;
+                    releaseBarrier.srcAccessMask       = 0;
+                    for (uint32_t o = 0; o < writerPass->outputCount; o++)
+                    {
+                        if (writerPass->outputs[o].resourceIndex == usage->resourceIndex)
+                        {
+                            releaseBarrier.srcAccessMask = writerPass->outputs[o].accessMask;
+                            writerPass->releaseSrcStageMask |= writerPass->outputs[o].stageMask;
+                            break;
+                        }
+                    }
+                    writerPass->releaseDstStageMask |= usage->stageMask;
+
+                    assert(writerPass->releaseBufferBarrierCount < RG_MAX_BARRIERS_PER_PASS);
+                    writerPass->releaseBufferBarrierResourceIdx[writerPass->releaseBufferBarrierCount] = usage->resourceIndex;
+                    writerPass->releaseBufferBarriers[writerPass->releaseBufferBarrierCount++] = releaseBarrier;
+                }
             }
         }
 
@@ -786,6 +883,10 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
             if (pass->execute)
                 pass->execute(cmd, pass, pass->userData);
         }
+
+        // NOTE: Release barriers (queue ownership transfer — source side) are
+        // pre-computed but NOT emitted here. They will be emitted in Step 6
+        // when rgExecute() splits into per-queue command buffers.
     }
 }
 
@@ -931,10 +1032,13 @@ void rgDumpCompiled(const RenderGraph* rg)
         uint32_t      passIdx = rg->executionOrder[orderIdx];
         const RGPass* pass    = &rg->passes[passIdx];
 
-        fprintf(stderr, "┌─── PASS %u (exec step %u) ── %s ─────────────────────────────────\n",
+        const char* queueStr = pass->queueType == RG_QUEUE_COMPUTE  ? "COMPUTE" :
+                               pass->queueType == RG_QUEUE_TRANSFER ? "TRANSFER" : "GRAPHICS";
+        fprintf(stderr, "┌─── PASS %u (exec step %u) ── %s  queue=%s ────────────────────────\n",
                 passIdx, orderIdx,
                 pass->type == RG_PASS_GRAPHICS ? "GRAPHICS" :
-                pass->type == RG_PASS_COMPUTE  ? "COMPUTE"  : "TRANSFER");
+                pass->type == RG_PASS_COMPUTE  ? "COMPUTE"  : "TRANSFER",
+                queueStr);
 
         // Outputs
         fprintf(stderr, "│  OUTPUTS (%u):\n", pass->outputCount);
@@ -1015,6 +1119,32 @@ void rgDumpCompiled(const RenderGraph* rg)
                 fprintf(stderr, "  dstAccess=");
                 rgPrintAccess(bar->dstAccessMask);
                 fprintf(stderr, "\n");
+            }
+        }
+
+        // Release barriers
+        if (pass->releaseImageBarrierCount > 0 || pass->releaseBufferBarrierCount > 0)
+        {
+            fprintf(stderr, "│  RELEASE BARRIERS (image=%u buffer=%u):\n",
+                    pass->releaseImageBarrierCount, pass->releaseBufferBarrierCount);
+            fprintf(stderr, "│    srcStages=");
+            rgPrintStages(pass->releaseSrcStageMask);
+            fprintf(stderr, "\n│    dstStages=");
+            rgPrintStages(pass->releaseDstStageMask);
+            fprintf(stderr, "\n");
+            for (uint32_t b = 0; b < pass->releaseBufferBarrierCount; b++)
+            {
+                const VkBufferMemoryBarrier* bar = &pass->releaseBufferBarriers[b];
+                fprintf(stderr, "│    buffer[%u]: res=%u  srcFamily=%u  dstFamily=%u\n",
+                        b, pass->releaseBufferBarrierResourceIdx[b],
+                        bar->srcQueueFamilyIndex, bar->dstQueueFamilyIndex);
+            }
+            for (uint32_t b = 0; b < pass->releaseImageBarrierCount; b++)
+            {
+                const VkImageMemoryBarrier* bar = &pass->releaseImageBarriers[b];
+                fprintf(stderr, "│    image[%u]: res=%u  srcFamily=%u  dstFamily=%u\n",
+                        b, pass->releaseImageBarrierResourceIdx[b],
+                        bar->srcQueueFamilyIndex, bar->dstQueueFamilyIndex);
             }
         }
 
