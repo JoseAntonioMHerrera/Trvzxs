@@ -18,7 +18,6 @@
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
 
 void            createSyncObjects(GraphicPipelineToSurface* gd, VkDevice* device);
-void            createSyncObjectsForGraphicAndCompute(GraphicPipelineToSurface* gd, VkDevice* device);
 void            startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,
                                 GraphicPipelineToSurface* lightGraphics, DisplayManager* dm, VkFramebuffer swapchainFramebuffer);
 void            recordGraphicsCommandBuffer(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,

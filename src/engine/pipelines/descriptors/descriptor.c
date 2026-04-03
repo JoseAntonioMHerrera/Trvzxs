@@ -3,9 +3,7 @@
 #include "vertex.h"
 #include <assert.h>
 #include "particle.h"
-
-const int WINDOW_WIDTH  = 640;
-const int WINDOW_HEIGHT = 480;
+#include "graphicConfiguration.h"
 
 void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineToSurface* gdp)
 {

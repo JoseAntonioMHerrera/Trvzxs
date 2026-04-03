@@ -33,45 +33,6 @@ void createSyncObjects(GraphicPipelineToSurface* gd, VkDevice* device)
         }
     }
 }
-void createSyncObjectsForGraphicAndCompute(GraphicPipelineToSurface* gp, VkDevice* device)
-{
-    VkSemaphoreCreateInfo semaphoreInfo = {
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-    };
-
-    VkFenceCreateInfo fenceInfo = {
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-    };
-    assert(gp->commandLen >= 2);
-
-    gp->imgViewSemaphore = malloc(sizeof(VkSemaphore) * gp->commandLen);
-    gp->renderEndFlag    = malloc(sizeof(VkSemaphore) * gp->commandLen);
-    gp->inFlightFence    = malloc(sizeof(VkFence) * gp->commandLen);
-
-    gp->computeP->computeEndSemaphore   = malloc(sizeof(VkSemaphore) * gp->commandLen);
-    gp->computeP->computeReadySemaphore = malloc(sizeof(VkSemaphore) * gp->commandLen);
-    gp->computeP->computeInFlightFence  = malloc(sizeof(VkFence) * gp->commandLen);
-
-    assert(gp->inFlightFence);
-    assert(gp->renderEndFlag);
-    assert(gp->imgViewSemaphore);
-
-    for (uint32_t i = 0; i < gp->commandLen; i++)
-    {
-        if (vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gp->imgViewSemaphore[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gp->renderEndFlag[i]) != VK_SUCCESS ||
-            vkCreateFence(*device, &fenceInfo, NULL, &gp->inFlightFence[i]) != VK_SUCCESS)
-        {
-        }
-
-        if (vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gp->computeP->computeEndSemaphore[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gp->computeP->computeReadySemaphore[i]) != VK_SUCCESS ||
-            vkCreateFence(*device, &fenceInfo, NULL, &gp->computeP->computeInFlightFence[i]) != VK_SUCCESS)
-        {
-        }
-    }
-}
 
 void fillParticleVertexBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,
                                            size_t stride)

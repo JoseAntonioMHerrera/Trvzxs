@@ -242,7 +242,7 @@ static void rgComputeBarriers(RenderGraph* rg)
         pass->barrierSrcStageMask = 0;
         pass->barrierDstStageMask = 0;
 
-        // Check each input: does the resource need a layout transition?
+        // Check each input: does the resource need a barrier?
         for (uint32_t i = 0; i < pass->inputCount; i++)
         {
             RGResourceUsage* usage = &pass->inputs[i];
@@ -293,6 +293,35 @@ static void rgComputeBarriers(RenderGraph* rg)
                 pass->imageBarriers[pass->imageBarrierCount++]         = barrier;
 
                 res->currentLayout = usage->layout;
+            }
+            else if (res->type == RG_BUFFER && res->lastWriterPass != UINT32_MAX)
+            {
+                VkBufferMemoryBarrier barrier = {
+                    .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .buffer              = res->buffer,
+                    .offset              = 0,
+                    .size                = VK_WHOLE_SIZE,
+                };
+
+                RGPass* writerPass = &rg->passes[res->lastWriterPass];
+                for (uint32_t o = 0; o < writerPass->outputCount; o++)
+                {
+                    if (writerPass->outputs[o].resourceIndex == usage->resourceIndex)
+                    {
+                        barrier.srcAccessMask = writerPass->outputs[o].accessMask;
+                        pass->barrierSrcStageMask |= writerPass->outputs[o].stageMask;
+                        break;
+                    }
+                }
+
+                barrier.dstAccessMask = usage->accessMask;
+                pass->barrierDstStageMask |= usage->stageMask;
+
+                assert(pass->bufferBarrierCount < RG_MAX_BARRIERS_PER_PASS);
+                pass->bufferBarrierResourceIdx[pass->bufferBarrierCount] = usage->resourceIndex;
+                pass->bufferBarriers[pass->bufferBarrierCount++]         = barrier;
             }
         }
 
@@ -654,13 +683,18 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
         uint32_t passIdx = rg->executionOrder[orderIdx];
         RGPass*  pass    = &rg->passes[passIdx];
 
-        // Update barrier image handles for external resources whose VkImage
-        // changes per frame (e.g. swapchain color attachment)
+        // Update barrier handles for external resources whose VkImage/VkBuffer
+        // changes per frame (e.g. swapchain color, double-buffered SSBOs)
         for (uint32_t b = 0; b < pass->imageBarrierCount; b++)
         {
             RGResource* res = &rg->resources[pass->imageBarrierResourceIdx[b]];
             if (res->type == RG_IMAGE && res->isExternal)
                 pass->imageBarriers[b].image = res->image;
+        }
+        for (uint32_t b = 0; b < pass->bufferBarrierCount; b++)
+        {
+            RGResource* res = &rg->resources[pass->bufferBarrierResourceIdx[b]];
+            pass->bufferBarriers[b].buffer = res->buffer;
         }
 
         // Insert pre-pass barriers
@@ -827,6 +861,7 @@ static void rgPrintAccess(VkAccessFlags a)
     if (a & VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT)    fprintf(stderr, "DEPTH_R ");
     if (a & VK_ACCESS_SHADER_READ_BIT)                      fprintf(stderr, "SHADER_R ");
     if (a & VK_ACCESS_SHADER_WRITE_BIT)                     fprintf(stderr, "SHADER_W ");
+    if (a & VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT)            fprintf(stderr, "VERTEX_ATTR_R ");
     if (a & VK_ACCESS_INPUT_ATTACHMENT_READ_BIT)            fprintf(stderr, "INPUT_R ");
     if (a & VK_ACCESS_TRANSFER_READ_BIT)                    fprintf(stderr, "XFER_R ");
     if (a & VK_ACCESS_TRANSFER_WRITE_BIT)                   fprintf(stderr, "XFER_W ");
@@ -852,19 +887,30 @@ void rgDumpCompiled(const RenderGraph* rg)
         const RGResource* res = &rg->resources[r];
         if (!res->isActive)
             continue;
-        fprintf(stderr, "│ [%u] %s  fmt=%-20s samples=%u  aspect=%s%s\n",
-                r,
-                res->isExternal ? "EXTERNAL" : "TRANSIENT",
-                rgFormatStr(res->format),
-                res->samples,
-                (res->aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) ? "DEPTH" : "COLOR",
-                (res->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? "|STENCIL" : "");
-        fprintf(stderr, "│       image=%p  imageView=%p  size=%s",
-                (void*) res->image, (void*) res->imageView,
-                res->sizeMode == RG_SIZE_SWAPCHAIN ? "SWAPCHAIN" : "FIXED");
-        if (res->sizeMode == RG_SIZE_FIXED)
-            fprintf(stderr, " (%ux%u)", res->width, res->height);
-        fprintf(stderr, "\n");
+        if (res->type == RG_IMAGE)
+        {
+            fprintf(stderr, "│ [%u] %s IMAGE  fmt=%-20s samples=%u  aspect=%s%s\n",
+                    r,
+                    res->isExternal ? "EXTERNAL" : "TRANSIENT",
+                    rgFormatStr(res->format),
+                    res->samples,
+                    (res->aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) ? "DEPTH" : "COLOR",
+                    (res->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? "|STENCIL" : "");
+            fprintf(stderr, "│       image=%p  imageView=%p  size=%s",
+                    (void*) res->image, (void*) res->imageView,
+                    res->sizeMode == RG_SIZE_SWAPCHAIN ? "SWAPCHAIN" : "FIXED");
+            if (res->sizeMode == RG_SIZE_FIXED)
+                fprintf(stderr, " (%ux%u)", res->width, res->height);
+            fprintf(stderr, "\n");
+        }
+        else
+        {
+            fprintf(stderr, "│ [%u] %s BUFFER  buffer=%p  size=%llu\n",
+                    r,
+                    res->isExternal ? "EXTERNAL" : "TRANSIENT",
+                    (void*) res->buffer,
+                    (unsigned long long) res->bufferSize);
+        }
     }
     fprintf(stderr, "└────────────────────────────────────────────────────────────────────\n\n");
 
@@ -949,6 +995,27 @@ void rgDumpCompiled(const RenderGraph* rg)
         else
         {
             fprintf(stderr, "│  IMAGE BARRIERS: (none)\n");
+        }
+
+        if (pass->bufferBarrierCount > 0)
+        {
+            fprintf(stderr, "│  BUFFER BARRIERS (%u):\n", pass->bufferBarrierCount);
+            fprintf(stderr, "│    srcStages=");
+            rgPrintStages(pass->barrierSrcStageMask);
+            fprintf(stderr, "\n│    dstStages=");
+            rgPrintStages(pass->barrierDstStageMask);
+            fprintf(stderr, "\n");
+            for (uint32_t b = 0; b < pass->bufferBarrierCount; b++)
+            {
+                const VkBufferMemoryBarrier* bar = &pass->bufferBarriers[b];
+                fprintf(stderr, "│    barrier[%u]: res=%u  buffer=%p\n",
+                        b, pass->bufferBarrierResourceIdx[b], (void*) bar->buffer);
+                fprintf(stderr, "│      srcAccess=");
+                rgPrintAccess(bar->srcAccessMask);
+                fprintf(stderr, "  dstAccess=");
+                rgPrintAccess(bar->dstAccessMask);
+                fprintf(stderr, "\n");
+            }
         }
 
         // Framebuffer info

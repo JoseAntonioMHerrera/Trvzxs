@@ -122,6 +122,7 @@ struct RGPass
     uint32_t              imageBarrierResourceIdx[RG_MAX_BARRIERS_PER_PASS];
     uint32_t              imageBarrierCount;
     VkBufferMemoryBarrier bufferBarriers[RG_MAX_BARRIERS_PER_PASS];
+    uint32_t              bufferBarrierResourceIdx[RG_MAX_BARRIERS_PER_PASS];
     uint32_t              bufferBarrierCount;
 
     VkPipelineStageFlags barrierSrcStageMask;
@@ -152,4 +153,6 @@ typedef struct RenderGraph
 
     bool isCompiled;
     bool debugLog;
+
+    float deltaTime;
 } RenderGraph;

@@ -10,8 +10,6 @@
 typedef struct RenderGraph RenderGraph;
 void  drawFrame(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp,
 GraphicPipelineToSurface *particleGraphics, GraphicPipelineToSurface* lightGraphics, VkDevice device, SDL_Window *window, float deltaTime, Camera3D camera, RenderGraph* rg);
-void firstFrameInitialPassCompute(PhysicalDevice *pd, LogicalDevice *ld, DisplayManager *dm, GraphicPipelineToSurface *gdp,
-GraphicPipelineToSurface *particleGraphics, VkDevice device);
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp);
 
 void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* window);

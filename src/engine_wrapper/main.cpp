@@ -238,7 +238,6 @@ int main()
         int initialMouseX, initialMouseY;
         int initialWidth, initialHeight;
         double lastFrameTime = getCurrentTime();
-        engine->firstFrameInitialPass();
         while (running)
         {
             double currentTime = getCurrentTime();

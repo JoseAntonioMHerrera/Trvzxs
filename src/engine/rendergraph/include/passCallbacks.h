@@ -8,3 +8,4 @@
 void executeModelPass(VkCommandBuffer cmd, const RGPass* pass, void* userData);
 void executeLightPass(VkCommandBuffer cmd, const RGPass* pass, void* userData);
 void executeParticlePass(VkCommandBuffer cmd, const RGPass* pass, void* userData);
+void executeParticleComputePass(VkCommandBuffer cmd, const RGPass* pass, void* userData);

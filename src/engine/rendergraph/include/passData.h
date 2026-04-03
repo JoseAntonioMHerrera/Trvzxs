@@ -2,6 +2,8 @@
 
 typedef struct GraphicPipelineToSurface GraphicPipelineToSurface;
 typedef struct DisplayManager           DisplayManager;
+typedef struct PhysicalDevice           PhysicalDevice;
+typedef struct LogicalDevice            LogicalDevice;
 
 // Per-pass userData structs — passed to RGPassExecuteFn callbacks via void* userData.
 // Each pass callback casts userData to the appropriate type to access its pipeline,
@@ -24,3 +26,12 @@ typedef struct ParticlePassData
     GraphicPipelineToSurface* pipeline;
     DisplayManager*           dm;
 } ParticlePassData;
+
+typedef struct ComputePassData
+{
+    GraphicPipelineToSurface* pipeline;
+    DisplayManager*           dm;
+    PhysicalDevice*           pd;
+    LogicalDevice*            ld;
+    float*                    deltaTime;
+} ComputePassData;

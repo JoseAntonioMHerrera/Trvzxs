@@ -45,6 +45,7 @@ private:
     ModelPassData modelPassData;
     LightPassData lightPassData;
     ParticlePassData particlePassData;
+    ComputePassData computePassData;
 
 public:
     void initVkInstance(SDL_Window *window)
@@ -393,8 +394,7 @@ public:
         std::cout << "RETORNO COMPUTEPIPELINE" << '\n';
         std::cout << "RETORNO COMMANDBUFFER" << '\n';
         createSyncObjects(gdp, &ld->device);
-        createSyncObjectsForGraphicAndCompute(particleGraphicPipeline,
-                                              &ld->device);
+        createSyncObjects(particleGraphicPipeline, &ld->device);
         std::cout << "RETORNO SYNC" << '\n';
 
         createGeometryBuffer(pd, ld, gdp->deviceBuffer, gdp->scene,
@@ -564,6 +564,53 @@ public:
         };
         rgPassSetCallback(&this->renderGraph, pParticles, executeParticlePass, &this->particlePassData);
 
+        // Resources 4-5: Particle SSBO double buffers (external, per-frame)
+        SSBOBufferManager* ssbos = particleGraphicPipeline->computeP->deviceBuffer->ssbos;
+        uint32_t rSSBOPrev = rgAddExternalResource(&this->renderGraph, (RGResource){
+            .type       = RG_BUFFER,
+            .buffer     = ssbos->buffers[0],
+            .bufferSize = VK_WHOLE_SIZE,
+            .isExternal = true,
+        });
+        uint32_t rSSBOCurr = rgAddExternalResource(&this->renderGraph, (RGResource){
+            .type       = RG_BUFFER,
+            .buffer     = ssbos->buffers[1],
+            .bufferSize = VK_WHOLE_SIZE,
+            .isExternal = true,
+        });
+
+        // Pass 3: Particle compute — reads prev SSBO, writes curr SSBO
+        uint32_t pParticleCompute = rgAddPass(&this->renderGraph, RG_PASS_COMPUTE);
+        rgPassAddInput(&this->renderGraph, pParticleCompute, (RGResourceUsage){
+            .resourceIndex = rSSBOPrev,
+            .accessMask    = VK_ACCESS_SHADER_READ_BIT,
+            .stageMask     = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            .access        = RG_READ,
+        });
+        rgPassAddOutput(&this->renderGraph, pParticleCompute, (RGResourceUsage){
+            .resourceIndex = rSSBOCurr,
+            .accessMask    = VK_ACCESS_SHADER_WRITE_BIT,
+            .stageMask     = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            .access        = RG_WRITE,
+        });
+
+        this->computePassData = (ComputePassData){
+            .pipeline  = particleGraphicPipeline,
+            .dm        = dispM,
+            .pd        = pd,
+            .ld        = ld,
+            .deltaTime = &this->renderGraph.deltaTime,
+        };
+        rgPassSetCallback(&this->renderGraph, pParticleCompute, executeParticleComputePass, &this->computePassData);
+
+        // Particle render pass also reads the current SSBO (vertex input)
+        rgPassAddInput(&this->renderGraph, pParticles, (RGResourceUsage){
+            .resourceIndex = rSSBOCurr,
+            .accessMask    = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+            .stageMask     = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+            .access        = RG_READ,
+        });
+
         // Compile: topological sort + barrier generation
         rgCompile(&this->renderGraph);
 
@@ -578,20 +625,6 @@ public:
     // TODO: Bulk init of everything, refactor onDemand
     MetaEngine()
     {
-    };
-
-    void firstFrameInitialPass()
-    {
-        DeviceManager *deviceManager = this->deviceManager.getStruct();
-        firstFrameInitialPassCompute(
-            deviceManager->pDevice,
-            deviceManager
-                ->lDevice[0], // TODO hay que usar
-                              // deviceManager->deviceIndex y gpuIndex
-            deviceManager->lDevice[0]->displayManager,
-            &deviceManager->lDevice[0]->displayManager->graphicPipeline[0],
-            &deviceManager->lDevice[0]->displayManager->graphicPipeline[1],
-            deviceManager->lDevice[0]->device);
     };
 
     void metaCleanup()
