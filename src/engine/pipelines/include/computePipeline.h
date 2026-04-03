@@ -42,11 +42,6 @@ typedef struct ComputePipeline
     VkVertexInputAttributeDescription* objectIAD;
     size_t                             objectIADLen;
 
-    // SYNC //
-    VkSemaphore* computeEndSemaphore;
-    VkSemaphore* computeReadySemaphore;
-    VkFence*     computeInFlightFence;
-
     // SHADERS
     VkShaderModule* computeShader;
 } ComputePipeline;
@@ -54,6 +49,3 @@ void createOcclusionCullingComputePipeline(ComputePipeline* computeP, VkDevice d
 void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device);
 void createModelSkinningComputePipeline(ComputePipeline* computeP, DisplayManager* dm, VkDevice* device);
 void createPostProcComputePipeline(ComputePipeline* computeP, DisplayManager* dm, VkDevice* device);
-void recordParticleCommandBuffer(GraphicPipelineToSurface* computeP, PhysicalDevice* pd, LogicalDevice* ld,
-                                 VkPipelineLayout layout, VkDescriptorSet* descriptorSet, uint32_t imageIndex,
-                                 float deltaTime);

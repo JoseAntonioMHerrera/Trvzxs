@@ -2,6 +2,9 @@
 #include "passData.h"
 #include "geometryPipelineTypes.h"
 #include "deviceManagmentTypes.h"
+#include "computePipeline.h"
+#include "particle.h"
+#include <math.h>
 
 // ---------------------------------------------------------------------------
 // Model pass — extracted from startRenderPass() subpass 0
@@ -142,4 +145,39 @@ void executeParticlePass(VkCommandBuffer cmd, const RGPass* pass, void* userData
         vkCmdDrawIndexed(cmd, scene->particleManager.packedParticleIndicesLen,
                          scene->particleManager.pParticleGroup[g].particleInstancesLen, 0, 0, 0);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Particle compute pass — extracted from recordParticleCommandBuffer()
+// ---------------------------------------------------------------------------
+
+void executeParticleComputePass(VkCommandBuffer cmd, const RGPass* pass, void* userData)
+{
+    ComputePassData*          data     = (ComputePassData*) userData;
+    GraphicPipelineToSurface* pipeline = data->pipeline;
+    ComputePipeline*          computeP = pipeline->computeP;
+    uint32_t                  frame    = data->dm->currentFrame;
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *computeP->pipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline->pipelineLayout, 0, 1,
+                            &pipeline->descriptorSet[frame], 0, 0);
+
+    float deltaTime = *data->deltaTime;
+    vkCmdUpdateBuffer(cmd, *computeP->deviceBuffer->pUbo->uniformBuffers, 0, sizeof(float), &deltaTime);
+
+    // Transfer→compute barrier for the UBO update
+    VkBufferMemoryBarrier uboBarrier = {
+        .sType         = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
+        .buffer        = *computeP->deviceBuffer->pUbo->uniformBuffers,
+        .offset        = 0,
+        .size          = sizeof(float),
+    };
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 1,
+                         &uboBarrier, 0, NULL);
+
+    uint32_t xWorkDivision = (uint32_t) floor(pipeline->scene->particleManager.packedParticleInstanceLen / 256);
+    vkCmdDispatch(cmd, xWorkDivision ? xWorkDivision : 1, 1, 1);
 }
