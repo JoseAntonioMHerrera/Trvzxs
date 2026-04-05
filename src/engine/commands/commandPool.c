@@ -32,7 +32,7 @@ void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, Graphic
 void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipelineToSurface* gdp){
         VkCommandPoolCreateInfo computePoolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = pd->queueFamilyIndices.computeFamily,
     };
 

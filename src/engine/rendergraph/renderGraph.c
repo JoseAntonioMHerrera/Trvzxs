@@ -304,8 +304,8 @@ static void rgComputeBarriers(RenderGraph* rg)
                     .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                     .oldLayout           = res->currentLayout,
                     .newLayout           = usage->layout,
-                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .srcQueueFamilyIndex = crossQueue ? srcQueueFamily : VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = crossQueue ? dstQueueFamily : VK_QUEUE_FAMILY_IGNORED,
                     .image               = res->image,
                     .subresourceRange    = {
                         .aspectMask     = res->aspectMask,
@@ -322,7 +322,8 @@ static void rgComputeBarriers(RenderGraph* rg)
                     {
                         if (writerPass->outputs[o].resourceIndex == usage->resourceIndex)
                         {
-                            barrier.srcAccessMask = writerPass->outputs[o].accessMask;
+                            // Cross-queue acquire: srcAccess=0 (release side handles it)
+                            barrier.srcAccessMask = crossQueue ? 0 : writerPass->outputs[o].accessMask;
                             pass->barrierSrcStageMask |= writerPass->outputs[o].stageMask;
                             break;
                         }
@@ -372,8 +373,8 @@ static void rgComputeBarriers(RenderGraph* rg)
             {
                 VkBufferMemoryBarrier barrier = {
                     .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .srcQueueFamilyIndex = crossQueue ? srcQueueFamily : VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = crossQueue ? dstQueueFamily : VK_QUEUE_FAMILY_IGNORED,
                     .buffer              = res->buffer,
                     .offset              = 0,
                     .size                = VK_WHOLE_SIZE,
@@ -383,7 +384,8 @@ static void rgComputeBarriers(RenderGraph* rg)
                 {
                     if (writerPass->outputs[o].resourceIndex == usage->resourceIndex)
                     {
-                        barrier.srcAccessMask = writerPass->outputs[o].accessMask;
+                        // Cross-queue acquire: srcAccess=0 (release side handles it)
+                        barrier.srcAccessMask = crossQueue ? 0 : writerPass->outputs[o].accessMask;
                         pass->barrierSrcStageMask |= writerPass->outputs[o].stageMask;
                         break;
                     }
@@ -442,7 +444,7 @@ static void rgComputeBarriers(RenderGraph* rg)
 // Render pass creation (per graphics pass)
 // ---------------------------------------------------------------------------
 
-static void rgCreateRenderPassForPass(RenderGraph* rg, RGPass* pass)
+static void rgCreateRenderPassForRGPass(RenderGraph* rg, RGPass* pass)
 {
     VkAttachmentDescription2 attachments[RG_MAX_RESOURCE_USAGES * 2];
     VkAttachmentReference2   colorRefs[RG_MAX_RESOURCE_USAGES];
@@ -756,7 +758,7 @@ void rgCompile(RenderGraph* rg)
     {
         if (rg->passes[p].type == RG_PASS_GRAPHICS)
         {
-            rgCreateRenderPassForPass(rg, &rg->passes[p]);
+            rgCreateRenderPassForRGPass(rg, &rg->passes[p]);
             rgCreateFramebuffersForPass(rg, &rg->passes[p]);
         }
     }
@@ -771,14 +773,21 @@ void rgCompile(RenderGraph* rg)
 // Execute (per-frame)
 // ---------------------------------------------------------------------------
 
-void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
+void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB, uint32_t frameIndex)
 {
     assert(rg->isCompiled);
+    rg->hasComputeWork = false;
 
     for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
     {
         uint32_t passIdx = rg->executionOrder[orderIdx];
         RGPass*  pass    = &rg->passes[passIdx];
+
+        // Select command buffer based on queue type
+        VkCommandBuffer cmd = (pass->queueType == RG_QUEUE_COMPUTE) ? computeCB : graphicsCB;
+
+        if (pass->queueType == RG_QUEUE_COMPUTE)
+            rg->hasComputeWork = true;
 
         // Update barrier handles for external resources whose VkImage/VkBuffer
         // changes per frame (e.g. swapchain color, double-buffered SSBOs)
@@ -794,7 +803,7 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
             pass->bufferBarriers[b].buffer = res->buffer;
         }
 
-        // Insert pre-pass barriers
+        // Insert pre-pass acquire barriers on the DESTINATION queue's CB
         if (pass->imageBarrierCount > 0 || pass->bufferBarrierCount > 0)
         {
             vkCmdPipelineBarrier(
@@ -884,10 +893,137 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex)
                 pass->execute(cmd, pass, pass->userData);
         }
 
-        // NOTE: Release barriers (queue ownership transfer — source side) are
-        // pre-computed but NOT emitted here. They will be emitted in Step 6
-        // when rgExecute() splits into per-queue command buffers.
+        // Emit release barriers on the SOURCE queue's CB (queue ownership transfer)
+        if (pass->releaseImageBarrierCount > 0 || pass->releaseBufferBarrierCount > 0)
+        {
+            for (uint32_t b = 0; b < pass->releaseImageBarrierCount; b++)
+            {
+                RGResource* res = &rg->resources[pass->releaseImageBarrierResourceIdx[b]];
+                if (res->isExternal)
+                    pass->releaseImageBarriers[b].image = res->image;
+            }
+            for (uint32_t b = 0; b < pass->releaseBufferBarrierCount; b++)
+            {
+                RGResource* res = &rg->resources[pass->releaseBufferBarrierResourceIdx[b]];
+                pass->releaseBufferBarriers[b].buffer = res->buffer;
+            }
+
+            vkCmdPipelineBarrier(
+                cmd,
+                pass->releaseSrcStageMask ? pass->releaseSrcStageMask : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                pass->releaseDstStageMask ? pass->releaseDstStageMask : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                0,
+                0, NULL,
+                pass->releaseBufferBarrierCount, pass->releaseBufferBarriers,
+                pass->releaseImageBarrierCount, pass->releaseImageBarriers);
+        }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Submit (per-frame, after rgExecute)
+// ---------------------------------------------------------------------------
+
+void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB,
+              FrameSync* sync, VkSemaphore imageAvailable, VkSemaphore presentReady)
+{
+    if (rg->hasComputeWork)
+    {
+        sync->computeValue++;
+
+        // Compute queue waits for frame pacing only — don't overwrite SSBOs
+        // from a frame that's still in flight on the graphics queue.
+        uint64_t computeWaitValue  = 0;
+        uint32_t computeWaitCount  = 0;
+        VkSemaphore              computeWaitSemaphores[1];
+        VkPipelineStageFlags     computeWaitStages[1];
+        uint64_t                 computeWaitValues[1];
+
+        if (sync->graphicsValue >= sync->maxFramesInFlight)
+        {
+            computeWaitValue         = sync->graphicsValue - sync->maxFramesInFlight + 1;
+            computeWaitSemaphores[0] = sync->graphicsTimeline;
+            computeWaitStages[0]     = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            computeWaitValues[0]     = computeWaitValue;
+            computeWaitCount         = 1;
+        }
+
+        uint64_t computeSignalValue = sync->computeValue;
+
+        VkTimelineSemaphoreSubmitInfo computeTimelineInfo = {
+            .sType                     = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
+            .waitSemaphoreValueCount   = computeWaitCount,
+            .pWaitSemaphoreValues      = computeWaitValues,
+            .signalSemaphoreValueCount = 1,
+            .pSignalSemaphoreValues    = &computeSignalValue,
+        };
+
+        VkSubmitInfo computeSubmit = {
+            .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext                = &computeTimelineInfo,
+            .waitSemaphoreCount   = computeWaitCount,
+            .pWaitSemaphores      = computeWaitSemaphores,
+            .pWaitDstStageMask    = computeWaitStages,
+            .commandBufferCount   = 1,
+            .pCommandBuffers      = &computeCB,
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores    = &sync->computeTimeline,
+        };
+
+        VkResult result = vkQueueSubmit(rg->computeQueue, 1, &computeSubmit, VK_NULL_HANDLE);
+        assert(result == VK_SUCCESS);
+    }
+
+    // Graphics queue submission
+    sync->graphicsValue++;
+
+    // Graphics waits for: swapchain image + compute completion (if any)
+    VkSemaphore          graphicsWaitSemaphores[2];
+    VkPipelineStageFlags graphicsWaitStages[2];
+    uint64_t             graphicsWaitValues[2];
+    uint32_t             graphicsWaitCount = 0;
+
+    // Wait for swapchain image (binary semaphore — timeline value must be 0)
+    graphicsWaitSemaphores[graphicsWaitCount] = imageAvailable;
+    graphicsWaitStages[graphicsWaitCount]     = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    graphicsWaitValues[graphicsWaitCount]     = 0; // binary semaphore: ignored
+    graphicsWaitCount++;
+
+    // Wait for compute to finish (if any compute work this frame)
+    if (rg->hasComputeWork)
+    {
+        graphicsWaitSemaphores[graphicsWaitCount] = sync->computeTimeline;
+        graphicsWaitStages[graphicsWaitCount]     = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+        graphicsWaitValues[graphicsWaitCount]     = sync->computeValue;
+        graphicsWaitCount++;
+    }
+
+    // Graphics signals: graphics timeline + presentReady (binary)
+    VkSemaphore graphicsSignalSemaphores[2] = {sync->graphicsTimeline, presentReady};
+    uint64_t    graphicsSignalValues[2]     = {sync->graphicsValue, 0}; // 0 for binary
+
+    VkTimelineSemaphoreSubmitInfo graphicsTimelineInfo = {
+        .sType                     = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
+        .waitSemaphoreValueCount   = graphicsWaitCount,
+        .pWaitSemaphoreValues      = graphicsWaitValues,
+        .signalSemaphoreValueCount = 2,
+        .pSignalSemaphoreValues    = graphicsSignalValues,
+    };
+
+    VkSubmitInfo graphicsSubmit = {
+        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext                = &graphicsTimelineInfo,
+        .waitSemaphoreCount   = graphicsWaitCount,
+        .pWaitSemaphores      = graphicsWaitSemaphores,
+        .pWaitDstStageMask    = graphicsWaitStages,
+        .commandBufferCount   = 1,
+        .pCommandBuffers      = &graphicsCB,
+        .signalSemaphoreCount = 2,
+        .pSignalSemaphores    = graphicsSignalSemaphores,
+    };
+
+    VkResult result = vkQueueSubmit(rg->graphicsQueue, 1, &graphicsSubmit, VK_NULL_HANDLE);
+    assert(result == VK_SUCCESS);
 }
 
 // ---------------------------------------------------------------------------

@@ -12,13 +12,10 @@
 typedef struct DisplayManager
 {
     VkSurfaceKHR              surface;
-    VkFence                   inFlightFence;
     uint32_t                  currentFrame;
     GraphicPipelineToSurface* graphicPipeline;
     uint32_t                  graphicsPipelineLen;
-    // void* getField;
-    // void* (*drawFrame)(uint8_t currentFrame);
-} DisplayManager; // TODO: remove this struct and move it to graphicPipelineToSurface struct
+} DisplayManager;
 
 typedef struct LogicalDevice
 {
