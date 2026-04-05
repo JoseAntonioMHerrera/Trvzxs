@@ -5,6 +5,7 @@
 extern "C"
 {
 #include "scene.h"
+#include "transform.h"
 }
 
 void sceneDeletor(SCENE *scene) {
@@ -318,21 +319,23 @@ public:
 
         // free(instanceData);
     }
-    // TODO adaptar al estilo de initInstanceLightVolumes
     void initInstanceDataModel(Model3D *pModel, uint32_t instanceCount)
     {
-        pModel->pModelInstance = (Model3DInstance *)malloc(sizeof(Model3DInstance) * instanceCount);
+        pModel->pModelInstance = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
 
         for (uint32_t instanceIndex = 0; instanceIndex < instanceCount; instanceIndex++)
         {
+            Model3DInstance *inst = &pModel->pModelInstance[instanceIndex];
+            instanceInitTransform(inst);
+            inst->alive = INSTANCE_ALIVE;
+            inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
 
-            Model3DInstance *modelInstance = (Model3DInstance *)malloc(sizeof(Model3DInstance));
-            vec3 vRPosition = {(instanceIndex == 0 ? 5.0f : 0.0f), (instanceIndex == 0 ? 0.0f : 0.0f), 0.0f};
-            glm_translate_make(modelInstance->m, vRPosition);
-            vec3 vRScale = {1.0f, 1.0f, 1.0f};
-            modelInstance->alive = 1.0;
-            glm_scale(modelInstance->m, vRScale);
-            pModel->pModelInstance[instanceIndex] = *modelInstance;
+            // Instance 0 offset to the right so both models are visible
+            if (instanceIndex == 0)
+            {
+                vec3 pos = {5.0f, 0.0f, 0.0f};
+                instanceSetPosition(inst, pos);
+            }
         }
         pModel->instanceCount = instanceCount;
     }

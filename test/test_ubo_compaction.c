@@ -1,6 +1,7 @@
 #include "test_harness.h"
 #include "test_helpers.h"
 #include "uniformBuffer.h"
+#include "transform.h"
 
 // ---------------------------------------------------------------------------
 // Helpers — fake GraphicSwapchain with only currentExtent2D set
@@ -175,16 +176,13 @@ void test_compaction_preserves_correct_transforms(void)
     GraphicSwapchain sc   = make_fake_swapchain();
     Camera3D        cam   = make_test_camera();
 
-    // Set distinct model matrices so we can verify which survived compaction
-    // Instance 0: translate X=1
-    glm_mat4_identity(scene->modelsManager.pModel[0].pModelInstance[0].m);
-    glm_translate_x(scene->modelsManager.pModel[0].pModelInstance[0].m, 1.0f);
-    // Instance 1: translate X=2 (will be killed)
-    glm_mat4_identity(scene->modelsManager.pModel[0].pModelInstance[1].m);
-    glm_translate_x(scene->modelsManager.pModel[0].pModelInstance[1].m, 2.0f);
-    // Instance 2: translate X=3
-    glm_mat4_identity(scene->modelsManager.pModel[0].pModelInstance[2].m);
-    glm_translate_x(scene->modelsManager.pModel[0].pModelInstance[2].m, 3.0f);
+    // Set distinct positions so we can verify which survived compaction
+    // Instance 0: position X=1
+    instanceSetPosition(&scene->modelsManager.pModel[0].pModelInstance[0], (vec3){1.0f, 0.0f, 0.0f});
+    // Instance 1: position X=2 (will be killed)
+    instanceSetPosition(&scene->modelsManager.pModel[0].pModelInstance[1], (vec3){2.0f, 0.0f, 0.0f});
+    // Instance 2: position X=3
+    instanceSetPosition(&scene->modelsManager.pModel[0].pModelInstance[2], (vec3){3.0f, 0.0f, 0.0f});
 
     // Kill instance 1
     scene->modelsManager.pModel[0].pModelInstance[1].alive = INSTANCE_DESTROYED;

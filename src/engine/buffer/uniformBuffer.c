@@ -1,5 +1,6 @@
 #include "uniformBuffer.h"
 #include "camera.h"
+#include "transform.h"
 
 MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene)
 {
@@ -47,6 +48,8 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
                 continue;
             }
 
+            // Rebuild model matrix from decomposed TRS components
+            instanceBuildMatrix(&model->pModelInstance[instanceIdx]);
             glm_mat4_copy(model->pModelInstance[instanceIdx].m, pTransformations[transformationsIdx].model);
 
             vec4 view;

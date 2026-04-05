@@ -1,6 +1,7 @@
 #include "test_helpers.h"
 #include "model.h"
 #include "light.h"
+#include "transform.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,8 +27,8 @@ Models3DManager make_test_manager(uint32_t modelCount, uint32_t instancesPerMode
 
         for (uint32_t i = 0; i < instancesPerModel; i++)
         {
-            model->pModelInstance[i].alive = INSTANCE_ALIVE;
-            glm_mat4_identity(model->pModelInstance[i].m);
+            instanceInitTransform(&model->pModelInstance[i]);
+            model->pModelInstance[i].alive   = INSTANCE_ALIVE;
             model->pModelInstance[i].color.r = 1.0f;
             model->pModelInstance[i].color.g = 1.0f;
             model->pModelInstance[i].color.b = 1.0f;
