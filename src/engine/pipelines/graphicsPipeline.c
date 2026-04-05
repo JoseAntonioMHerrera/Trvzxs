@@ -11,24 +11,17 @@ void createSyncObjects(GraphicPipelineToSurface* gd, VkDevice* device)
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
 
-    VkFenceCreateInfo fenceInfo = {
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-    };
     assert(gd->commandLen >= 2);
     gd->imgViewSemaphore = malloc(sizeof(VkSemaphore) * gd->commandLen);
     gd->renderEndFlag    = malloc(sizeof(VkSemaphore) * gd->commandLen);
-    gd->inFlightFence    = malloc(sizeof(VkFence) * gd->commandLen);
 
-    assert(gd->inFlightFence);
     assert(gd->renderEndFlag);
     assert(gd->imgViewSemaphore);
 
     for (uint32_t i = 0; i < gd->commandLen; i++)
     {
         if (vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->imgViewSemaphore[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->renderEndFlag[i]) != VK_SUCCESS ||
-            vkCreateFence(*device, &fenceInfo, NULL, &gd->inFlightFence[i]) != VK_SUCCESS)
+            vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->renderEndFlag[i]) != VK_SUCCESS)
         {
         }
     }
@@ -66,39 +59,6 @@ void fillParticleVertexInputAttributeDescription(VkVertexInputAttributeDescripti
     (*objectsIAD)[2].offset   = offsetof(TrzVertex, bary);
 }
 
-void recordGraphicsCommandBuffer(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,
-                                 GraphicPipelineToSurface* lightGraphics, DisplayManager* dm, uint32_t imageIndex,
-                                 PhysicalDevice* pd)
-{
-    VkCommandBufferBeginInfo beginInfo = {
-        .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags            = 0,    // Optional
-        .pInheritanceInfo = NULL, // Optional
-    };
-
-    if (vkBeginCommandBuffer(gdp->commandBuffer[imageIndex], &beginInfo) != VK_SUCCESS)
-    {
-    }
-
-    // TODO generalizar el recuperar los recursos de distintas fuentes
-    VkBufferMemoryBarrier acquireBarrier = {.sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-                                            .srcAccessMask       = 0, // No access needed for acquire
-                                            .dstAccessMask       = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
-                                            .srcQueueFamilyIndex = pd->queueFamilyIndices.computeFamily,
-                                            .dstQueueFamilyIndex = pd->queueFamilyIndices.graphicsFamily,
-                                            .buffer =
-                                                particleGraphics->computeP->deviceBuffer->ssbos->buffers[imageIndex],
-                                            .offset = 0,
-                                            .size   = VK_WHOLE_SIZE};
-
-    vkCmdPipelineBarrier(gdp->commandBuffer[imageIndex], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                         VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, NULL, 1, &acquireBarrier, 0, NULL);
-    startRenderPass(gdp, particleGraphics, lightGraphics, dm,
-                    dm->graphicPipeline->swapchain->p_framebuffers[imageIndex]);
-    transitionImageLayout(VK_NULL_HANDLE, VK_NULL_HANDLE, gdp->swapchain->p_scImages[dm->currentFrame],
-                          gdp->swapchain->currentSurfaceFormat->format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 1, gdp->commandBuffer[imageIndex]);
-}
 
 VkShaderModule* createShaderModule(VkDevice device, char** code, size_t codeSize)
 {
@@ -202,134 +162,6 @@ void fillLightVolumeVertexInputAttributeDescription(VkVertexInputAttributeDescri
     (*objectsIAD)[1].location = 1;
     (*objectsIAD)[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
     (*objectsIAD)[1].offset   = offsetof(GEOM_VERTEX, bary);
-}
-void startRenderPass(GraphicPipelineToSurface* gdp, GraphicPipelineToSurface* particleGraphics,
-                     GraphicPipelineToSurface* lightGraphics, DisplayManager* dm, VkFramebuffer swapchainFramebuffer)
-{
-
-    VkRenderPassBeginInfo renderPassInfo = {
-        .sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .renderPass        = *gdp->renderPass,
-        .framebuffer       = swapchainFramebuffer,
-        .renderArea.offset = {0, 0},
-        .renderArea.extent = dm->graphicPipeline->swapchain->currentExtent2D,
-
-    };
-
-    VkClearValue clearValues[4];
-    clearValues[0].color           = (VkClearColorValue) {0.0f, 0.0f, 0.0f, 1.0f};
-    clearValues[1].depthStencil    = (VkClearDepthStencilValue) {1.0f, 0};
-    clearValues[2].color           = (VkClearColorValue) {0.0f, 0.0f, 0.0f, 1.0f};
-    clearValues[3].depthStencil    = (VkClearDepthStencilValue) {1.0f, 0};
-    renderPassInfo.clearValueCount = 4;
-    renderPassInfo.pClearValues    = clearValues;
-
-    vkCmdBeginRenderPass(gdp->commandBuffer[dm->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    // MOdels vertex buffer offset for draw
-    VkDeviceSize offsets[] = {0};
-
-    // Models vertex
-    const VkBuffer localBuffer[] = {*gdp->deviceBuffer->buffer};
-
-    vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipeline);
-
-    VkViewport viewport = {
-        viewport.x        = 0.0f,
-        viewport.y        = 0.0f,
-        viewport.width    = (float) (dm->graphicPipeline->swapchain->currentExtent2D.width),
-        viewport.height   = (float) (dm->graphicPipeline->swapchain->currentExtent2D.height),
-        viewport.minDepth = 0.0f,
-        viewport.maxDepth = 1.0f,
-    };
-
-    vkCmdSetViewport(gdp->commandBuffer[dm->currentFrame], 0, 1, &viewport);
-
-    VkRect2D scissor = {
-        .offset = {0, 0},
-        .extent = dm->graphicPipeline->swapchain->currentExtent2D,
-    };
-
-    vkCmdSetScissor(gdp->commandBuffer[dm->currentFrame], 0, 1, &scissor);
-    // MODEL SUBPASS
-    vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
-                            0, 1, &gdp->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
-    vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, localBuffer, offsets);
-
-    const SCENE* sceneModels = gdp->scene;
-    vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *gdp->deviceBuffer->indexBuffer, 0,
-                         VK_INDEX_TYPE_UINT32);
-
-    for (int indexModel = 0; indexModel < sceneModels->modelsManager.modelLen; indexModel++)
-    {
-        if (sceneModels->modelsManager.pModel[indexModel].liveInstanceCount > 0)
-            vkCmdDrawIndexed(
-                gdp->commandBuffer[dm->currentFrame], sceneModels->modelsManager.pModel[indexModel].indices.itemsLen,
-                sceneModels->modelsManager.pModel[indexModel].liveInstanceCount,
-                sceneModels->modelsManager.pModel[indexModel].indiceOffset,
-                sceneModels->modelsManager.pModel[indexModel].vertexOffset,
-                sceneModels->modelsManager.instanceOffset.items[indexModel]);
-    }
-
-    // LIGHT SUBPASS
-    vkCmdNextSubpass(gdp->commandBuffer[dm->currentFrame], VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *lightGraphics->pipeline);
-    vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
-                            0, 1, &lightGraphics->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
-
-    vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, lightGraphics->deviceBuffer->buffer, offsets);
-    const SCENE* sceneLightVolumes = lightGraphics->scene;
-    /*vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *lightGraphics->deviceBuffer->indexBuffer, 0,
-                         VK_INDEX_TYPE_UINT32);*/ //TODO refactorizar onDemmand index buffers lights
-        //TODO revisar uso de variable offsets para escalabilidad
-    for (int indexLight = 0; indexLight < sceneLightVolumes->lightManager.lightLen; indexLight++)
-    {
-        if (sceneLightVolumes->lightManager.pLight[indexLight].liveInstanceCount == 0)
-        {
-            continue;
-        }
-
-        vkCmdDraw(gdp->commandBuffer[dm->currentFrame],
-                  sceneLightVolumes->lightManager.pLight[indexLight].model.meshManager.totalMeshVerticesLen,
-                  sceneLightVolumes->lightManager.pLight[indexLight].liveInstanceCount,
-                  sceneLightVolumes->lightManager.pLight[indexLight].model.vertexOffset,
-                  sceneLightVolumes->lightManager.instanceOffset.items[indexLight]);
-    }
-
-    // PARTICLE SUBPASS
-    vkCmdNextSubpass(gdp->commandBuffer[dm->currentFrame], VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      *particleGraphics->pipeline);
-    vkCmdBindDescriptorSets(gdp->commandBuffer[dm->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout,
-                            0, 1, &particleGraphics->descriptorSet[dm->currentFrame], 0, VK_NULL_HANDLE);
-    // DRAW THE PARTICLES
-    // Particle vertex buffer offset for draw
-
-    VkDeviceSize particleOffsets[] = {0};
-    // Particle vertex
-
-    vkCmdBindVertexBuffers(gdp->commandBuffer[dm->currentFrame], 0, 1, particleGraphics->deviceBuffer->buffer,
-                           offsets); // TODO adaptar offsets a cada tipo
-
-    if (particleGraphics->deviceBuffer->indexBuffer && *particleGraphics->deviceBuffer->indexBuffer != VK_NULL_HANDLE)
-    {
-
-        vkCmdBindIndexBuffer(gdp->commandBuffer[dm->currentFrame], *particleGraphics->deviceBuffer->indexBuffer, 0,
-                             VK_INDEX_TYPE_UINT32);
-    }
-    else
-    {
-        exit(0);
-    }
-
-    // Particle vertex draw call
-    for (uint32_t particleGroupIndex = 0;
-         particleGroupIndex < particleGraphics->scene->particleManager.particleGroupLen; particleGroupIndex++)
-        vkCmdDrawIndexed(
-            gdp->commandBuffer[dm->currentFrame], particleGraphics->scene->particleManager.packedParticleIndicesLen,
-            particleGraphics->scene->particleManager.pParticleGroup[particleGroupIndex].particleInstancesLen, 0, 0, 0);
-
-    vkCmdEndRenderPass(gdp->commandBuffer[dm->currentFrame]);
 }
 
 /*

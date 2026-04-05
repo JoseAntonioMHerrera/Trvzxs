@@ -58,7 +58,6 @@ typedef struct GraphicPipelineToSurface
     // SYNC //
     VkSemaphore* renderEndFlag;
     VkSemaphore* imgViewSemaphore;
-    VkFence*     inFlightFence;
 
     // SHADERS //
     VkShaderModule* vertShader;

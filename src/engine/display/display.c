@@ -2,6 +2,7 @@
 #include "computePipeline.h"
 #include "deletionQueue.h"
 #include "displayManager.h"
+#include "timelineSync.h"
 #include "particle.h"
 #include "renderGraph.h"
 #include "transformations.h"
@@ -10,12 +11,10 @@
 #include <assert.h>
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp)
 {
-
     for (size_t i = 0; i < gdp->maxFrames; i++)
     {
         vkDestroySemaphore(device, gdp->renderEndFlag[i], NULL);
         vkDestroySemaphore(device, gdp->imgViewSemaphore[i], NULL);
-        vkDestroyFence(device, gdp->inFlightFence[i], NULL);
     }
 }
 
@@ -78,23 +77,32 @@ void updateSSBODescriptorSets(VkDevice device, GraphicPipelineToSurface* particl
     vkUpdateDescriptorSets(device, 2, descriptorWrites, 0, VK_NULL_HANDLE);
 }
 
-// Helper function to print Camera3D
-void printCamera3D(Camera3D camera) {}
-
 void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, GraphicPipelineToSurface* gdp,
                GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics, VkDevice device,
                SDL_Window* window, float deltaTime, Camera3D camera, RenderGraph* rg)
 {
-    vkWaitForFences(device, 1, &gdp->inFlightFence[dm->currentFrame], VK_TRUE, UINT64_MAX);
+    FrameSync* sync = &ld->frameSync;
 
-    // Fences confirmed GPU finished with this frame's commands.
+    // CPU pacing: wait for frame N-maxFrames to finish on the graphics timeline
+    if (sync->graphicsValue >= sync->maxFramesInFlight)
+    {
+        uint64_t            waitValue = sync->graphicsValue - sync->maxFramesInFlight + 1;
+        VkSemaphoreWaitInfo waitInfo  = {
+            .sType          = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+            .semaphoreCount = 1,
+            .pSemaphores    = &sync->graphicsTimeline,
+            .pValues        = &waitValue,
+        };
+        vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
+    }
+
+    // GPU finished with this frame slot's commands.
     // Safe to destroy any resources enqueued MAX_FRAMES_IN_FLIGHT frames ago.
     flushDeletionQueue(&ld->deletionQueue, ld->device, ld->allocator);
     advanceDeletionQueue(&ld->deletionQueue);
 
     updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames);
 
-    uint32_t imageIndex       = dm->currentFrame;
     uint32_t aquireImageIndex = dm->currentFrame;
 
     VkResult nextImageResult =
@@ -114,51 +122,47 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         exit(1);
     }
 
-    vkResetFences(device, 1, &gdp->inFlightFence[dm->currentFrame]);
+    // --- Command recording ---
+    VkCommandBuffer graphicsCB = gdp->commandBuffer[dm->currentFrame];
+    VkCommandBuffer computeCB  = particleGraphics->computeP->commandBuffer[dm->currentFrame];
 
-    if (nextImageResult != VK_SUCCESS)
-    {
-        exit(1);
-    }
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
 
-    // --- Render graph command recording ---
-    {
-        VkCommandBufferBeginInfo beginInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        };
-        vkBeginCommandBuffer(gdp->commandBuffer[dm->currentFrame], &beginInfo);
+    vkBeginCommandBuffer(graphicsCB, &beginInfo);
+    vkBeginCommandBuffer(computeCB, &beginInfo);
 
-        // Update per-frame resource handles
-        rg->resources[0].image     = gdp->swapchain->p_scImages[dm->currentFrame];
-        rg->resources[0].imageView = gdp->swapchain->p_scImageView[dm->currentFrame];
+    // Update per-frame resource handles
+    rg->resources[0].image     = gdp->swapchain->p_scImages[dm->currentFrame];
+    rg->resources[0].imageView = gdp->swapchain->p_scImageView[dm->currentFrame];
 
-        uint32_t prevFrame = (dm->currentFrame - 1 + particleGraphics->maxFrames) % particleGraphics->maxFrames;
-        rg->resources[4].buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[prevFrame];
-        rg->resources[5].buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[dm->currentFrame];
+    uint32_t prevFrame = (dm->currentFrame - 1 + particleGraphics->maxFrames) % particleGraphics->maxFrames;
+    rg->resources[4].buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[prevFrame];
+    rg->resources[5].buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[dm->currentFrame];
 
-        rg->deltaTime = deltaTime;
+    rg->deltaTime = deltaTime;
 
-        rgExecute(rg, gdp->commandBuffer[dm->currentFrame], dm->currentFrame);
+    rgExecute(rg, graphicsCB, computeCB, dm->currentFrame);
 
-        // Transition swapchain image to present layout
-        transitionImageLayout(NULL, VK_NULL_HANDLE,
-                              gdp->swapchain->p_scImages[dm->currentFrame],
-                              gdp->swapchain->currentSurfaceFormat->format,
-                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 1,
-                              gdp->commandBuffer[dm->currentFrame]);
+    // Transition swapchain image to present layout (on graphics CB)
+    transitionImageLayout(NULL, VK_NULL_HANDLE,
+                          gdp->swapchain->p_scImages[dm->currentFrame],
+                          gdp->swapchain->currentSurfaceFormat->format,
+                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 1,
+                          graphicsCB);
 
-        vkEndCommandBuffer(gdp->commandBuffer[dm->currentFrame]);
-    }
+    vkEndCommandBuffer(graphicsCB);
+    vkEndCommandBuffer(computeCB);
 
+    // Update UBOs (CPU-side memcpy — no GPU sync needed)
     MODEL_VIEW_PROJECTION* uboModels =
         updateModelUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
     memcpy(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboModels,
            sizeof(MODEL_VIEW_PROJECTION) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
 
-    // When no models are alive, the particle shader still reads binding 0 entry 0 for
-    // camera view/proj.  Write an identity-model + current-camera MVP so particles
-    // always have fresh data regardless of model visibility.
     if (dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen == 0)
     {
         MODEL_VIEW_PROJECTION cameraOnly;
@@ -175,38 +179,20 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         updateLightUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[2].scene);
     memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboLights,
            sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
-    // printLightUniformBufferData(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped, dm->currentFrame,
-    //                             dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
 
-    VkSemaphore          waitSemaphores[] = {gdp->imgViewSemaphore[dm->currentFrame]};
-    VkPipelineStageFlags waitStages[]     = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSemaphore          signalSemaphores[] = {gdp->renderEndFlag[dm->currentFrame]};
+    // Submit both queues with timeline semaphore sync
+    rgSubmit(rg, graphicsCB, computeCB, sync,
+             gdp->imgViewSemaphore[dm->currentFrame],
+             gdp->renderEndFlag[dm->currentFrame]);
 
-    VkSubmitInfo graphicQueuesubmitInfo = {
-        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount   = 1,
-        .pWaitSemaphores      = waitSemaphores,
-        .pWaitDstStageMask    = waitStages,
-        .commandBufferCount   = 1,
-        .pCommandBuffers      = &(gdp->commandBuffer[dm->currentFrame]),
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores    = signalSemaphores,
-    };
-
-    if (vkQueueSubmit(*ld->queueManager.graphicsQueue, 1, &graphicQueuesubmitInfo,
-                      gdp->inFlightFence[dm->currentFrame]) != VK_SUCCESS)
-    {
-    }
-    else
-    {
-    }
-
-    VkSwapchainKHR swapChains[] = {dm->graphicPipeline->swapchain->VkSwapchain};
+    // Present
+    VkSemaphore    presentWait[] = {gdp->renderEndFlag[dm->currentFrame]};
+    VkSwapchainKHR swapChains[]  = {dm->graphicPipeline->swapchain->VkSwapchain};
 
     VkPresentInfoKHR presentInfo = {
         .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores    = signalSemaphores,
+        .pWaitSemaphores    = presentWait,
         .swapchainCount     = 1,
         .pSwapchains        = swapChains,
         .pImageIndices      = &aquireImageIndex,
@@ -216,48 +202,4 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     VkResult presentResult = vkQueuePresentKHR(*ld->queueManager.presentQueue, &presentInfo);
 
     dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
-
-    /*void* mappedData;
-    vkMapMemory(device, lightGraphics->deviceBuffer->ssbos->readBackBufferMemory, 0, VK_WHOLE_SIZE, 0,
-    &mappedData);
-
-    // 2. Cast to your expected type
-    ReadBackBuffer* results       = (ReadBackBuffer*) (mappedData);
-    uint8_t         printReadBack = 0;
-    /*if (printReadBack)
-        for (int index = 0; index < lightGraphics->deviceBuffer->ssbos->readBackBufferSize; index++)
-        {
-            if (results[index].pixel.r || (index % 10000 == 0))
-
-            if (results[index].pixel.g || (index % 10000 == 0))
-
-            if (results[index].pixel.b || (index % 10000 == 0))
-
-            if (results[index].pixel.a || (index % 10000 == 0))
-
-            if (results[index].pixel1.r || (index % 10000 == 0))
-
-            if (results[index].pixel1.g || (index % 10000 == 0))
-
-            if (results[index].pixel1.b || (index % 10000 == 0))
-
-            if (results[index].pixel1.a || (index % 10000 == 0))
-
-            if (results[index].pixel2.r || (index % 10000 == 0))
-
-            if (results[index].pixel2.g || (index % 10000 == 0))
-
-            if (results[index].pixel2.b || (index % 10000 == 0))
-
-            if (results[index].pixel2.a || (index % 10000 == 0))
-
-            if (results[index].pixel3.r || (index % 10000 == 0))
-
-            if (results[index].pixel3.g || (index % 10000 == 0))
-
-            if (results[index].pixel3.b || (index % 10000 == 0))
-
-            if (results[index].pixel3.a || (index % 10000 == 0))
-        }
-    vkUnmapMemory(device, lightGraphics->deviceBuffer->ssbos->readBackBufferMemory);*/
 }

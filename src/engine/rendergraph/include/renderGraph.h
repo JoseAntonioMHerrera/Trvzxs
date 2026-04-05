@@ -1,5 +1,6 @@
 #pragma once
 #include "renderGraphTypes.h"
+#include "timelineSync.h"
 
 // --- Lifecycle ---
 
@@ -29,7 +30,10 @@ void rgCompile(RenderGraph* rg);
 
 // --- Execution (called every frame) ---
 
-void rgExecute(RenderGraph* rg, VkCommandBuffer cmd, uint32_t frameIndex);
+void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB, uint32_t frameIndex);
+
+void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB,
+              FrameSync* sync, VkSemaphore imageAvailable, VkSemaphore presentReady);
 
 // --- Debug ---
 
