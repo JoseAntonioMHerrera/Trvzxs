@@ -29,6 +29,11 @@ typedef struct Mesh3DManager
 typedef struct Model3DInstance
 {
     mat4                   m;
+    vec3                   position;
+    float                  _pad1;
+    versor                 rotation;
+    vec3                   scale;
+    float                  _pad2;
     GEOM_VERTEX_COLOR_RGBA color;
     uint32_t               alive;
 } Model3DInstance;
