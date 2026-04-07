@@ -45,13 +45,38 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
         {
             Model3DInstance* inst = &scene->modelsManager.pDenseModelInstances[model->denseBaseOffset + instanceIdx];
 
-            if (inst->alive != 1)
+            // Clear per-frame pass state from previous frame
+            inst->passFlags = 0;
+
+            if (inst->alive != INSTANCE_ALIVE)
             {
                 continue;
             }
 
-            // Rebuild model matrix from decomposed TRS components
+            // Cascade-disable: if parent not alive this frame, mark child as pass-disabled.
+            // Parents precede children in the dense array, so parent->alive is already final.
+            if (inst->parentGlobalIdx != INSTANCE_NO_PARENT)
+            {
+                Model3DInstance* parent =
+                    &scene->modelsManager.pDenseModelInstances[inst->parentGlobalIdx];
+                if (parent->alive != INSTANCE_ALIVE)
+                {
+                    inst->passFlags = PASS_DISABLED;
+                    continue;
+                }
+            }
+
+            // Rebuild local matrix from decomposed TRS components
             instanceBuildMatrix(inst);
+
+            // Apply parent world transform: world = parent.world * child.local
+            if (inst->parentGlobalIdx != INSTANCE_NO_PARENT)
+            {
+                Model3DInstance* parent =
+                    &scene->modelsManager.pDenseModelInstances[inst->parentGlobalIdx];
+                glm_mat4_mul(parent->m, inst->m, inst->m);
+            }
+
             glm_mat4_copy(inst->m, pTransformations[transformationsIdx].model);
 
             vec4 view;
