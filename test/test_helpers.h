@@ -1,10 +1,12 @@
 #pragma once
 #include "scene.h"
+#include "transformNode.h"
 #include <stdint.h>
 
 // Creates a Models3DManager with `modelCount` models, each having `instancesPerModel` instances.
 // All instances alive=INSTANCE_ALIVE, all models alive=MODEL_ALIVE.
 // instanceOffset array allocated and filled with cumulative sums.
+// Also allocates TransformManager transforms for each instance (identity TRS).
 Models3DManager make_test_manager(uint32_t modelCount, uint32_t instancesPerModel);
 
 // Like make_test_manager but each model can have a different instance count.
@@ -23,10 +25,25 @@ LightManager make_test_light_manager(uint32_t lightCount, uint32_t instancesPerL
 void free_test_light_manager(LightManager* man);
 
 // Creates a minimal SCENE suitable for updateModelUniformBuffers tests.
-// Models have identity matrices on all instances.
+// Models have identity transforms on all instances.
 // Camera at (0,0,5) looking at origin.
 // Light/particle managers zeroed out.
+// TransformManager allocated with transforms for all model instances.
 SCENE* make_test_scene(uint32_t modelCount, uint32_t instancesPerModel);
 
 // Frees everything allocated by make_test_scene.
 void free_test_scene(SCENE* scene);
+
+// Creates a SCENE with both models and lights sharing a single TransformManager.
+// Model transforms occupy [0, modelCount*instancesPerModel), light transforms follow.
+SCENE* make_test_scene_mixed(uint32_t modelCount, uint32_t instancesPerModel,
+                             uint32_t lightCount, uint32_t instancesPerLight);
+
+// Frees everything allocated by make_test_scene_mixed.
+void free_test_scene_mixed(SCENE* scene);
+
+// Creates a TransformManager with `count` transform nodes, all initialized to identity.
+TransformManager make_test_transform_manager(uint32_t count);
+
+// Frees the TransformManager.
+void free_test_transform_manager(TransformManager* tman);

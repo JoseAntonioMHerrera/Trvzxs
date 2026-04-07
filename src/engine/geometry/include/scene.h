@@ -9,9 +9,13 @@
 #include "light.h"
 #include "model.h"
 #include "particle.h"
+#include "transformNode.h"
 
 typedef struct SCENE
 {
+
+    // Transform hierarchy — resolved before UBO fills each frame
+    TransformManager transformManager;
 
     // Geometry data for render buffers
     LightManager    lightManager;
@@ -33,6 +37,8 @@ GEOM_VERTEX* getVertexFromScene(const SCENE* const scene);
 
 void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen, uint32_t particleVerticesLen,
                uint32_t particleGroupsLen, uint32_t particleInstancesLen);
+void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman);
+void fillLightVolumeInstancesIndices(LightManager* lan, TransformManager* tman);
 void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen);
 void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetricLightsLen);
 void fillSceneWithParticleData(SCENE* scene, ParticleGroup* particleGroups, uint32_t particleGroupsLen,
@@ -66,7 +72,7 @@ void enableModel(Models3DManager* man, uint32_t modelIndex);
 
 // --- Runtime model lifecycle: permanent destruction ---
 
-// Permanently destroy a single instance: sets alive = INSTANCE_DESTROYED.
+// Permanently destroy a single instance: sets lifecycle = INSTANCE_DESTROYED.
 // The slot remains as wasted space. Cannot be re-enabled.
 void destroyInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex);
 

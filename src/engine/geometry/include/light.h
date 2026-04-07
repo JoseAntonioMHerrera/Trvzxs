@@ -2,6 +2,7 @@
 #include "vertex.h"
 #include "model.h"
 #include "camera.h"
+#include "transformNode.h"
 
 // Light-instance alive flag values (same semantics as model instances)
 #define LIGHT_INSTANCE_ALIVE     1
@@ -22,25 +23,37 @@ typedef struct LightProperties
 typedef struct LightVolumeInstance
 {
     GEOM_VERTEX_COLOR_RGBA color;
-    vec3                   position; // TODO empaquetar informacion en vec4 estructuras para gpu
+    uint32_t               transformIdx; // index into TransformManager.pTransforms
+    uint16_t               lifecycle;    // LIGHT_INSTANCE_ALIVE/DISABLED/DESTROYED
+    uint16_t               passFlags;    // per-frame: reserved for hierarchy cascade-disable
+} LightVolumeInstance;
+// Matches shader LightInstanceData: vec4 color, vec4 position, float scale
+typedef struct LightUBOData
+{
+    GEOM_VERTEX_COLOR_RGBA color;
+    vec3                   position;
     float                  padding;
     float                  scale;
-    uint32_t               alive;      // LIGHT_INSTANCE_ALIVE/DISABLED/DESTROYED
-    float                  padding2[2]; // std140 requires 48-byte struct size (vec4 alignment)
-} LightVolumeInstance;
+    uint16_t               _pad_lifecycle;  // maintain original struct size/alignment
+    uint16_t               _pad_passFlags;
+    float                  padding2[2];     // std140: 48-byte struct size (vec4 alignment)
+} LightUBOData;
+
 typedef struct LightTransformations
 {
     struct MODEL_VIEW_PROJECTION mvp;
     mat4                         mInverseVP;
     struct Camera3D              camera;
-    struct LightVolumeInstance   data;
+    LightUBOData                 data;
 } LightTransformations;
 
 typedef struct LightVolume
 {
     LightProperties      properties;
     Model3D              model;
-    LightVolumeInstance* pLightVolumeInstance;
+    LightVolumeInstance* pStagingInstances;        // temporary — NULLed after consolidation
+    TransformNode*       pStagingTransforms;       // temporary TRS staging — NULLed after consolidation
+    uint32_t             denseBaseOffset;           // index into LightManager.pDenseLightInstances
     uint32_t             lightVolumeInstanceCount; // total allocated (capacity)
     uint32_t             liveInstanceCount;        // computed per frame by UBO fill
     uint32_t             alive;                    // LIGHT_ALIVE/DISABLED/DESTROYED
@@ -48,8 +61,9 @@ typedef struct LightVolume
 
 typedef struct LightManager
 {
-    LightVolume* pLight;
-    uint32_t     lightLen;
+    LightVolume*         pLight;
+    uint32_t             lightLen;
+    LightVolumeInstance* pDenseLightInstances; // single dense allocation for all light instances
 
     uint32_t lightInstanceCapacity; // total instance slots across all lights (immutable after init)
     uint32_t lightInstanceCount;    // live instance count (updated per frame by UBO fill)

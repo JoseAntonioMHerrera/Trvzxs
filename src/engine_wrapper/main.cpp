@@ -194,23 +194,30 @@ int main()
         glm_vec3_copy(up, camera->up);
         glm_vec2_copy(screenSize, camera->screenSize);
         scene->addCamera3D(camera);
-        LightVolumeInstance lightInstance;
-        vec3 vecPos = {cubeLightPosition->x + 5, cubeLightPosition->y, cubeLightPosition->z};
-        glm_vec3_copy(vecPos, lightInstance.position);
-        lightInstance.color = {0.0, 1.0, 0.0, 1.0};
-        lightInstance.scale = 1.0;
-        LightVolumeInstance lightInstance2;
-        vec3 vecPos2 = {cubeLightPosition->x, cubeLightPosition->y, cubeLightPosition->z};
-        glm_vec3_copy(vecPos2, lightInstance2.position);
-        lightInstance2.color = {1.0, 0.0, 0.0, 1.0};
-        lightInstance2.scale = 1.0;
+        GEOM_VERTEX_COLOR_RGBA lightColors[2000];
+        vec3                   lightPositions[2000];
+        float                  lightScales[2000];
 
-        LightVolumeInstance lightinstances[2000];
+        vec3 vecPos  = {cubeLightPosition->x + 5, cubeLightPosition->y, cubeLightPosition->z};
+        vec3 vecPos2 = {cubeLightPosition->x, cubeLightPosition->y, cubeLightPosition->z};
+
         for (int i = 0; i < 2000; i++)
         {
-            lightinstances[i] = (i % 2 == 0) ? lightInstance : lightInstance2;
+            if (i % 2 == 0)
+            {
+                lightColors[i] = {0.0, 1.0, 0.0, 1.0};
+                glm_vec3_copy(vecPos, lightPositions[i]);
+                lightScales[i] = 1.0f;
+            }
+            else
+            {
+                lightColors[i] = {1.0, 0.0, 0.0, 1.0};
+                glm_vec3_copy(vecPos2, lightPositions[i]);
+                lightScales[i] = 1.0f;
+            }
         }
-        scene->initInstanceDataLight(&scene->getVolumetricLight(0), 2000, lightinstances);
+        scene->initInstanceDataLight(&scene->getVolumetricLight(0), 2000,
+                                     lightColors, lightPositions, lightScales);
         // GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
         // scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
 

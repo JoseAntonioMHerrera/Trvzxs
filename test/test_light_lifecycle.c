@@ -11,8 +11,8 @@ void test_destroy_light_instance_removes_it(void)
 
     destroyLightInstance(&man, 0, 0);
 
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DESTROYED);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[1].alive, LIGHT_INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 1].lifecycle, LIGHT_INSTANCE_ALIVE);
 
     free_test_light_manager(&man);
 }
@@ -27,7 +27,7 @@ void test_enable_destroyed_light_instance_refused(void)
     enableLightInstance(&man, 0, 0);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DESTROYED);
     ASSERT_STDERR_CONTAINS("[enableLightInstance] instance 0 of light 0 is permanently destroyed");
 
     free_test_light_manager(&man);
@@ -43,7 +43,7 @@ void test_destroy_light_instance_idempotent(void)
     destroyLightInstance(&man, 0, 0);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DESTROYED);
     ASSERT_STDERR_CONTAINS("[destroyLightInstance] instance 0 of light 0 is already destroyed");
 
     free_test_light_manager(&man);
@@ -57,8 +57,8 @@ void test_destroy_light_instance_survives_light_toggle(void)
     disableLight(&man, 0);
     enableLight(&man, 0);
 
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DESTROYED);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[1].alive, LIGHT_INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 1].lifecycle, LIGHT_INSTANCE_ALIVE);
 
     free_test_light_manager(&man);
 }
@@ -71,8 +71,8 @@ void test_destroy_light_instance_while_light_disabled(void)
     destroyLightInstance(&man, 0, 0);
     enableLight(&man, 0);
 
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DESTROYED);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[1].alive, LIGHT_INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 1].lifecycle, LIGHT_INSTANCE_ALIVE);
 
     free_test_light_manager(&man);
 }
@@ -85,7 +85,6 @@ void test_destroy_light_instance_then_destroy_light(void)
     destroyLight(&man, 0);
 
     ASSERT_EQ(man.pLight[0].alive, LIGHT_DESTROYED);
-    ASSERT_NULL(man.pLight[0].pLightVolumeInstance);
 
     free_test_light_manager(&man);
 }
@@ -113,10 +112,10 @@ void test_disable_then_destroy_light_instance(void)
     LightManager man = make_test_light_manager(1, 4);
 
     disableLightInstance(&man, 0, 0);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DISABLED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DISABLED);
 
     destroyLightInstance(&man, 0, 0);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DESTROYED);
 
     free_test_light_manager(&man);
 }
@@ -132,7 +131,7 @@ void test_enable_after_disable_then_destroy_light_refused(void)
     enableLightInstance(&man, 0, 0);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DESTROYED);
     ASSERT_STDERR_CONTAINS("[enableLightInstance] instance 0 of light 0 is permanently destroyed");
 
     free_test_light_manager(&man);
@@ -143,10 +142,10 @@ void test_disable_enable_light_instance_roundtrip(void)
     LightManager man = make_test_light_manager(1, 4);
 
     disableLightInstance(&man, 0, 0);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DISABLED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DISABLED);
 
     enableLightInstance(&man, 0, 0);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_ALIVE);
 
     free_test_light_manager(&man);
 }
@@ -261,14 +260,14 @@ void test_multi_light_independence(void)
     disableLight(&man, 1);
 
     // Light 0: instance 0 destroyed, rest alive
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DESTROYED);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[1].alive, LIGHT_INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 1].lifecycle, LIGHT_INSTANCE_ALIVE);
     // Light 1: disabled but instances untouched
     ASSERT_EQ(man.pLight[1].alive, LIGHT_DISABLED);
-    ASSERT_EQ(man.pLight[1].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[1].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_ALIVE);
     // Light 2: completely untouched
     ASSERT_EQ(man.pLight[2].alive, LIGHT_ALIVE);
-    ASSERT_EQ(man.pLight[2].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[2].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_ALIVE);
 
     free_test_light_manager(&man);
 }

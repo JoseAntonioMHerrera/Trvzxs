@@ -3,7 +3,8 @@
 #include "transformations.h"
 #include "vertex.h"
 
-typedef struct Model3D Model3D;
+typedef struct TransformNode TransformNode;
+typedef struct Model3D       Model3D;
 typedef struct Mesh3D
 {
     GEOM_VERTEX* pVertice;
@@ -29,28 +30,15 @@ typedef struct Mesh3DManager
 // Hierarchy: no parent sentinel
 #define INSTANCE_NO_PARENT UINT32_MAX
 
-// Per-frame pass flags (occupies high 16 bits of the alive union)
+// Per-frame pass flags
 #define PASS_DISABLED 1
 
 typedef struct Model3DInstance
 {
-    mat4                   m;
-    vec3                   position;
-    float                  _pad1;
-    versor                 rotation;
-    vec3                   scale;
-    float                  _pad2;
     GEOM_VERTEX_COLOR_RGBA color;
-    uint32_t               parentGlobalIdx; // index into pDenseModelInstances, or INSTANCE_NO_PARENT
-    union
-    {
-        uint32_t alive; // existing code reads/writes full 32 bits
-        struct
-        {
-            uint16_t lifecycle; // INSTANCE_ALIVE / DISABLED / DESTROYED
-            uint16_t passFlags; // per-frame: PASS_DISABLED, cleared each iteration
-        };
-    };
+    uint32_t               transformIdx; // index into TransformManager.pTransforms
+    uint16_t               lifecycle;    // INSTANCE_ALIVE / DISABLED / DESTROYED
+    uint16_t               passFlags;    // per-frame: PASS_DISABLED, cleared each iteration
 } Model3DInstance;
 
 typedef struct Model3D
@@ -71,9 +59,10 @@ typedef struct Model3D
     // Fill loop skips the entire model when alive != 1.
     uint32_t alive;
 
-    uint32_t         denseBaseOffset;      // starting index of this model's instances in pDenseModelInstances
+    uint32_t         denseBaseOffset;       // starting index of this model's instances in pDenseModelInstances
     uint32_t         modelInstanceCount;
-    Model3DInstance* pStagingInstances;   // temporary per-model allocation during init, NULLed after consolidation
+    Model3DInstance* pStagingInstances;    // temporary per-model allocation during init, NULLed after consolidation
+    TransformNode*   pStagingTransforms;   // temporary per-model TRS staging, NULLed after consolidation
 } Model3D;
 
 typedef struct Models3DManager

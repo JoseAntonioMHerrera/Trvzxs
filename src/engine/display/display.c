@@ -5,6 +5,7 @@
 #include "timelineSync.h"
 #include "particle.h"
 #include "renderGraph.h"
+#include "transformNode.h"
 #include "transformations.h"
 #include "mat4.h"
 #include "affine.h"
@@ -161,6 +162,9 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     vkEndCommandBuffer(graphicsCB);
     vkEndCommandBuffer(computeCB);
+
+    // Resolve transform hierarchy before UBO fills — single forward pass
+    resolveTransforms(&dm->graphicPipeline[0].scene->transformManager);
 
     // Update UBOs (CPU-side memcpy — no GPU sync needed)
     MODEL_VIEW_PROJECTION* uboModels =

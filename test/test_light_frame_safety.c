@@ -1,6 +1,7 @@
 #include "test_harness.h"
 #include "test_helpers.h"
 #include "uniformBuffer.h"
+#include "transformNode.h"
 #include "light.h"
 #include "scene.h"
 
@@ -30,6 +31,21 @@ static SCENE* make_light_scene(uint32_t lightCount, uint32_t instancesPerLight)
 {
     SCENE* scene = (SCENE*) calloc(1, sizeof(SCENE));
     scene->lightManager = make_test_light_manager(lightCount, instancesPerLight);
+
+    uint32_t total = lightCount * instancesPerLight;
+    scene->transformManager = make_test_transform_manager(total);
+
+    uint32_t tIdx = 0;
+    for (uint32_t l = 0; l < lightCount; l++)
+    {
+        LightVolume* light = &scene->lightManager.pLight[l];
+        for (uint32_t i = 0; i < instancesPerLight; i++)
+        {
+            scene->lightManager.pDenseLightInstances[light->denseBaseOffset + i].transformIdx = tIdx;
+            tIdx++;
+        }
+    }
+
     scene->camera.eye[2] = 5.0f;
     scene->camera.up[1]  = 1.0f;
     return scene;
@@ -39,15 +55,12 @@ static void free_light_scene(SCENE* scene)
 {
     if (!scene) return;
     free_test_light_manager(&scene->lightManager);
+    free_test_transform_manager(&scene->transformManager);
     free(scene);
 }
 
 // ---------------------------------------------------------------------------
-// 1. Draw parameter bounds: firstInstance + liveInstanceCount <= capacity
-//
-//    executeLightPass does:
-//      vkCmdDraw(..., liveInstanceCount, ..., instanceOffset.items[i])
-//    GPU reads UBO at [firstInstance .. firstInstance + liveInstanceCount).
+// 1. Draw parameter bounds
 // ---------------------------------------------------------------------------
 
 void test_light_draw_params_within_bounds_all_alive(void)
@@ -56,6 +69,7 @@ void test_light_draw_params_within_bounds_all_alive(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     uint32_t cap = scene->lightManager.lightInstanceCapacity;
@@ -80,6 +94,7 @@ void test_light_draw_params_within_bounds_mixed_state(void)
     destroyLightInstance(&scene->lightManager, 1, 0);
     disableLight(&scene->lightManager, 2);
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     uint32_t cap = scene->lightManager.lightInstanceCapacity;
@@ -95,7 +110,7 @@ void test_light_draw_params_within_bounds_mixed_state(void)
 }
 
 // ---------------------------------------------------------------------------
-// 2. memcpy bounds: lightInstanceCount <= lightInstanceCapacity
+// 2. memcpy bounds
 // ---------------------------------------------------------------------------
 
 void test_light_memcpy_len_within_capacity(void)
@@ -104,17 +119,19 @@ void test_light_memcpy_len_within_capacity(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r1 = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
     ASSERT_EQ(scene->lightManager.lightInstanceCount <= scene->lightManager.lightInstanceCapacity, 1);
     free(r1);
 
-    // After toggles
     disableLight(&scene->lightManager, 0);
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r2 = updateLightUniformBuffers(&sc, 0.016f, cam, scene);
     ASSERT_EQ(scene->lightManager.lightInstanceCount <= scene->lightManager.lightInstanceCapacity, 1);
     free(r2);
 
     enableLight(&scene->lightManager, 0);
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r3 = updateLightUniformBuffers(&sc, 0.032f, cam, scene);
     ASSERT_EQ(scene->lightManager.lightInstanceCount <= scene->lightManager.lightInstanceCapacity, 1);
     free(r3);
@@ -124,10 +141,6 @@ void test_light_memcpy_len_within_capacity(void)
 
 // ---------------------------------------------------------------------------
 // 3. liveInstanceCount initialization
-//
-//    LightVolume is malloc'd (not calloc'd).  liveInstanceCount is only set
-//    inside updateLightUniformBuffers.  executeLightPass reads it BEFORE the
-//    UBO fill.  On the first frame, garbage -> GPU hang.
 // ---------------------------------------------------------------------------
 
 void test_light_liveInstanceCount_zero_before_first_fill(void)
@@ -138,43 +151,48 @@ void test_light_liveInstanceCount_zero_before_first_fill(void)
     man.pLight   = (LightVolume*) calloc(1, sizeof(LightVolume));
 
     man.pLight[0].lightVolumeInstanceCount = 4;
-    man.pLight[0].liveInstanceCount        = 0; // must be 0 for safe first frame
+    man.pLight[0].liveInstanceCount        = 0;
     man.pLight[0].alive                    = LIGHT_ALIVE;
-    man.pLight[0].pLightVolumeInstance     = (LightVolumeInstance*) calloc(4, sizeof(LightVolumeInstance));
+    man.pLight[0].denseBaseOffset          = 0;
+    man.pLight[0].pStagingInstances        = NULL;
+    man.pLight[0].pStagingTransforms       = NULL;
+
+    man.pDenseLightInstances        = (LightVolumeInstance*) calloc(4, sizeof(LightVolumeInstance));
     for (uint32_t i = 0; i < 4; i++)
-        man.pLight[0].pLightVolumeInstance[i].alive = LIGHT_INSTANCE_ALIVE;
+    {
+        man.pDenseLightInstances[i].lifecycle    = LIGHT_INSTANCE_ALIVE;
+        man.pDenseLightInstances[i].transformIdx = i;
+    }
 
     man.lightInstanceCapacity       = 4;
     man.lightInstanceCount          = 0;
     man.instanceOffset.items        = (uint32_t*) calloc(1, sizeof(uint32_t));
     man.instanceOffset.itemsLen     = 1;
 
-    // Before first fill, must be 0
     ASSERT_EQ(man.pLight[0].liveInstanceCount, 0);
 
-    // After fill, should be updated
     SCENE scene;
     memset(&scene, 0, sizeof(scene));
-    scene.lightManager = man;
+    scene.lightManager     = man;
+    scene.transformManager = make_test_transform_manager(4);
 
     GraphicSwapchain sc  = make_fake_swapchain();
     Camera3D         cam = make_test_camera();
+
+    resolveTransforms(&scene.transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, &scene);
 
     ASSERT_EQ(scene.lightManager.pLight[0].liveInstanceCount, 4);
 
     free(result);
-    free(man.pLight[0].pLightVolumeInstance);
+    free(man.pDenseLightInstances);
     free(man.pLight);
     free(man.instanceOffset.items);
+    free_test_transform_manager(&scene.transformManager);
 }
 
 // ---------------------------------------------------------------------------
 // 4. queryLightInstanceAlive on disabled (not destroyed) light
-//
-//    queryLightInstanceAlive checks !light->pLightVolumeInstance (not alive).
-//    For disabled light (alive=2), pLightVolumeInstance is still valid,
-//    so the query should return the actual instance state.
 // ---------------------------------------------------------------------------
 
 void test_query_light_instance_on_disabled_light(void)
@@ -184,11 +202,9 @@ void test_query_light_instance_on_disabled_light(void)
     disableLight(&man, 0);
     ASSERT_EQ(man.pLight[0].alive, LIGHT_DISABLED);
 
-    // pLightVolumeInstance is still valid — query should work
     ASSERT_EQ(queryLightInstanceAlive(&man, 0, 0), LIGHT_INSTANCE_ALIVE);
     ASSERT_EQ(queryLightInstanceAlive(&man, 0, 3), LIGHT_INSTANCE_ALIVE);
 
-    // Destroy an instance while light is disabled
     destroyLightInstance(&man, 0, 1);
     ASSERT_EQ(queryLightInstanceAlive(&man, 0, 1), LIGHT_INSTANCE_DESTROYED);
 
@@ -196,10 +212,7 @@ void test_query_light_instance_on_disabled_light(void)
 }
 
 // ---------------------------------------------------------------------------
-// 5. UBO fill after destroyLight (pLightVolumeInstance freed)
-//
-//    destroyLight frees pLightVolumeInstance and sets count to 0.
-//    The UBO fill must not dereference the freed pointer.
+// 5. UBO fill after destroyLight
 // ---------------------------------------------------------------------------
 
 void test_light_ubo_fill_after_destroy_light(void)
@@ -210,11 +223,9 @@ void test_light_ubo_fill_after_destroy_light(void)
 
     destroyLight(&scene->lightManager, 0);
 
-    // pLightVolumeInstance is NULL, lightVolumeInstanceCount is 0
-    ASSERT_NULL(scene->lightManager.pLight[0].pLightVolumeInstance);
-    ASSERT_EQ(scene->lightManager.pLight[0].lightVolumeInstanceCount, 0);
+    ASSERT_EQ(scene->lightManager.pLight[0].alive, LIGHT_DESTROYED);
 
-    // Must not crash — the alive != LIGHT_ALIVE check skips it
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
@@ -225,7 +236,7 @@ void test_light_ubo_fill_after_destroy_light(void)
 }
 
 // ---------------------------------------------------------------------------
-// 6. Compacted offsets monotonicity (light side)
+// 6. Compacted offsets monotonicity
 // ---------------------------------------------------------------------------
 
 void test_light_compacted_offsets_monotonic(void)
@@ -239,16 +250,15 @@ void test_light_compacted_offsets_monotonic(void)
     destroyLightInstance(&scene->lightManager, 2, 0);
     destroyLightInstance(&scene->lightManager, 2, 2);
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
-    // Offsets non-decreasing
     for (uint32_t i = 1; i < scene->lightManager.lightLen; i++)
     {
         ASSERT_EQ(scene->lightManager.instanceOffset.items[i] >=
                   scene->lightManager.instanceOffset.items[i - 1], 1);
     }
 
-    // Each offset = prev offset + prev liveCount
     for (uint32_t i = 1; i < scene->lightManager.lightLen; i++)
     {
         uint32_t expected = scene->lightManager.instanceOffset.items[i - 1]
@@ -256,7 +266,6 @@ void test_light_compacted_offsets_monotonic(void)
         ASSERT_EQ(scene->lightManager.instanceOffset.items[i], expected);
     }
 
-    // Sum check
     uint32_t last = scene->lightManager.lightLen - 1;
     uint32_t total = scene->lightManager.instanceOffset.items[last]
                    + scene->lightManager.pLight[last].liveInstanceCount;
@@ -267,7 +276,7 @@ void test_light_compacted_offsets_monotonic(void)
 }
 
 // ---------------------------------------------------------------------------
-// 7. All lights dead — triggers zero total (camera-only fallback analog)
+// 7. All lights dead
 // ---------------------------------------------------------------------------
 
 void test_all_lights_dead_zero_total(void)
@@ -279,6 +288,7 @@ void test_all_lights_dead_zero_total(void)
     destroyLight(&scene->lightManager, 0);
     destroyLight(&scene->lightManager, 1);
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
@@ -298,11 +308,10 @@ void test_light_double_disable_instance_idempotent(void)
     LightManager man = make_test_light_manager(1, 4);
 
     disableLightInstance(&man, 0, 0);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DISABLED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DISABLED);
 
-    // Second disable — already disabled, should be a no-op
     disableLightInstance(&man, 0, 0);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_DISABLED);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_DISABLED);
 
     free_test_light_manager(&man);
 }
@@ -311,9 +320,8 @@ void test_light_double_enable_instance_idempotent(void)
 {
     LightManager man = make_test_light_manager(1, 4);
 
-    // Already alive — enable should be a no-op
     enableLightInstance(&man, 0, 0);
-    ASSERT_EQ(man.pLight[0].pLightVolumeInstance[0].alive, LIGHT_INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseLightInstances[man.pLight[0].denseBaseOffset + 0].lifecycle, LIGHT_INSTANCE_ALIVE);
 
     free_test_light_manager(&man);
 }
@@ -323,11 +331,10 @@ void test_model_double_disable_instance_idempotent(void)
     Models3DManager man = make_test_manager(1, 4);
 
     disableInstance(&man, 0, 0);
-    ASSERT_EQ(man.pDenseModelInstances[0].alive, INSTANCE_DISABLED);
+    ASSERT_EQ(man.pDenseModelInstances[0].lifecycle, INSTANCE_DISABLED);
 
-    // Second disable — already disabled, should be a no-op
     disableInstance(&man, 0, 0);
-    ASSERT_EQ(man.pDenseModelInstances[0].alive, INSTANCE_DISABLED);
+    ASSERT_EQ(man.pDenseModelInstances[0].lifecycle, INSTANCE_DISABLED);
 
     free_test_manager(&man);
 }
@@ -336,9 +343,8 @@ void test_model_double_enable_instance_idempotent(void)
 {
     Models3DManager man = make_test_manager(1, 4);
 
-    // Already alive — enable should be a no-op
     enableInstance(&man, 0, 0);
-    ASSERT_EQ(man.pDenseModelInstances[0].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[0].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
@@ -353,27 +359,27 @@ void test_single_light_single_instance_lifecycle(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
-    // Alive
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r1 = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 1);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 1);
     free(r1);
 
-    // Disable
     disableLightInstance(&scene->lightManager, 0, 0);
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r2 = updateLightUniformBuffers(&sc, 0.016f, cam, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
     free(r2);
 
-    // Re-enable
     enableLightInstance(&scene->lightManager, 0, 0);
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r3 = updateLightUniformBuffers(&sc, 0.032f, cam, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 1);
     free(r3);
 
-    // Destroy
     destroyLightInstance(&scene->lightManager, 0, 0);
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r4 = updateLightUniformBuffers(&sc, 0.048f, cam, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);

@@ -15,10 +15,10 @@ void test_destroy_instance_removes_it(void)
     destroyInstance(&man, 0, 0);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DESTROYED);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 1].alive, INSTANCE_ALIVE);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 2].alive, INSTANCE_ALIVE);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 3].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 1].lifecycle, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 2].lifecycle, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 3].lifecycle, INSTANCE_ALIVE);
     ASSERT_STDERR_EMPTY();
 
     free_test_manager(&man);
@@ -34,7 +34,7 @@ void test_enable_destroyed_instance_refused(void)
     enableInstance(&man, 0, 0);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DESTROYED);
     ASSERT_STDERR_CONTAINS("[enableInstance] instance 0 of model 0 is permanently destroyed");
 
     free_test_manager(&man);
@@ -50,7 +50,7 @@ void test_destroy_instance_idempotent(void)
     destroyInstance(&man, 0, 0);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DESTROYED);
     ASSERT_STDERR_CONTAINS("[destroyInstance] instance 0 of model 0 is already destroyed");
 
     free_test_manager(&man);
@@ -68,8 +68,8 @@ void test_destroy_instance_survives_model_toggle(void)
     disableModel(&man, 0);
     enableModel(&man, 0);
 
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DESTROYED);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 1].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 1].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
@@ -82,8 +82,8 @@ void test_destroy_instance_while_model_disabled(void)
     destroyInstance(&man, 0, 0);
     enableModel(&man, 0);
 
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DESTROYED);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 1].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 1].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
@@ -144,10 +144,10 @@ void test_disable_then_destroy_instance(void)
     Models3DManager man = make_test_manager(1, 4);
 
     disableInstance(&man, 0, 0);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DISABLED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DISABLED);
 
     destroyInstance(&man, 0, 0);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DESTROYED);
 
     free_test_manager(&man);
 }
@@ -163,7 +163,7 @@ void test_enable_after_disable_then_destroy_refused(void)
     enableInstance(&man, 0, 0);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DESTROYED);
     ASSERT_STDERR_CONTAINS("[enableInstance] instance 0 of model 0 is permanently destroyed");
 
     free_test_manager(&man);
@@ -182,7 +182,7 @@ void test_disable_enable_instance_roundtrip(void)
     enableInstance(&man, 0, 0);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_ALIVE);
     ASSERT_STDERR_EMPTY();
 
     free_test_manager(&man);
@@ -233,7 +233,7 @@ void test_out_of_range_model_index_no_crash(void)
 
     // Original state untouched
     ASSERT_EQ(man.pModel[0].alive, MODEL_ALIVE);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
@@ -257,7 +257,7 @@ void test_out_of_range_instance_index_no_crash(void)
     CAPTURE_STDERR_END();
     ASSERT_STDERR_CONTAINS("[destroyInstance] instanceIndex 99 out of range");
 
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
@@ -274,17 +274,17 @@ void test_multi_model_independence(void)
     disableModel(&man, 1);
 
     // Model 0: instance 0 destroyed, rest alive
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].alive, INSTANCE_DESTROYED);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 1].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 0].lifecycle, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[0].denseBaseOffset + 1].lifecycle, INSTANCE_ALIVE);
     ASSERT_EQ(man.pModel[0].alive, MODEL_ALIVE);
 
     // Model 1: disabled, instances untouched
     ASSERT_EQ(man.pModel[1].alive, MODEL_DISABLED);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[1].denseBaseOffset + 0].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[1].denseBaseOffset + 0].lifecycle, INSTANCE_ALIVE);
 
     // Model 2: completely untouched
     ASSERT_EQ(man.pModel[2].alive, MODEL_ALIVE);
-    ASSERT_EQ(man.pDenseModelInstances[man.pModel[2].denseBaseOffset + 0].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[man.pModel[2].denseBaseOffset + 0].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
