@@ -536,6 +536,120 @@ void test_cross_type_clear_parent(void)
 }
 
 // ---------------------------------------------------------------------------
+// 16. Cross-type UBO: parented light produces correct UBO output
+// ---------------------------------------------------------------------------
+
+void test_cross_type_ubo_model_and_light(void)
+{
+    // 1 model with 1 instance, 1 light with 1 instance
+    SCENE*            scene = make_test_scene_mixed(1, 1, 1, 1);
+    GraphicSwapchain  sc    = make_fake_swapchain();
+    Camera3D          cam   = make_test_camera();
+    TransformManager* tman  = &scene->transformManager;
+
+    Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
+    LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
+
+    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+
+    transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
+
+    resolveTransforms(tman);
+
+    // Model UBO fill — model instance should produce 1 entry
+    MODEL_VIEW_PROJECTION* modelUBO = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ASSERT_EQ(scene->modelsManager.modelInstanceLen, 1);
+    // Model matrix should contain model's world position (10,0,0)
+    ASSERT_FLOAT_EQ(modelUBO[0].model[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(modelUBO[0].model[3][1], 0.0f);
+
+    // Light UBO fill — light instance should produce 1 entry
+    LightTransformations* lightUBO = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    ASSERT_EQ(scene->lightManager.lightInstanceCount, 1);
+    // Light model matrix should contain light's world position (10,5,0)
+    ASSERT_FLOAT_EQ(lightUBO[0].mvp.model[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(lightUBO[0].mvp.model[3][1], 5.0f);
+
+    free(modelUBO);
+    free(lightUBO);
+    free_test_scene_mixed(scene);
+}
+
+// ---------------------------------------------------------------------------
+// 17. Cross-type UBO: disabled model parent → both model and light UBO entries zero
+// ---------------------------------------------------------------------------
+
+void test_cross_type_ubo_cascade_disable_both(void)
+{
+    SCENE*            scene = make_test_scene_mixed(1, 1, 1, 1);
+    GraphicSwapchain  sc    = make_fake_swapchain();
+    Camera3D          cam   = make_test_camera();
+    TransformManager* tman  = &scene->transformManager;
+
+    Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
+    LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
+
+    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+
+    transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
+
+    // Disable model instance + its transform
+    modelInst->lifecycle = INSTANCE_DISABLED;
+    tman->pTransforms[modelInst->transformIdx].lifecycle = TRANSFORM_DISABLED;
+
+    resolveTransforms(tman);
+
+    MODEL_VIEW_PROJECTION* modelUBO = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ASSERT_EQ(scene->modelsManager.modelInstanceLen, 0);
+
+    LightTransformations* lightUBO = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
+
+    free(modelUBO);
+    free(lightUBO);
+    free_test_scene_mixed(scene);
+}
+
+// ---------------------------------------------------------------------------
+// 18. Cross-type UBO: move model parent → light UBO reflects new world position
+// ---------------------------------------------------------------------------
+
+void test_cross_type_ubo_parent_move_updates_light(void)
+{
+    SCENE*            scene = make_test_scene_mixed(1, 1, 1, 1);
+    GraphicSwapchain  sc    = make_fake_swapchain();
+    Camera3D          cam   = make_test_camera();
+    TransformManager* tman  = &scene->transformManager;
+
+    Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
+    LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
+
+    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){0.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+
+    transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
+
+    // Frame 1: model at origin
+    resolveTransforms(tman);
+    LightTransformations* lightUBO1 = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    ASSERT_FLOAT_EQ(lightUBO1[0].mvp.model[3][0], 0.0f);
+    ASSERT_FLOAT_EQ(lightUBO1[0].mvp.model[3][1], 5.0f);
+    free(lightUBO1);
+
+    // Frame 2: move model to (20, 0, 0) — light should follow
+    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){20.0f, 0.0f, 0.0f});
+    resolveTransforms(tman);
+    LightTransformations* lightUBO2 = updateLightUniformBuffers(&sc, 0.016f, cam, scene);
+    ASSERT_FLOAT_EQ(lightUBO2[0].mvp.model[3][0], 20.0f);
+    ASSERT_FLOAT_EQ(lightUBO2[0].mvp.model[3][1], 5.0f);
+    free(lightUBO2);
+
+    free_test_scene_mixed(scene);
+}
+
+// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
@@ -558,6 +672,9 @@ int main(void)
     RUN_TEST(test_cross_type_parent_scale_affects_light);
     RUN_TEST(test_cross_type_reenable_restores_light);
     RUN_TEST(test_cross_type_clear_parent);
+    RUN_TEST(test_cross_type_ubo_model_and_light);
+    RUN_TEST(test_cross_type_ubo_cascade_disable_both);
+    RUN_TEST(test_cross_type_ubo_parent_move_updates_light);
 
     TEST_SUMMARY();
 }

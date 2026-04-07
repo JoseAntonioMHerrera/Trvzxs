@@ -440,6 +440,70 @@ int main()
                         destroyLightInstance(&scene->getScene()->lightManager, 0, 0);
                         std::cout << "[demo] Light instance 0 of light 0 permanently destroyed" << std::endl;
                     }
+                    // F key: parent light 0 instance 0 to model 0 instance 0 (cross-type attach)
+                    if (event.key.keysym.scancode == SDL_SCANCODE_F)
+                    {
+                        SCENE *s = scene->getScene();
+                        if (s->modelsManager.modelLen > 0 && s->lightManager.lightLen > 0)
+                        {
+                            uint32_t modelTIdx = s->modelsManager.pDenseModelInstances[0].transformIdx;
+                            uint32_t lightTIdx = s->lightManager.pDenseLightInstances[0].transformIdx;
+                            transformSetParent(&s->transformManager, lightTIdx, modelTIdx);
+                            std::cout << "[demo] Light 0 inst 0 parented to Model 0 inst 0" << std::endl;
+                        }
+                    }
+                    // G key: unparent light 0 instance 0 (cross-type detach)
+                    if (event.key.keysym.scancode == SDL_SCANCODE_G)
+                    {
+                        SCENE *s = scene->getScene();
+                        if (s->lightManager.lightLen > 0)
+                        {
+                            uint32_t lightTIdx = s->lightManager.pDenseLightInstances[0].transformIdx;
+                            transformClearParent(&s->transformManager, lightTIdx);
+                            std::cout << "[demo] Light 0 inst 0 unparented (root)" << std::endl;
+                        }
+                    }
+                    // Arrow keys: move model 0 instance 0 transform (cross-type parenting demo)
+                    if (event.key.keysym.scancode == SDL_SCANCODE_UP)
+                    {
+                        SCENE *s = scene->getScene();
+                        if (s->modelsManager.modelLen > 0)
+                        {
+                            TransformNode *node = &s->transformManager.pTransforms[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            vec3 delta = {0.0f, 0.0f, 1.0f};
+                            transformTranslate(node, delta);
+                        }
+                    }
+                    if (event.key.keysym.scancode == SDL_SCANCODE_DOWN)
+                    {
+                        SCENE *s = scene->getScene();
+                        if (s->modelsManager.modelLen > 0)
+                        {
+                            TransformNode *node = &s->transformManager.pTransforms[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            vec3 delta = {0.0f, 0.0f, -1.0f};
+                            transformTranslate(node, delta);
+                        }
+                    }
+                    if (event.key.keysym.scancode == SDL_SCANCODE_LEFT)
+                    {
+                        SCENE *s = scene->getScene();
+                        if (s->modelsManager.modelLen > 0)
+                        {
+                            TransformNode *node = &s->transformManager.pTransforms[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            vec3 delta = {-1.0f, 0.0f, 0.0f};
+                            transformTranslate(node, delta);
+                        }
+                    }
+                    if (event.key.keysym.scancode == SDL_SCANCODE_RIGHT)
+                    {
+                        SCENE *s = scene->getScene();
+                        if (s->modelsManager.modelLen > 0)
+                        {
+                            TransformNode *node = &s->transformManager.pTransforms[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            vec3 delta = {1.0f, 0.0f, 0.0f};
+                            transformTranslate(node, delta);
+                        }
+                    }
                     break;
 
                 case SDL_KEYUP:

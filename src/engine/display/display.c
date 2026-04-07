@@ -166,6 +166,12 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     // Resolve transform hierarchy before UBO fills — single forward pass
     resolveTransforms(&dm->graphicPipeline[0].scene->transformManager);
 
+    // Update per-frame globals (view, proj, invViewProj, camera) — computed once, written to binding 9
+    FrameGlobals globals;
+    updateFrameGlobals(&globals, dm->graphicPipeline->swapchain, camera);
+    memcpy(dm->graphicPipeline[0].pGlobalsUbo->uniformBuffersMapped[dm->currentFrame], &globals,
+           sizeof(FrameGlobals));
+
     // Update UBOs (CPU-side memcpy — no GPU sync needed)
     MODEL_VIEW_PROJECTION* uboModels =
         updateModelUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);

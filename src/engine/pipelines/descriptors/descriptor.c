@@ -9,7 +9,7 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineTo
 {
     VkDescriptorPoolSize       poolSizes[] = {{
                                                   .type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                  .descriptorCount = maxFrames,
+                                                  .descriptorCount = maxFrames * 4, // models + lights + deltaTime + globals
                                         },
                                               {
                                                   .type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -17,7 +17,7 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineTo
                                         },
                                               {
                                                   .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                                  .descriptorCount = maxFrames,
+                                                  .descriptorCount = maxFrames * 3, // prevSSBO + curSSBO + readback
                                         }};
     VkDescriptorPoolCreateInfo poolInfo    = {
            .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -109,6 +109,12 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .imageView   = gdp->swapchain->nBuffer->imageView,
         };
+        VkDescriptorBufferInfo globalsUBOInfo = {
+            .buffer = gdp->pGlobalsUbo->uniformBuffers[i],
+            .offset = 0,
+            .range  = sizeof(FrameGlobals),
+        };
+
         VkWriteDescriptorSet descriptorWrite[] = {
             {
                 .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -206,8 +212,19 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
                 .pImageInfo       = VK_NULL_HANDLE, // Optional
                 .pTexelBufferView = VK_NULL_HANDLE, // Optional
             },                                      // TODO: add preprocessing for switching readbackbuffers debugging
+            {
+                .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet           = gdp->descriptorSet[i],
+                .dstBinding       = 9,
+                .dstArrayElement  = 0,
+                .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount  = 1,
+                .pBufferInfo      = &globalsUBOInfo,
+                .pImageInfo       = VK_NULL_HANDLE,
+                .pTexelBufferView = VK_NULL_HANDLE,
+            },
         };
-        vkUpdateDescriptorSets(device, 9, descriptorWrite, 0, VK_NULL_HANDLE);
+        vkUpdateDescriptorSets(device, 10, descriptorWrite, 0, VK_NULL_HANDLE);
     }
 }
 
@@ -320,13 +337,21 @@ void createDescriptorSetLayout(LogicalDevice* ld, GraphicPipelineToSurface* gdp,
                                                             .pImmutableSamplers = VK_NULL_HANDLE,
                                                             .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT};
 
+    VkDescriptorSetLayoutBinding uboFrameGlobals = {
+        .binding            = 9,
+        .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount    = 1,
+        .pImmutableSamplers = VK_NULL_HANDLE,
+        .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+    };
+
     VkDescriptorSetLayoutBinding bindings[] = {
         uboInstanceTransform, samplerLayoutBinding, previousSSBOLayoutBinding, currentSSBOLayoutBinding, uboDeltaTime,
-        gBufferBinding,       nBufferBinding,       uboLightInstanceTransform, ssboLightPixelsReadBack};
+        gBufferBinding,       nBufferBinding,       uboLightInstanceTransform, ssboLightPixelsReadBack, uboFrameGlobals};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {
         .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 9,
+        .bindingCount = 10,
         .pBindings    = bindings,
         .pNext        = VK_NULL_HANDLE,
         .flags        = 0,

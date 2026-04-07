@@ -271,6 +271,54 @@ int createLightInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
     return 1;
 }
 
+int createFrameGlobalsUniformBuffersMapped(PhysicalDevice* pd, LogicalDevice* ld, const uint32_t ubosLen,
+                                           UniformBufferManager* ubos)
+{
+    assert(ubos);
+
+    VkDeviceSize bufferSize = sizeof(FrameGlobals);
+
+    ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ubosLen);
+
+    uint32_t uniformBuffersLen = ubosLen;
+    if (uniformBuffersLen < 1)
+    {
+        uniformBuffersLen = 1;
+    }
+
+    ubos->uniformBuffers     = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
+    ubos->uniformAllocations = (VmaAllocation*) malloc(sizeof(VmaAllocation) * uniformBuffersLen);
+    ubos->uniformBuffersLen  = uniformBuffersLen;
+
+    for (TRVZXS_SIZE i = 0; i < uniformBuffersLen; i++)
+    {
+        createVkBufferMapped(ld->allocator, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                             &ubos->uniformBuffers[i], &ubos->uniformAllocations[i], &ubos->uniformBuffersMapped[i]);
+    }
+
+    return 1;
+}
+
+void updateFrameGlobals(FrameGlobals* globals, GraphicSwapchain* dsm, Camera3D camera)
+{
+    // View matrix
+    glm_lookat(camera.eye, camera.center, camera.up, globals->view);
+
+    // Projection matrix
+    float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
+    glm_perspective(glm_rad(45.0f), aspectRatio, 0.1f, 500.0f, globals->proj);
+    globals->proj[1][1] *= -1; // Vulkan Y-flip
+
+    // Precomputed viewProj
+    glm_mat4_mul(globals->proj, globals->view, globals->viewProj);
+
+    // Precomputed inverse viewProj (lights need this for reconstruction)
+    glm_mat4_inv(globals->viewProj, globals->invViewProj);
+
+    // Camera data
+    globals->camera = camera;
+}
+
 int createDeltaTimeUniformBuffers(PhysicalDevice* pd, LogicalDevice* ld, const uint32_t ubosLen,
                                   UniformBufferManager* ubos)
 {
