@@ -428,6 +428,9 @@ void destroyVmaAllocator(LogicalDevice* ld)
 
 void printVmaStats(LogicalDevice* ld)
 {
+#ifndef VMA_DUMP
+    return;
+#else
     if (ld->allocator == VK_NULL_HANDLE)
         return;
 
@@ -437,6 +440,7 @@ void printVmaStats(LogicalDevice* ld)
         fprintf(stderr, "=== VMA Statistics ===\n%s\n=== End VMA Statistics ===\n", statsString);
         vmaBridgeFreeStatsString(ld->allocator, statsString);
     }
+#endif
 }
 
 /*

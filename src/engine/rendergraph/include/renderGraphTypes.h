@@ -182,4 +182,15 @@ typedef struct RenderGraph
     uint32_t graphicsQueueFamily;
     uint32_t computeQueueFamily;
     bool     hasComputeWork; // set during rgExecute if any compute pass was recorded
+
+#ifdef DEBUG
+    // GPU timestamp queries — one pair (begin/end) per pass, per frame-in-flight.
+    // Layout: frame f, pass p → query index = f * (passCount*2) + p*2  (begin)
+    //                                                              +1  (end)
+    VkQueryPool gpuTimestampPool;
+    uint32_t    gpuTimestampQueryCount; // total queries allocated
+    float       timestampPeriodNs;     // nanoseconds per tick
+    uint32_t    gpuTimingFrames;
+    double      gpuAccumUs[RG_MAX_PASSES]; // accumulated per-pass µs
+#endif
 } RenderGraph;

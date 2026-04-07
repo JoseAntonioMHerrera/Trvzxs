@@ -1,30 +1,31 @@
 #version 450
-struct MVP {
-    mat4 m;
-    mat4 v;
-    mat4 p;
-};
 
-struct CameraData{
-    vec3 eye;
-    vec3 center;
-    vec3 up;
+// Per-frame globals (binding 9) — view/proj computed once per frame
+layout(binding = 9) uniform FrameGlobals {
+    mat4 view;
+    mat4 proj;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraEye;
+    float _pad1;
+    vec3 cameraCenter;
+    float _pad2;
+    vec3 cameraUp;
+    float _pad3;
     vec2 screenSize;
-};
+    vec2 _pad4;
+} globals;
+
 struct LightInstanceData {
+    mat4 model;
     vec4 color;
-    vec4 position;
+    vec3 position;
     float scale;
 };
-struct LightInstance {
-    MVP mvp;
-    mat4 inverseProjView;
-    CameraData camera;
-    LightInstanceData data;
-};
-layout(binding = 7) uniform UniformBufferObject {
-LightInstance lightInstance[2000];
-} ubo;
+
+layout(binding = 7) uniform LightInstances {
+    LightInstanceData instances[2000];
+} lights;
 
 layout(location = 0) in vec3 point;
 layout(location = 1) in vec3 barycentric;
@@ -33,7 +34,7 @@ layout(location = 1) out vec3 baryOut;
 layout(location = 2) out flat int instanceIndex;
 
 void main() {
-    gl_Position = ubo.lightInstance[gl_InstanceIndex].mvp.p * ubo.lightInstance[gl_InstanceIndex].mvp.v * ubo.lightInstance[gl_InstanceIndex].mvp.m * vec4(point, 1.0);
+    gl_Position = globals.proj * globals.view * lights.instances[gl_InstanceIndex].model * vec4(point, 1.0);
     pointOut = point;
     baryOut = barycentric;
     instanceIndex = gl_InstanceIndex;

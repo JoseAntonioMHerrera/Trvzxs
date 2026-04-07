@@ -27,25 +27,6 @@ typedef struct LightVolumeInstance
     uint16_t               lifecycle;    // LIGHT_INSTANCE_ALIVE/DISABLED/DESTROYED
     uint16_t               passFlags;    // per-frame: reserved for hierarchy cascade-disable
 } LightVolumeInstance;
-// Matches shader LightInstanceData: vec4 color, vec4 position, float scale
-typedef struct LightUBOData
-{
-    GEOM_VERTEX_COLOR_RGBA color;
-    vec3                   position;
-    float                  padding;
-    float                  scale;
-    uint16_t               _pad_lifecycle;  // maintain original struct size/alignment
-    uint16_t               _pad_passFlags;
-    float                  padding2[2];     // std140: 48-byte struct size (vec4 alignment)
-} LightUBOData;
-
-typedef struct LightTransformations
-{
-    struct MODEL_VIEW_PROJECTION mvp;
-    mat4                         mInverseVP;
-    struct Camera3D              camera;
-    LightUBOData                 data;
-} LightTransformations;
 
 typedef struct LightVolume
 {

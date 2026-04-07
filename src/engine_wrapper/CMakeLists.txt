@@ -26,6 +26,7 @@ message(STATUS "RENDERDOC_LAYER is set to: ${RENDERDOC_LAYER}")
 if(RENDERDOC_LAYER)
     message(STATUS "Enabling RenderDoc layer support")
     target_compile_definitions(${PROJECT_NAME} PRIVATE RENDERDOC_ENABLED)
+    target_compile_definitions(engine_mod PRIVATE RENDERDOC_ENABLED)
 endif()
 
 target_link_libraries(${PROJECT_NAME}

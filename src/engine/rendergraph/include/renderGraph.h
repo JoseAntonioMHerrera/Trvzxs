@@ -39,6 +39,10 @@ void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer compu
 
 void rgDumpCompiled(const RenderGraph* rg);
 
+#ifdef DEBUG
+void rgCollectGpuTimings(RenderGraph* rg, uint32_t frameIndex);
+#endif
+
 // --- Swapchain resize ---
 
 void rgOnSwapchainResize(RenderGraph* rg, uint32_t newWidth, uint32_t newHeight);

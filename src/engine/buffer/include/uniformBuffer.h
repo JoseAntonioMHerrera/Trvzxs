@@ -20,7 +20,7 @@
 // #include "displayTimer.h"
 
 void                   updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene);
-LightTransformations*  updateLightUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene);
+void                   updateLightUniformBuffersDirect(void* mappedBuffer, float deltaTime, SCENE* scene);
 int                    createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, LogicalDevice* ld,
                                                                               const uint32_t ubosLen, UniformBufferManager* ubos,
                                                                               uint32_t instancesLen);

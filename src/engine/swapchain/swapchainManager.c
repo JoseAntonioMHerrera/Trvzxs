@@ -423,7 +423,7 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, 
     // por la gpu
 
     VkPresentModeKHR selectedPresentationMode = chooseSwapPresentMode(
-        swapChainSupportDetails->presentModes, swapChainSupportDetails->presentModeLen, VK_PRESENT_MODE_MAILBOX_KHR);
+        swapChainSupportDetails->presentModes, swapChainSupportDetails->presentModeLen, VK_PRESENT_MODE_IMMEDIATE_KHR);
 
     // Procesamos la resolución soportada por nuestra ventana y la del
     // framebuffer de swapchain

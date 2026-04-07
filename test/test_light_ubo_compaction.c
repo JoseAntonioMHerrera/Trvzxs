@@ -74,7 +74,8 @@ void test_light_all_alive_full_output(void)
     Camera3D         cam   = make_test_camera();
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 6);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 3);
@@ -95,7 +96,8 @@ void test_light_one_instance_destroyed_compacted(void)
     scene->lightManager.pDenseLightInstances[scene->lightManager.pLight[0].denseBaseOffset +1].lifecycle = LIGHT_INSTANCE_DESTROYED;
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 3);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 3);
@@ -113,7 +115,8 @@ void test_light_one_instance_disabled_compacted(void)
     scene->lightManager.pDenseLightInstances[scene->lightManager.pLight[0].denseBaseOffset +2].lifecycle = LIGHT_INSTANCE_DISABLED;
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 3);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 3);
@@ -132,7 +135,8 @@ void test_light_all_instances_dead_zero_output(void)
         scene->lightManager.pDenseLightInstances[scene->lightManager.pLight[0].denseBaseOffset +i].lifecycle = LIGHT_INSTANCE_DESTROYED;
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
@@ -150,7 +154,8 @@ void test_light_disabled_skips_all_instances(void)
     scene->lightManager.pLight[0].alive = LIGHT_DISABLED;
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
@@ -170,7 +175,8 @@ void test_light_destroyed_skips_all_instances(void)
     scene->lightManager.pLight[0].alive = LIGHT_DESTROYED;
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
@@ -190,7 +196,8 @@ void test_light_mixed_state_multi_light(void)
     scene->lightManager.pLight[1].alive = LIGHT_DISABLED;
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 0);
@@ -211,7 +218,8 @@ void test_light_ubo_multi_frame_stability(void)
     Camera3D         cam   = make_test_camera();
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r1 = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* r1 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r1, 0.0f, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 3);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
     free(r1);
@@ -219,7 +227,8 @@ void test_light_ubo_multi_frame_stability(void)
     destroyLightInstance(&scene->lightManager, 0, 0);
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r2 = updateLightUniformBuffers(&sc, 0.016f, cam, scene);
+    LightInstanceUBO* r2 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r2, 0.016f, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 5);
@@ -228,7 +237,8 @@ void test_light_ubo_multi_frame_stability(void)
     disableLight(&scene->lightManager, 1);
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r3 = updateLightUniformBuffers(&sc, 0.032f, cam, scene);
+    LightInstanceUBO* r3 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r3, 0.032f, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 2);
@@ -237,7 +247,8 @@ void test_light_ubo_multi_frame_stability(void)
     enableLight(&scene->lightManager, 1);
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r4 = updateLightUniformBuffers(&sc, 0.048f, cam, scene);
+    LightInstanceUBO* r4 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r4, 0.048f, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 5);
@@ -255,7 +266,8 @@ void test_light_destroy_then_ubo_fill(void)
     destroyLight(&scene->lightManager, 0);
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
