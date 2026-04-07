@@ -196,7 +196,8 @@ void test_ubo_fill_multi_frame_livecount_stability(void)
 
     // Frame 1: all alive
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* r1 = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* r1 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(r1, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 3);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 3);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 6);
@@ -207,7 +208,8 @@ void test_ubo_fill_multi_frame_livecount_stability(void)
 
     // Frame 2: model 0 should have 2 live
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* r2 = updateModelUniformBuffers(&sc, 0.016f, cam, scene);
+    ModelInstanceUBO* r2 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(r2, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 3);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 5);
@@ -218,7 +220,8 @@ void test_ubo_fill_multi_frame_livecount_stability(void)
 
     // Frame 3: model 1 entirely skipped
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* r3 = updateModelUniformBuffers(&sc, 0.032f, cam, scene);
+    ModelInstanceUBO* r3 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(r3, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 0);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 2);
@@ -229,7 +232,8 @@ void test_ubo_fill_multi_frame_livecount_stability(void)
 
     // Frame 4: model 1 back to 3
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* r4 = updateModelUniformBuffers(&sc, 0.048f, cam, scene);
+    ModelInstanceUBO* r4 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(r4, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 3);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 5);
@@ -251,7 +255,8 @@ void test_destroy_model_then_ubo_fill(void)
     destroyModel(&scene->modelsManager, 0);
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     // Model 0 dead -> 0 live, Model 1 alive -> 3 live
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
@@ -301,7 +306,8 @@ void test_varied_counts_ubo_compaction(void)
     destroyInstance(&scene->modelsManager, 1, 2);
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 4);

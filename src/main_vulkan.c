@@ -170,6 +170,14 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     if (dispM->graphicPipeline[0].texture && dispM->graphicPipeline[0].texture->common)
         deferDestroyCommonImage(dq, dispM->graphicPipeline[0].texture->common);
 
+    // Per-frame globals UBO (binding 9) — lives on pipeline 0
+    if (dispM->graphicPipeline[0].pGlobalsUbo)
+    {
+        for (uint32_t i = 0; i < dispM->graphicPipeline[0].pGlobalsUbo->uniformBuffersLen; i++)
+            deferDestroyBuffer(dq, dispM->graphicPipeline[0].pGlobalsUbo->uniformBuffers[i],
+                               dispM->graphicPipeline[0].pGlobalsUbo->uniformAllocations[i]);
+    }
+
     // Pipeline 1: particles (graphics + compute)
     deferDestroyDeviceBuffer(dq, dispM->graphicPipeline[1].deviceBuffer);
     for (uint32_t c = 0; c < dispM->graphicPipeline[1].computePipelineCount; c++)

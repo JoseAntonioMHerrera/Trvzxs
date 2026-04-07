@@ -44,7 +44,8 @@ void test_all_alive_full_output(void)
     Camera3D        cam   = make_test_camera();
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 6);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 3);
@@ -65,7 +66,8 @@ void test_one_instance_destroyed_compacted(void)
     scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1].lifecycle = INSTANCE_DESTROYED;
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 3);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 3);
@@ -83,7 +85,8 @@ void test_one_instance_disabled_compacted(void)
     scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 2].lifecycle = INSTANCE_DISABLED;
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 3);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 3);
@@ -102,7 +105,8 @@ void test_all_instances_dead_zero_output(void)
         scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + i].lifecycle = INSTANCE_DESTROYED;
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 0);
@@ -120,7 +124,8 @@ void test_model_disabled_skips_all_instances(void)
     scene->modelsManager.pModel[0].alive = MODEL_DISABLED;
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 3);
@@ -141,7 +146,8 @@ void test_model_destroyed_skips_all_instances(void)
     scene->modelsManager.pModel[0].alive = MODEL_DESTROYED;
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 0);
@@ -164,7 +170,8 @@ void test_mixed_state_multi_model(void)
     // Model 2: all alive -> 4 live
 
     resolveTransforms(&scene->transformManager);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 0);
@@ -198,7 +205,8 @@ void test_compaction_preserves_correct_transforms(void)
     inst1->lifecycle = INSTANCE_DESTROYED;
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     // result[0] should have instance 0's model matrix (X translation = 1.0)
     // result[1] should have instance 2's model matrix (X translation = 3.0)
