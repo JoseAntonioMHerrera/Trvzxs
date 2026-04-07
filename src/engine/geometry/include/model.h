@@ -26,6 +26,12 @@ typedef struct Mesh3DManager
 #define MODEL_DISABLED  2
 #define MODEL_DESTROYED 0
 
+// Hierarchy: no parent sentinel
+#define INSTANCE_NO_PARENT UINT32_MAX
+
+// Per-frame pass flags (occupies high 16 bits of the alive union)
+#define PASS_DISABLED 1
+
 typedef struct Model3DInstance
 {
     mat4                   m;
@@ -35,7 +41,16 @@ typedef struct Model3DInstance
     vec3                   scale;
     float                  _pad2;
     GEOM_VERTEX_COLOR_RGBA color;
-    uint32_t               alive;
+    uint32_t               parentGlobalIdx; // index into pDenseModelInstances, or INSTANCE_NO_PARENT
+    union
+    {
+        uint32_t alive; // existing code reads/writes full 32 bits
+        struct
+        {
+            uint16_t lifecycle; // INSTANCE_ALIVE / DISABLED / DESTROYED
+            uint16_t passFlags; // per-frame: PASS_DISABLED, cleared each iteration
+        };
+    };
 } Model3DInstance;
 
 typedef struct Model3D

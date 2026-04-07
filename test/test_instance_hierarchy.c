@@ -20,258 +20,166 @@ static Camera3D make_test_camera(void)
 {
     Camera3D cam;
     memset(&cam, 0, sizeof(cam));
-    cam.eye[0]    = 0.0f;
-    cam.eye[1]    = 0.0f;
-    cam.eye[2]    = 5.0f;
-    cam.center[0] = 0.0f;
-    cam.center[1] = 0.0f;
-    cam.center[2] = 0.0f;
-    cam.up[0]     = 0.0f;
-    cam.up[1]     = 1.0f;
-    cam.up[2]     = 0.0f;
+    cam.eye[2] = 5.0f;
+    cam.up[1]  = 1.0f;
     return cam;
 }
 
 // ---------------------------------------------------------------------------
-// computeGlobalInstanceIndex tests
+// 1. Parent-child: child world = parent.local + child.local
 // ---------------------------------------------------------------------------
 
-void test_global_index_single_model(void)
+void test_parent_child_position(void)
 {
-    Models3DManager man = make_test_manager(1, 5);
+    // 1 model, 2 instances: instance 0 = parent, instance 1 = child
+    SCENE*           scene = make_test_scene(1, 2);
+    GraphicSwapchain sc    = make_fake_swapchain();
+    Camera3D         cam   = make_test_camera();
 
-    ASSERT_EQ(computeGlobalInstanceIndex(&man.pModel[0], 0), 0);
-    ASSERT_EQ(computeGlobalInstanceIndex(&man.pModel[0], 4), 4);
+    Model3DInstance* parent = &scene->modelsManager.pDenseModelInstances[0];
+    Model3DInstance* child  = &scene->modelsManager.pDenseModelInstances[1];
 
-    free_test_manager(&man);
-}
+    instanceSetPosition(parent, (vec3){10.0f, 0.0f, 0.0f});
+    instanceSetPosition(child,  (vec3){0.0f, 5.0f, 0.0f});
 
-void test_global_index_multi_model(void)
-{
-    // 3 models with 4 instances each -> capacity offsets: 0, 4, 8
-    Models3DManager man = make_test_manager(3, 4);
-
-    ASSERT_EQ(computeGlobalInstanceIndex(&man.pModel[0], 0), 0);
-    ASSERT_EQ(computeGlobalInstanceIndex(&man.pModel[0], 3), 3);
-    ASSERT_EQ(computeGlobalInstanceIndex(&man.pModel[1], 0), 4);
-    ASSERT_EQ(computeGlobalInstanceIndex(&man.pModel[1], 2), 6);
-    ASSERT_EQ(computeGlobalInstanceIndex(&man.pModel[2], 0), 8);
-    ASSERT_EQ(computeGlobalInstanceIndex(&man.pModel[2], 3), 11);
-
-    free_test_manager(&man);
-}
-
-// ---------------------------------------------------------------------------
-// pParentIndex initialization tests
-// ---------------------------------------------------------------------------
-
-void test_parent_index_init_all_roots(void)
-{
-    Models3DManager man = make_test_manager(2, 3);
-
-    // All 6 slots should be INSTANCE_NO_PARENT
-    for (uint32_t i = 0; i < man.modelInstanceCapacity; i++)
-    {
-        ASSERT_EQ(man.pParentIndex[i], INSTANCE_NO_PARENT);
-    }
-
-    free_test_manager(&man);
-}
-
-// ---------------------------------------------------------------------------
-// instanceSetParent tests
-// ---------------------------------------------------------------------------
-
-void test_set_parent_basic(void)
-{
-    Models3DManager man = make_test_manager(1, 4);
-
-    // Parent instance 0 of child instance 2 (same model)
-    instanceSetParent(&man, 0, 2, 0, 0);
-
-    uint32_t childGlobal  = computeGlobalInstanceIndex(&man.pModel[0], 2);
-    uint32_t parentGlobal = computeGlobalInstanceIndex(&man.pModel[0], 0);
-    ASSERT_EQ(man.pParentIndex[childGlobal], parentGlobal);
-
-    // Other instances should remain roots
-    ASSERT_EQ(man.pParentIndex[computeGlobalInstanceIndex(&man.pModel[0], 0)], INSTANCE_NO_PARENT);
-    ASSERT_EQ(man.pParentIndex[computeGlobalInstanceIndex(&man.pModel[0], 1)], INSTANCE_NO_PARENT);
-    ASSERT_EQ(man.pParentIndex[computeGlobalInstanceIndex(&man.pModel[0], 3)], INSTANCE_NO_PARENT);
-
-    free_test_manager(&man);
-}
-
-void test_set_parent_cross_model(void)
-{
-    // 2 models, 3 instances each -> global indices: model0=[0,1,2], model1=[3,4,5]
-    Models3DManager man = make_test_manager(2, 3);
-
-    // Instance 1 of model 1 (global=4) parented to instance 2 of model 0 (global=2)
-    instanceSetParent(&man, 1, 1, 0, 2);
-
-    ASSERT_EQ(man.pParentIndex[4], 2);
-
-    free_test_manager(&man);
-}
-
-void test_set_parent_rejects_invalid_order(void)
-{
-    Models3DManager man = make_test_manager(1, 4);
-
-    // Try to parent instance 0 under instance 2 — invalid because parent global > child global
-    CAPTURE_STDERR_BEGIN();
-    instanceSetParent(&man, 0, 0, 0, 2);
-    CAPTURE_STDERR_END();
-
-    // Should be rejected — instance 0 remains a root
-    ASSERT_EQ(man.pParentIndex[0], INSTANCE_NO_PARENT);
-    ASSERT_STDERR_CONTAINS("parent global index");
-
-    free_test_manager(&man);
-}
-
-void test_set_parent_rejects_self_parent(void)
-{
-    Models3DManager man = make_test_manager(1, 4);
-
-    // Try to parent instance 1 under itself
-    CAPTURE_STDERR_BEGIN();
-    instanceSetParent(&man, 0, 1, 0, 1);
-    CAPTURE_STDERR_END();
-
-    // Should be rejected (parentGlobal == childGlobal, not strictly less)
-    ASSERT_EQ(man.pParentIndex[1], INSTANCE_NO_PARENT);
-    ASSERT_STDERR_CONTAINS("parent global index");
-
-    free_test_manager(&man);
-}
-
-// ---------------------------------------------------------------------------
-// UBO fill with hierarchy tests
-// ---------------------------------------------------------------------------
-
-void test_ubo_root_instances_unchanged(void)
-{
-    // Verify that instances with no parent produce the same transforms as before
-    SCENE*          scene = make_test_scene(1, 3);
-    GraphicSwapchain sc   = make_fake_swapchain();
-    Camera3D        cam   = make_test_camera();
-
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 0], (vec3){1.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1], (vec3){2.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 2], (vec3){3.0f, 0.0f, 0.0f});
-
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
-
-    // All roots — transforms should be pure local TRS
-    ASSERT_FLOAT_EQ(result[0].model[3][0], 1.0f);
-    ASSERT_FLOAT_EQ(result[1].model[3][0], 2.0f);
-    ASSERT_FLOAT_EQ(result[2].model[3][0], 3.0f);
-
-    free(result);
-    free_test_scene(scene);
-}
-
-void test_ubo_child_inherits_parent_translation(void)
-{
-    // Parent at X=10, child at X=5 local -> child world should be X=15
-    SCENE*          scene = make_test_scene(1, 3);
-    GraphicSwapchain sc   = make_fake_swapchain();
-    Camera3D        cam   = make_test_camera();
-
-    // Instance 0 = parent at X=10
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 0], (vec3){10.0f, 0.0f, 0.0f});
-    // Instance 1 = child with local X=5
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1], (vec3){5.0f, 0.0f, 0.0f});
-    // Instance 2 = root at X=20
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 2], (vec3){20.0f, 0.0f, 0.0f});
-
-    // Parent instance 1 under instance 0
     instanceSetParent(&scene->modelsManager, 0, 1, 0, 0);
 
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
-    // Instance 0 (root): world X = 10
-    ASSERT_FLOAT_EQ(result[0].model[3][0], 10.0f);
-    // Instance 1 (child of 0): world X = parent(10) + local(5) = 15
-    ASSERT_FLOAT_EQ(result[1].model[3][0], 15.0f);
-    // Instance 2 (root): world X = 20
-    ASSERT_FLOAT_EQ(result[2].model[3][0], 20.0f);
+    // Parent world = its own local: (10, 0, 0)
+    ASSERT_FLOAT_EQ(parent->m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(parent->m[3][1], 0.0f);
+    ASSERT_FLOAT_EQ(parent->m[3][2], 0.0f);
+
+    // Child world = parent + local: (10, 5, 0)
+    ASSERT_FLOAT_EQ(child->m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(child->m[3][1], 5.0f);
+    ASSERT_FLOAT_EQ(child->m[3][2], 0.0f);
 
     free(result);
     free_test_scene(scene);
 }
 
-void test_ubo_grandchild_chain(void)
+// ---------------------------------------------------------------------------
+// 2. Three-level chain: grandparent -> parent -> child
+// ---------------------------------------------------------------------------
+
+void test_three_level_chain(void)
 {
-    // 3-level chain: instance 0 -> instance 1 -> instance 2
-    // All at X=5 local -> world should be 5, 10, 15
-    SCENE*          scene = make_test_scene(1, 3);
-    GraphicSwapchain sc   = make_fake_swapchain();
-    Camera3D        cam   = make_test_camera();
+    // 1 model, 3 instances: 0=grandparent, 1=parent, 2=child
+    SCENE*           scene = make_test_scene(1, 3);
+    GraphicSwapchain sc    = make_fake_swapchain();
+    Camera3D         cam   = make_test_camera();
 
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 0], (vec3){5.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1], (vec3){5.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 2], (vec3){5.0f, 0.0f, 0.0f});
+    Model3DInstance* gp    = &scene->modelsManager.pDenseModelInstances[0];
+    Model3DInstance* mid   = &scene->modelsManager.pDenseModelInstances[1];
+    Model3DInstance* child = &scene->modelsManager.pDenseModelInstances[2];
 
-    instanceSetParent(&scene->modelsManager, 0, 1, 0, 0); // 1 child of 0
-    instanceSetParent(&scene->modelsManager, 0, 2, 0, 1); // 2 child of 1
+    instanceSetPosition(gp,    (vec3){10.0f, 0.0f, 0.0f});
+    instanceSetPosition(mid,   (vec3){0.0f, 20.0f, 0.0f});
+    instanceSetPosition(child, (vec3){0.0f, 0.0f, 30.0f});
+
+    instanceSetParent(&scene->modelsManager, 0, 1, 0, 0); // mid -> gp
+    instanceSetParent(&scene->modelsManager, 0, 2, 0, 1); // child -> mid
 
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
-    // Root: 5
-    ASSERT_FLOAT_EQ(result[0].model[3][0], 5.0f);
-    // Child: 5 + 5 = 10
-    ASSERT_FLOAT_EQ(result[1].model[3][0], 10.0f);
-    // Grandchild: 10 + 5 = 15
-    ASSERT_FLOAT_EQ(result[2].model[3][0], 15.0f);
+    // Grandparent: (10, 0, 0)
+    ASSERT_FLOAT_EQ(gp->m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(gp->m[3][1], 0.0f);
+    ASSERT_FLOAT_EQ(gp->m[3][2], 0.0f);
+
+    // Parent: gp + local = (10, 20, 0)
+    ASSERT_FLOAT_EQ(mid->m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(mid->m[3][1], 20.0f);
+    ASSERT_FLOAT_EQ(mid->m[3][2], 0.0f);
+
+    // Child: (gp + mid.local) + child.local = (10, 20, 30)
+    ASSERT_FLOAT_EQ(child->m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(child->m[3][1], 20.0f);
+    ASSERT_FLOAT_EQ(child->m[3][2], 30.0f);
 
     free(result);
     free_test_scene(scene);
 }
 
-void test_ubo_cross_model_parenting(void)
+// ---------------------------------------------------------------------------
+// 3. Cross-model parenting: child in model 1 parented to instance in model 0
+// ---------------------------------------------------------------------------
+
+void test_cross_model_parenting(void)
 {
-    // 2 models, 2 instances each
-    // Model 0 instance 0 (global=0) is parent of model 1 instance 0 (global=2)
-    SCENE*          scene = make_test_scene(2, 2);
-    GraphicSwapchain sc   = make_fake_swapchain();
-    Camera3D        cam   = make_test_camera();
+    // 2 models, 2 instances each. Global: model0=[0,1], model1=[2,3]
+    SCENE*           scene = make_test_scene(2, 2);
+    GraphicSwapchain sc    = make_fake_swapchain();
+    Camera3D         cam   = make_test_camera();
 
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 0], (vec3){10.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1], (vec3){0.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[1].denseBaseOffset + 0], (vec3){3.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[1].denseBaseOffset + 1], (vec3){0.0f, 0.0f, 0.0f});
+    // Parent: model 0, instance 1 (global 1)
+    Model3DInstance* parent = &scene->modelsManager.pDenseModelInstances[1];
+    // Child: model 1, instance 0 (global 2)
+    Model3DInstance* child  = &scene->modelsManager.pDenseModelInstances[2];
 
-    // Model 1, instance 0 parented to model 0, instance 0
-    instanceSetParent(&scene->modelsManager, 1, 0, 0, 0);
+    instanceSetPosition(parent, (vec3){5.0f, 5.0f, 5.0f});
+    instanceSetPosition(child,  (vec3){1.0f, 1.0f, 1.0f});
+
+    instanceSetParent(&scene->modelsManager, 1, 0, 0, 1);
 
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
-    // Model 0 inst 0 (root): X=10
-    ASSERT_FLOAT_EQ(result[0].model[3][0], 10.0f);
-    // Model 0 inst 1 (root): X=0
-    ASSERT_FLOAT_EQ(result[1].model[3][0], 0.0f);
-    // Model 1 inst 0 (child of model0/inst0): X = 10 + 3 = 13
-    ASSERT_FLOAT_EQ(result[2].model[3][0], 13.0f);
-    // Model 1 inst 1 (root): X=0
-    ASSERT_FLOAT_EQ(result[3].model[3][0], 0.0f);
+    // Child world = parent(5,5,5) + local(1,1,1) = (6,6,6)
+    ASSERT_FLOAT_EQ(child->m[3][0], 6.0f);
+    ASSERT_FLOAT_EQ(child->m[3][1], 6.0f);
+    ASSERT_FLOAT_EQ(child->m[3][2], 6.0f);
 
     free(result);
     free_test_scene(scene);
 }
 
-void test_ubo_multiple_children_same_parent(void)
-{
-    // Instance 0 is parent of instances 1, 2, and 3
-    SCENE*          scene = make_test_scene(1, 4);
-    GraphicSwapchain sc   = make_fake_swapchain();
-    Camera3D        cam   = make_test_camera();
+// ---------------------------------------------------------------------------
+// 4. Parent with uniform scale affects child world position
+// ---------------------------------------------------------------------------
 
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 0], (vec3){10.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1], (vec3){1.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 2], (vec3){2.0f, 0.0f, 0.0f});
-    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 3], (vec3){3.0f, 0.0f, 0.0f});
+void test_parent_scale_affects_child(void)
+{
+    SCENE*           scene = make_test_scene(1, 2);
+    GraphicSwapchain sc    = make_fake_swapchain();
+    Camera3D         cam   = make_test_camera();
+
+    Model3DInstance* parent = &scene->modelsManager.pDenseModelInstances[0];
+    Model3DInstance* child  = &scene->modelsManager.pDenseModelInstances[1];
+
+    instanceSetPosition(parent, (vec3){0.0f, 0.0f, 0.0f});
+    instanceSetScaleUniform(parent, 2.0f);
+
+    instanceSetPosition(child, (vec3){5.0f, 0.0f, 0.0f});
+
+    instanceSetParent(&scene->modelsManager, 0, 1, 0, 0);
+
+    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+
+    // Parent at origin, scale 2x. Child local (5,0,0) -> world (10,0,0)
+    ASSERT_FLOAT_EQ(child->m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(child->m[3][1], 0.0f);
+    ASSERT_FLOAT_EQ(child->m[3][2], 0.0f);
+
+    free(result);
+    free_test_scene(scene);
+}
+
+// ---------------------------------------------------------------------------
+// 5. Multiple children under same parent
+// ---------------------------------------------------------------------------
+
+void test_multiple_children_same_parent(void)
+{
+    SCENE*           scene = make_test_scene(1, 4);
+    GraphicSwapchain sc    = make_fake_swapchain();
+    Camera3D         cam   = make_test_camera();
+
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[0], (vec3){10.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[1], (vec3){1.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[2], (vec3){2.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[3], (vec3){3.0f, 0.0f, 0.0f});
 
     instanceSetParent(&scene->modelsManager, 0, 1, 0, 0);
     instanceSetParent(&scene->modelsManager, 0, 2, 0, 0);
@@ -279,13 +187,153 @@ void test_ubo_multiple_children_same_parent(void)
 
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
-    ASSERT_FLOAT_EQ(result[0].model[3][0], 10.0f);       // root
-    ASSERT_FLOAT_EQ(result[1].model[3][0], 11.0f);       // 10 + 1
-    ASSERT_FLOAT_EQ(result[2].model[3][0], 12.0f);       // 10 + 2
-    ASSERT_FLOAT_EQ(result[3].model[3][0], 13.0f);       // 10 + 3
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[0].m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][0], 11.0f);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[2].m[3][0], 12.0f);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[3].m[3][0], 13.0f);
 
     free(result);
     free_test_scene(scene);
+}
+
+// ---------------------------------------------------------------------------
+// 6. Cascade-disable: disabled parent -> child and grandchild skipped
+// ---------------------------------------------------------------------------
+
+void test_cascade_disable_skips_chain(void)
+{
+    SCENE*           scene = make_test_scene(1, 3);
+    GraphicSwapchain sc    = make_fake_swapchain();
+    Camera3D         cam   = make_test_camera();
+
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[0], (vec3){10.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[1], (vec3){0.0f, 20.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[2], (vec3){0.0f, 0.0f, 30.0f});
+
+    instanceSetParent(&scene->modelsManager, 0, 1, 0, 0);
+    instanceSetParent(&scene->modelsManager, 0, 2, 0, 1);
+
+    // Disable grandparent
+    scene->modelsManager.pDenseModelInstances[0].alive = INSTANCE_DISABLED;
+
+    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+
+    // All 3 skipped
+    ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
+    ASSERT_EQ(scene->modelsManager.modelInstanceLen, 0);
+
+    // Children should have PASS_DISABLED set
+    ASSERT_EQ(scene->modelsManager.pDenseModelInstances[1].passFlags, PASS_DISABLED);
+    ASSERT_EQ(scene->modelsManager.pDenseModelInstances[2].passFlags, PASS_DISABLED);
+
+    free(result);
+    free_test_scene(scene);
+}
+
+// ---------------------------------------------------------------------------
+// 7. Re-enable parent -> children reappear next frame with correct position
+// ---------------------------------------------------------------------------
+
+void test_reenable_parent_restores_children(void)
+{
+    SCENE*           scene = make_test_scene(1, 2);
+    GraphicSwapchain sc    = make_fake_swapchain();
+    Camera3D         cam   = make_test_camera();
+
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[0], (vec3){10.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[1], (vec3){0.0f, 5.0f, 0.0f});
+
+    instanceSetParent(&scene->modelsManager, 0, 1, 0, 0);
+
+    // Frame 1: disable parent -> both skipped
+    scene->modelsManager.pDenseModelInstances[0].alive = INSTANCE_DISABLED;
+    MODEL_VIEW_PROJECTION* r1 = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
+    free(r1);
+
+    // Frame 2: re-enable parent -> both reappear
+    scene->modelsManager.pDenseModelInstances[0].alive = INSTANCE_ALIVE;
+    MODEL_VIEW_PROJECTION* r2 = updateModelUniformBuffers(&sc, 0.016f, cam, scene);
+    ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
+
+    // Child world position correct: (10, 5, 0)
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][1], 5.0f);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][2], 0.0f);
+
+    free(r2);
+    free_test_scene(scene);
+}
+
+// ---------------------------------------------------------------------------
+// 8. Clear parent -> child becomes root, uses only local transform
+// ---------------------------------------------------------------------------
+
+void test_clear_parent_makes_root(void)
+{
+    SCENE*           scene = make_test_scene(1, 2);
+    GraphicSwapchain sc    = make_fake_swapchain();
+    Camera3D         cam   = make_test_camera();
+
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[0], (vec3){10.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[1], (vec3){0.0f, 5.0f, 0.0f});
+
+    instanceSetParent(&scene->modelsManager, 0, 1, 0, 0);
+
+    // Frame 1: parented -> child at (10, 5, 0)
+    MODEL_VIEW_PROJECTION* r1 = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][1], 5.0f);
+    free(r1);
+
+    // Clear parent
+    instanceClearParent(&scene->modelsManager, 0, 1);
+
+    // Frame 2: unparented -> child at (0, 5, 0)
+    MODEL_VIEW_PROJECTION* r2 = updateModelUniformBuffers(&sc, 0.016f, cam, scene);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][0], 0.0f);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][1], 5.0f);
+    ASSERT_FLOAT_EQ(scene->modelsManager.pDenseModelInstances[1].m[3][2], 0.0f);
+
+    free(r2);
+    free_test_scene(scene);
+}
+
+// ---------------------------------------------------------------------------
+// 9. Ordering validation: parent after child rejected
+// ---------------------------------------------------------------------------
+
+void test_set_parent_rejects_wrong_order(void)
+{
+    Models3DManager man = make_test_manager(1, 2);
+
+    // Try to parent instance 0 to instance 1 (wrong: parent must have lower index)
+    CAPTURE_STDERR_BEGIN();
+    instanceSetParent(&man, 0, 0, 0, 1);
+    CAPTURE_STDERR_END();
+
+    ASSERT_STDERR_CONTAINS("[instanceSetParent] rejected");
+    ASSERT_EQ(man.pDenseModelInstances[0].parentGlobalIdx, INSTANCE_NO_PARENT);
+
+    free_test_manager(&man);
+}
+
+// ---------------------------------------------------------------------------
+// 10. Self-parenting rejected
+// ---------------------------------------------------------------------------
+
+void test_set_parent_rejects_self(void)
+{
+    Models3DManager man = make_test_manager(1, 2);
+
+    CAPTURE_STDERR_BEGIN();
+    instanceSetParent(&man, 0, 1, 0, 1);
+    CAPTURE_STDERR_END();
+
+    ASSERT_STDERR_CONTAINS("[instanceSetParent] rejected");
+    ASSERT_EQ(man.pDenseModelInstances[1].parentGlobalIdx, INSTANCE_NO_PARENT);
+
+    free_test_manager(&man);
 }
 
 // ---------------------------------------------------------------------------
@@ -296,18 +344,16 @@ int main(void)
 {
     printf("=== Instance Hierarchy Tests ===\n");
 
-    RUN_TEST(test_global_index_single_model);
-    RUN_TEST(test_global_index_multi_model);
-    RUN_TEST(test_parent_index_init_all_roots);
-    RUN_TEST(test_set_parent_basic);
-    RUN_TEST(test_set_parent_cross_model);
-    RUN_TEST(test_set_parent_rejects_invalid_order);
-    RUN_TEST(test_set_parent_rejects_self_parent);
-    RUN_TEST(test_ubo_root_instances_unchanged);
-    RUN_TEST(test_ubo_child_inherits_parent_translation);
-    RUN_TEST(test_ubo_grandchild_chain);
-    RUN_TEST(test_ubo_cross_model_parenting);
-    RUN_TEST(test_ubo_multiple_children_same_parent);
+    RUN_TEST(test_parent_child_position);
+    RUN_TEST(test_three_level_chain);
+    RUN_TEST(test_cross_model_parenting);
+    RUN_TEST(test_parent_scale_affects_child);
+    RUN_TEST(test_multiple_children_same_parent);
+    RUN_TEST(test_cascade_disable_skips_chain);
+    RUN_TEST(test_reenable_parent_restores_children);
+    RUN_TEST(test_clear_parent_makes_root);
+    RUN_TEST(test_set_parent_rejects_wrong_order);
+    RUN_TEST(test_set_parent_rejects_self);
 
     TEST_SUMMARY();
 }
