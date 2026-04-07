@@ -172,30 +172,16 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     memcpy(dm->graphicPipeline[0].pGlobalsUbo->uniformBuffersMapped[dm->currentFrame], &globals,
            sizeof(FrameGlobals));
 
-    // Update UBOs (CPU-side memcpy — no GPU sync needed)
-    MODEL_VIEW_PROJECTION* uboModels =
-        updateModelUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[0].scene);
-    memcpy(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboModels,
-           sizeof(MODEL_VIEW_PROJECTION) * dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen);
+    // Model UBO fill — writes ModelInstanceUBO (mat4 model only) directly to mapped memory
+    updateModelUniformBuffersDirect(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
+                                    dm->graphicPipeline[0].scene);
 
-    if (dm->graphicPipeline[0].scene->modelsManager.modelInstanceLen == 0)
-    {
-        MODEL_VIEW_PROJECTION cameraOnly;
-        glm_mat4_identity(cameraOnly.model);
-        glm_lookat(camera.eye, camera.center, camera.up, cameraOnly.view);
-        float aspectRatio = dm->graphicPipeline->swapchain->currentExtent2D.width /
-                            (float) dm->graphicPipeline->swapchain->currentExtent2D.height;
-        glm_perspective(glm_rad(45.0f), aspectRatio, 2.0f, 500.0f, cameraOnly.proj);
-        cameraOnly.proj[1][1] *= -1;
-        memcpy(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], &cameraOnly, sizeof(cameraOnly));
-    }
-
+    // Light UBO fill — still uses old path (Phase 3 will migrate)
     LightTransformations* uboLights =
         updateLightUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[2].scene);
     memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboLights,
            sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
 
-    free(uboModels);
     free(uboLights);
 
     // Submit both queues with timeline semaphore sync

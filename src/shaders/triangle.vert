@@ -1,14 +1,18 @@
 #version 450
 
-struct InstanceData {
-    mat4 model;
+// Per-frame globals (binding 9) — view/proj computed once per frame
+layout(binding = 9) uniform FrameGlobals {
     mat4 view;
     mat4 proj;
-};
+    mat4 viewProj;
+    mat4 invViewProj;
+    // Camera3D: eye, center, up, screenSize (not needed in model shader)
+} globals;
 
-layout(binding = 0) uniform UniformBufferObject {
-    InstanceData instances[2000];
-} ubo;
+// Per-instance model matrices (binding 0) — one mat4 per live instance
+layout(binding = 0) uniform InstanceModels {
+    mat4 model[2000];
+} instances;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec4 inColor;
@@ -20,9 +24,9 @@ layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out vec4 outNormals;
 
 void main() {
-    gl_Position = ubo.instances[gl_InstanceIndex].proj * ubo.instances[gl_InstanceIndex].view * ubo.instances[gl_InstanceIndex].model * vec4(inPosition, 1.0);
+    gl_Position = globals.proj * globals.view * instances.model[gl_InstanceIndex] * vec4(inPosition, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
-    vec3 worldNormal = normalize(mat3(ubo.instances[gl_InstanceIndex].model) * inNormals.xyz);
+    vec3 worldNormal = normalize(mat3(instances.model[gl_InstanceIndex]) * inNormals.xyz);
     outNormals = vec4(worldNormal, inNormals.w);
 }

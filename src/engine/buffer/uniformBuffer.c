@@ -3,29 +3,10 @@
 #include "transform.h"
 #include "transformNode.h"
 
-MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene)
+void updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene)
 {
-
-    static struct timespec startTime;
-    static int             initialized = 0;
-    struct timespec        currentTime;
-    clock_gettime(CLOCK_MONOTONIC, &currentTime);
-
-    // Calculate the difference in seconds
-    float time = (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_nsec - startTime.tv_nsec) / 1e9f;
-
-    // Allocate for full capacity (sum of all instanceCount) — compaction fills only the live portion.
-    // modelInstanceLen cannot be used here because the fill loop overwrites it with the live count,
-    // which would shrink the allocation on the next frame and cause a buffer overflow if instances
-    // are re-enabled.
-    uint32_t totalCapacity = 0;
-    for (uint32_t i = 0; i < scene->modelsManager.modelLen; i++)
-    {
-        totalCapacity += scene->modelsManager.pModel[i].instanceCount;
-    }
-
-    MODEL_VIEW_PROJECTION* pTransformations = malloc(sizeof(MODEL_VIEW_PROJECTION) * totalCapacity);
-    uint32_t               transformationsIdx = 0;
+    ModelInstanceUBO* pInstances       = (ModelInstanceUBO*) mappedBuffer;
+    uint32_t          transformationsIdx = 0;
 
     for (uint32_t modelIdx = 0; modelIdx < scene->modelsManager.modelLen; modelIdx++)
     {
@@ -60,14 +41,7 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
                 continue;
             }
 
-            glm_mat4_copy(tnode->worldMatrix, pTransformations[transformationsIdx].model);
-
-            vec4 view;
-            glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsIdx].view);
-
-            float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
-            glm_perspective(glm_rad(45.0f), aspectRatio, 2.0f, 500.0f, pTransformations[transformationsIdx].proj);
-            pTransformations[transformationsIdx].proj[1][1] *= -1;
+            glm_mat4_copy(tnode->worldMatrix, pInstances[transformationsIdx].model);
 
             transformationsIdx++;
         }
@@ -76,10 +50,8 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
         model->liveInstanceCount = transformationsIdx - modelStartIdx;
     }
 
-    // Update modelInstanceLen to the actual live count for the memcpy
+    // Update modelInstanceLen to the actual live count
     scene->modelsManager.modelInstanceLen = transformationsIdx;
-
-    return pTransformations;
 }
 
 void getRotatingPositionAroundLight(vec3 lightPos, vec3 result, float deltaTime, float radius)
@@ -217,7 +189,7 @@ int createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
 
     assert(ubos);
 
-    VkDeviceSize bufferSize = sizeof(MODEL_VIEW_PROJECTION) * modelInstanceLen;
+    VkDeviceSize bufferSize = sizeof(ModelInstanceUBO) * modelInstanceLen;
 
     ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ubosLen);
 

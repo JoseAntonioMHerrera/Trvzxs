@@ -62,7 +62,7 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
             {
                 .buffer = gdp->deviceBuffer->pUbo->uniformBuffers[i],
                 .offset = 0,
-                .range  = sizeof(MODEL_VIEW_PROJECTION) * gdp->scene->modelsManager.modelInstanceCapacity,
+                .range  = sizeof(ModelInstanceUBO) * gdp->scene->modelsManager.modelInstanceCapacity,
             },
             {
                 .buffer = lightGraphic->deviceBuffer->pUbo->uniformBuffers[i],
