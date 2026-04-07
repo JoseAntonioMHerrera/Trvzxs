@@ -6,6 +6,7 @@ extern "C"
 {
 #include "scene.h"
 #include "transform.h"
+#include "transformNode.h"
 }
 
 void sceneDeletor(SCENE *scene) {
@@ -278,23 +279,24 @@ public:
     {
         this->scene_ = scene;
     }
-    void initInstanceDataLight(LightVolume *lightVolume, uint32_t instanceCount, LightVolumeInstance *instanceData)
+    // Light staging data: position and scale passed as arrays alongside instance color data.
+    // The old LightVolumeInstance no longer holds position/scale — those go into staging transforms.
+    void initInstanceDataLight(LightVolume *lightVolume, uint32_t instanceCount,
+                               GEOM_VERTEX_COLOR_RGBA *colors, vec3 *positions, float *scales)
     {
-
-        lightVolume->pLightVolumeInstance = (LightVolumeInstance *)malloc(sizeof(LightVolumeInstance) * instanceCount);
+        lightVolume->pStagingInstances  = (LightVolumeInstance *)calloc(instanceCount, sizeof(LightVolumeInstance));
+        lightVolume->pStagingTransforms = (TransformNode *)calloc(instanceCount, sizeof(TransformNode));
 
         for (uint32_t instanceIndex = 0; instanceIndex < instanceCount; instanceIndex++)
         {
+            LightVolumeInstance *inst = &lightVolume->pStagingInstances[instanceIndex];
+            inst->color     = colors[instanceIndex];
+            inst->lifecycle = LIGHT_INSTANCE_ALIVE;
 
-            LightVolumeInstance *lightInstance = (LightVolumeInstance *)malloc(sizeof(LightVolumeInstance));
-
-            assert(lightVolume->pLightVolumeInstance != 0);
-            glm_vec4_copy(instanceData[instanceIndex].position, lightInstance->position);
-
-            lightInstance->scale = instanceData[instanceIndex].scale;
-            lightInstance->color = instanceData[instanceIndex].color;
-
-            lightVolume->pLightVolumeInstance[instanceIndex] = *lightInstance;
+            TransformNode *node = &lightVolume->pStagingTransforms[instanceIndex];
+            transformInit(node);
+            transformSetPosition(node, positions[instanceIndex]);
+            transformSetScaleUniform(node, scales[instanceIndex]);
         }
 
         lightVolume->lightVolumeInstanceCount = instanceCount;
@@ -321,20 +323,24 @@ public:
     }
     void initInstanceDataModel(Model3D *pModel, uint32_t instanceCount)
     {
-        pModel->pStagingInstances = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
+        pModel->pStagingInstances  = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
+        pModel->pStagingTransforms = (TransformNode *)calloc(instanceCount, sizeof(TransformNode));
 
         for (uint32_t instanceIndex = 0; instanceIndex < instanceCount; instanceIndex++)
         {
             Model3DInstance *inst = &pModel->pStagingInstances[instanceIndex];
-            instanceInitTransform(inst);
-            inst->alive = INSTANCE_ALIVE;
+            inst->lifecycle = INSTANCE_ALIVE;
             inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
+
+            // Initialize staging transform with identity TRS
+            TransformNode *node = &pModel->pStagingTransforms[instanceIndex];
+            transformInit(node);
 
             // Instance 0 offset to the right so both models are visible
             if (instanceIndex == 0)
             {
                 vec3 pos = {5.0f, 0.0f, 0.0f};
-                instanceSetPosition(inst, pos);
+                transformSetPosition(node, pos);
             }
         }
         pModel->instanceCount = instanceCount;
@@ -363,7 +369,7 @@ public:
 
         printSceneModels(&scene->modelsManager);
         */
-        scene->sceneInstancesLen = this->modelsInstances.size() + this->lightsInstances.size();
+        scene->sceneInstancesLen = scene->modelsManager.modelInstanceLen + scene->lightManager.lightInstanceCount;
 
         this->scene_ = &(*scene);
     }

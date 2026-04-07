@@ -2,6 +2,7 @@
 #include "test_helpers.h"
 #include "uniformBuffer.h"
 #include "transform.h"
+#include "transformNode.h"
 #include "scene.h"
 
 // ---------------------------------------------------------------------------
@@ -43,7 +44,7 @@ void test_varied_instance_counts_offsets(void)
 
     // Every instance should be alive
     for (uint32_t i = 0; i < 8; i++)
-        ASSERT_EQ(man.pDenseModelInstances[i].alive, INSTANCE_ALIVE);
+        ASSERT_EQ(man.pDenseModelInstances[i].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
@@ -55,15 +56,15 @@ void test_varied_counts_lifecycle_operations(void)
 
     // Destroy instance 4 of model 1 (the last one) — global index 2+4=6
     destroyInstance(&man, 1, 4);
-    ASSERT_EQ(man.pDenseModelInstances[6].alive, INSTANCE_DESTROYED);
+    ASSERT_EQ(man.pDenseModelInstances[6].lifecycle, INSTANCE_DESTROYED);
 
     // Disable instance 0 of model 2 — global index 7
     disableInstance(&man, 2, 0);
-    ASSERT_EQ(man.pDenseModelInstances[7].alive, INSTANCE_DISABLED);
+    ASSERT_EQ(man.pDenseModelInstances[7].lifecycle, INSTANCE_DISABLED);
 
     // Model 0 instances untouched
-    ASSERT_EQ(man.pDenseModelInstances[0].alive, INSTANCE_ALIVE);
-    ASSERT_EQ(man.pDenseModelInstances[1].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[0].lifecycle, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[1].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
@@ -75,27 +76,32 @@ void test_varied_counts_lifecycle_operations(void)
 void test_dense_boundary_no_cross_contamination(void)
 {
     uint32_t counts[] = {3, 3};
-    Models3DManager man = make_test_manager_varied(2, counts);
+    Models3DManager  man  = make_test_manager_varied(2, counts);
+    TransformManager tman = make_test_transform_manager(6);
+
+    // Assign transformIdx
+    for (uint32_t i = 0; i < 6; i++)
+        man.pDenseModelInstances[i].transformIdx = i;
 
     // Set distinct positions on boundary instances
-    // Model 0 last instance (global 2) and Model 1 first instance (global 3)
-    instanceSetPosition(&man.pDenseModelInstances[2], (vec3){99.0f, 0.0f, 0.0f});
-    instanceSetPosition(&man.pDenseModelInstances[3], (vec3){77.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman.pTransforms[2], (vec3){99.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman.pTransforms[3], (vec3){77.0f, 0.0f, 0.0f});
 
     // Destroy model 0's last instance
     destroyInstance(&man, 0, 2);
 
     // Model 1's first instance must be untouched
-    ASSERT_EQ(man.pDenseModelInstances[3].alive, INSTANCE_ALIVE);
-    ASSERT_FLOAT_EQ(man.pDenseModelInstances[3].position[0], 77.0f);
+    ASSERT_EQ(man.pDenseModelInstances[3].lifecycle, INSTANCE_ALIVE);
+    ASSERT_FLOAT_EQ(tman.pTransforms[3].position[0], 77.0f);
 
     // Destroy model 1's first instance
     destroyInstance(&man, 1, 0);
 
     // Model 0's second instance must be untouched
-    ASSERT_EQ(man.pDenseModelInstances[1].alive, INSTANCE_ALIVE);
+    ASSERT_EQ(man.pDenseModelInstances[1].lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
+    free_test_transform_manager(&tman);
 }
 
 // ---------------------------------------------------------------------------
@@ -105,19 +111,24 @@ void test_dense_boundary_no_cross_contamination(void)
 void test_resolve_global_instance(void)
 {
     uint32_t counts[] = {2, 3};
-    Models3DManager man = make_test_manager_varied(2, counts);
+    Models3DManager  man  = make_test_manager_varied(2, counts);
+    TransformManager tman = make_test_transform_manager(5);
+
+    for (uint32_t i = 0; i < 5; i++)
+        man.pDenseModelInstances[i].transformIdx = i;
 
     // Set a position on model 1, instance 1 (global index = 2+1 = 3)
-    instanceSetPosition(&man.pDenseModelInstances[3], (vec3){42.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman.pTransforms[3], (vec3){42.0f, 0.0f, 0.0f});
 
     uint32_t globalIdx = computeGlobalInstanceIndex(&man.pModel[1], 1);
     ASSERT_EQ(globalIdx, 3);
 
     Model3DInstance* inst = resolveGlobalInstance(&man, globalIdx);
     ASSERT_NOT_NULL(inst);
-    ASSERT_FLOAT_EQ(inst->position[0], 42.0f);
+    ASSERT_FLOAT_EQ(tman.pTransforms[inst->transformIdx].position[0], 42.0f);
 
     free_test_manager(&man);
+    free_test_transform_manager(&tman);
 }
 
 void test_resolve_global_instance_first_and_last(void)
@@ -128,12 +139,12 @@ void test_resolve_global_instance_first_and_last(void)
     // First instance in entire array
     Model3DInstance* first = resolveGlobalInstance(&man, 0);
     ASSERT_NOT_NULL(first);
-    ASSERT_EQ(first->alive, INSTANCE_ALIVE);
+    ASSERT_EQ(first->lifecycle, INSTANCE_ALIVE);
 
     // Last instance (global index 4+2+3-1 = 8)
     Model3DInstance* last = resolveGlobalInstance(&man, 8);
     ASSERT_NOT_NULL(last);
-    ASSERT_EQ(last->alive, INSTANCE_ALIVE);
+    ASSERT_EQ(last->lifecycle, INSTANCE_ALIVE);
 
     free_test_manager(&man);
 }
@@ -148,11 +159,6 @@ void test_query_instance_alive_on_disabled_model(void)
 
     disableModel(&man, 0);
 
-    // Model is disabled (alive=2), not destroyed (alive=0).
-    // queryInstanceAlive checks !model->alive. !2 == 0 (false), so it should
-    // NOT return -1 — it should return the actual instance state.
-    // BUT: current code uses `!model->alive` which for alive=2 gives false,
-    // so it proceeds to read the instance. Let's verify.
     ASSERT_EQ(man.pModel[0].alive, MODEL_DISABLED);
 
     // Instances are still alive in the dense array
@@ -189,6 +195,7 @@ void test_ubo_fill_multi_frame_livecount_stability(void)
     Camera3D         cam   = make_test_camera();
 
     // Frame 1: all alive
+    resolveTransforms(&scene->transformManager);
     MODEL_VIEW_PROJECTION* r1 = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 3);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 3);
@@ -199,6 +206,7 @@ void test_ubo_fill_multi_frame_livecount_stability(void)
     destroyInstance(&scene->modelsManager, 0, 1);
 
     // Frame 2: model 0 should have 2 live
+    resolveTransforms(&scene->transformManager);
     MODEL_VIEW_PROJECTION* r2 = updateModelUniformBuffers(&sc, 0.016f, cam, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 3);
@@ -209,6 +217,7 @@ void test_ubo_fill_multi_frame_livecount_stability(void)
     disableModel(&scene->modelsManager, 1);
 
     // Frame 3: model 1 entirely skipped
+    resolveTransforms(&scene->transformManager);
     MODEL_VIEW_PROJECTION* r3 = updateModelUniformBuffers(&sc, 0.032f, cam, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 0);
@@ -219,6 +228,7 @@ void test_ubo_fill_multi_frame_livecount_stability(void)
     enableModel(&scene->modelsManager, 1);
 
     // Frame 4: model 1 back to 3
+    resolveTransforms(&scene->transformManager);
     MODEL_VIEW_PROJECTION* r4 = updateModelUniformBuffers(&sc, 0.048f, cam, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->modelsManager.pModel[1].liveInstanceCount, 3);
@@ -240,6 +250,7 @@ void test_destroy_model_then_ubo_fill(void)
 
     destroyModel(&scene->modelsManager, 0);
 
+    resolveTransforms(&scene->transformManager);
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
     // Model 0 dead -> 0 live, Model 1 alive -> 3 live
@@ -262,7 +273,16 @@ static SCENE* make_test_scene_varied(uint32_t modelCount, const uint32_t* instan
 {
     SCENE* scene = (SCENE*) calloc(1, sizeof(SCENE));
 
-    scene->modelsManager = make_test_manager_varied(modelCount, instanceCounts);
+    uint32_t total = 0;
+    for (uint32_t m = 0; m < modelCount; m++)
+        total += instanceCounts[m];
+
+    scene->transformManager = make_test_transform_manager(total);
+    scene->modelsManager    = make_test_manager_varied(modelCount, instanceCounts);
+
+    // Wire transformIdx
+    for (uint32_t i = 0; i < total; i++)
+        scene->modelsManager.pDenseModelInstances[i].transformIdx = i;
 
     scene->camera.eye[2] = 5.0f;
     scene->camera.up[1]  = 1.0f;
@@ -280,6 +300,7 @@ void test_varied_counts_ubo_compaction(void)
     // Kill 1 instance from model 1 (the big one)
     destroyInstance(&scene->modelsManager, 1, 2);
 
+    resolveTransforms(&scene->transformManager);
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
@@ -306,19 +327,23 @@ void test_staging_consolidation(void)
     Models3DManager man;
     memset(&man, 0, sizeof(man));
 
+    TransformManager tman;
+    memset(&tman, 0, sizeof(tman));
+
     man.modelLen = 2;
     man.pModel   = (Model3D*) calloc(2, sizeof(Model3D));
 
-    // Model 0: 3 instances
+    // Model 0: 3 instances with staging transforms
     man.pModel[0].instanceCount      = 3;
     man.pModel[0].alive              = MODEL_ALIVE;
     man.pModel[0].liveInstanceCount  = 0;
     man.pModel[0].pStagingInstances  = (Model3DInstance*) calloc(3, sizeof(Model3DInstance));
+    man.pModel[0].pStagingTransforms = (TransformNode*) calloc(3, sizeof(TransformNode));
     for (uint32_t i = 0; i < 3; i++)
     {
-        instanceInitTransform(&man.pModel[0].pStagingInstances[i]);
-        man.pModel[0].pStagingInstances[i].alive = INSTANCE_ALIVE;
-        instanceSetPosition(&man.pModel[0].pStagingInstances[i], (vec3){(float)i * 10.0f, 0.0f, 0.0f});
+        man.pModel[0].pStagingInstances[i].lifecycle = INSTANCE_ALIVE;
+        transformInit(&man.pModel[0].pStagingTransforms[i]);
+        transformSetPosition(&man.pModel[0].pStagingTransforms[i], (vec3){(float)i * 10.0f, 0.0f, 0.0f});
     }
 
     // Model 1: 2 instances
@@ -326,17 +351,18 @@ void test_staging_consolidation(void)
     man.pModel[1].alive              = MODEL_ALIVE;
     man.pModel[1].liveInstanceCount  = 0;
     man.pModel[1].pStagingInstances  = (Model3DInstance*) calloc(2, sizeof(Model3DInstance));
+    man.pModel[1].pStagingTransforms = (TransformNode*) calloc(2, sizeof(TransformNode));
     for (uint32_t i = 0; i < 2; i++)
     {
-        instanceInitTransform(&man.pModel[1].pStagingInstances[i]);
-        man.pModel[1].pStagingInstances[i].alive = INSTANCE_ALIVE;
-        instanceSetPosition(&man.pModel[1].pStagingInstances[i], (vec3){100.0f + (float)i, 0.0f, 0.0f});
+        man.pModel[1].pStagingInstances[i].lifecycle = INSTANCE_ALIVE;
+        transformInit(&man.pModel[1].pStagingTransforms[i]);
+        transformSetPosition(&man.pModel[1].pStagingTransforms[i], (vec3){100.0f + (float)i, 0.0f, 0.0f});
     }
 
     man.modelInstanceCapacity = 5;
 
     // This is the function under test
-    fillModelInstancesIndices(&man);
+    fillModelInstancesIndices(&man, &tman);
 
     // Verify offsets
     ASSERT_EQ(man.pModel[0].denseBaseOffset, 0);
@@ -344,24 +370,29 @@ void test_staging_consolidation(void)
 
     // Verify dense array has the data from staging
     ASSERT_NOT_NULL(man.pDenseModelInstances);
-    ASSERT_FLOAT_EQ(man.pDenseModelInstances[0].position[0], 0.0f);
-    ASSERT_FLOAT_EQ(man.pDenseModelInstances[1].position[0], 10.0f);
-    ASSERT_FLOAT_EQ(man.pDenseModelInstances[2].position[0], 20.0f);
-    ASSERT_FLOAT_EQ(man.pDenseModelInstances[3].position[0], 100.0f);
-    ASSERT_FLOAT_EQ(man.pDenseModelInstances[4].position[0], 101.0f);
+
+    // Transform positions should be in the transform manager
+    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[0].transformIdx].position[0], 0.0f);
+    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[1].transformIdx].position[0], 10.0f);
+    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[2].transformIdx].position[0], 20.0f);
+    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[3].transformIdx].position[0], 100.0f);
+    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[4].transformIdx].position[0], 101.0f);
 
     // Staging pointers should be NULLed
     ASSERT_NULL(man.pModel[0].pStagingInstances);
     ASSERT_NULL(man.pModel[1].pStagingInstances);
+    ASSERT_NULL(man.pModel[0].pStagingTransforms);
+    ASSERT_NULL(man.pModel[1].pStagingTransforms);
 
     // All instances alive
     for (uint32_t i = 0; i < 5; i++)
-        ASSERT_EQ(man.pDenseModelInstances[i].alive, INSTANCE_ALIVE);
+        ASSERT_EQ(man.pDenseModelInstances[i].lifecycle, INSTANCE_ALIVE);
 
     // Cleanup
     free(man.pDenseModelInstances);
     free(man.pModel);
     free(man.instanceOffset.items);
+    free(tman.pTransforms);
 }
 
 // ---------------------------------------------------------------------------
@@ -374,6 +405,9 @@ void test_staging_consolidation_null_staging(void)
     Models3DManager man;
     memset(&man, 0, sizeof(man));
 
+    TransformManager tman;
+    memset(&tman, 0, sizeof(tman));
+
     man.modelLen = 1;
     man.pModel   = (Model3D*) calloc(1, sizeof(Model3D));
 
@@ -381,20 +415,25 @@ void test_staging_consolidation_null_staging(void)
     man.pModel[0].alive              = MODEL_ALIVE;
     man.pModel[0].liveInstanceCount  = 0;
     man.pModel[0].pStagingInstances  = NULL; // like a primitive
+    man.pModel[0].pStagingTransforms = NULL;
 
     man.modelInstanceCapacity = 2;
 
-    fillModelInstancesIndices(&man);
+    fillModelInstancesIndices(&man, &tman);
 
     // Dense array allocated, but instances are zeroed (from calloc)
     ASSERT_NOT_NULL(man.pDenseModelInstances);
     // alive=0 means disabled (calloc zero-init)
-    ASSERT_EQ(man.pDenseModelInstances[0].alive, 0);
-    ASSERT_EQ(man.pDenseModelInstances[1].alive, 0);
+    ASSERT_EQ(man.pDenseModelInstances[0].lifecycle, 0);
+    ASSERT_EQ(man.pDenseModelInstances[1].lifecycle, 0);
+
+    // Transforms should be identity-initialized
+    ASSERT_EQ(tman.count, 2);
 
     free(man.pDenseModelInstances);
     free(man.pModel);
     free(man.instanceOffset.items);
+    free(tman.pTransforms);
 }
 
 // ---------------------------------------------------------------------------
@@ -416,7 +455,7 @@ void test_destroy_all_instances_then_model(void)
 
     // Dense array still accessible (not freed), all instances destroyed
     for (uint32_t i = 0; i < 4; i++)
-        ASSERT_EQ(man.pDenseModelInstances[i].alive, INSTANCE_DESTROYED);
+        ASSERT_EQ(man.pDenseModelInstances[i].lifecycle, INSTANCE_DESTROYED);
 
     // free_test_manager should not crash
     free_test_manager(&man);

@@ -1,5 +1,6 @@
 #include "scene.h"
 #include "light.h"
+#include "transformNode.h"
 #include "vertex.h"
 #include <math.h>
 #include <stdio.h>
@@ -192,6 +193,12 @@ void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen, uint32_t p
                uint32_t particleGroupsLen, uint32_t particleInstancesLen)
 {
     (*scene) = (SCENE*) malloc(sizeof(SCENE));
+
+    // TransformManager — allocated later once total instance counts are known
+    (*scene)->transformManager.pTransforms = NULL;
+    (*scene)->transformManager.count       = 0;
+    (*scene)->transformManager.liveCount   = 0;
+
     if (modelsLen <= 0)
     {
         (*scene)->modelsManager.modelLen = 0;
@@ -307,7 +314,7 @@ void printLightVolume(LightVolume* const light)
 
 void printScene_(GEOM_OBJECT* objects, uint32_t objectsLen) {};
 
-void fillModelInstancesIndices(Models3DManager* man)
+void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
 {
 
     man->instanceOffset.items    = malloc(sizeof(*man->instanceOffset.items) * man->modelLen);
@@ -324,16 +331,54 @@ void fillModelInstancesIndices(Models3DManager* man)
     // Allocate single dense array and consolidate per-model temporary allocations
     man->pDenseModelInstances = (Model3DInstance*) calloc(man->modelInstanceCapacity, sizeof(Model3DInstance));
 
+    // Allocate transform nodes for model instances [0, modelInstanceCapacity)
+    // If transforms already allocated (e.g. lights ran first), realloc to grow.
+    uint32_t transformBase = tman->count;
+    uint32_t newCount      = tman->count + man->modelInstanceCapacity;
+    if (tman->pTransforms == NULL)
+    {
+        tman->pTransforms = (TransformNode*) calloc(newCount, sizeof(TransformNode));
+    }
+    else
+    {
+        tman->pTransforms = (TransformNode*) realloc(tman->pTransforms, newCount * sizeof(TransformNode));
+        memset(&tman->pTransforms[tman->count], 0, man->modelInstanceCapacity * sizeof(TransformNode));
+    }
+    tman->count = newCount;
+
     for (uint32_t m = 0; m < man->modelLen; m++)
     {
-        Model3D* model         = &man->pModel[m];
-        uint32_t base          = model->denseBaseOffset;
+        Model3D* model = &man->pModel[m];
+        uint32_t base  = model->denseBaseOffset;
         if (model->pStagingInstances)
         {
             memcpy(&man->pDenseModelInstances[base], model->pStagingInstances,
                    model->instanceCount * sizeof(Model3DInstance));
             free(model->pStagingInstances);
             model->pStagingInstances = NULL;
+        }
+
+        // Set transformIdx and populate transform nodes from staging transforms
+        for (uint32_t i = 0; i < model->instanceCount; i++)
+        {
+            uint32_t         tIdx = transformBase + base + i;
+            Model3DInstance* inst = &man->pDenseModelInstances[base + i];
+            inst->transformIdx    = tIdx;
+
+            if (model->pStagingTransforms)
+            {
+                tman->pTransforms[tIdx] = model->pStagingTransforms[i];
+            }
+            else
+            {
+                transformInit(&tman->pTransforms[tIdx]);
+            }
+        }
+
+        if (model->pStagingTransforms)
+        {
+            free(model->pStagingTransforms);
+            model->pStagingTransforms = NULL;
         }
     }
 }
@@ -373,10 +418,10 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
     (scene)->modelsManager.packedModelIndex.itemsLen = getModelIndicesLenFromScene(scene);
     (scene)->modelsManager.packedModelIndex.items    = getModelIndicesFromScene((scene));
 
-    fillModelInstancesIndices(&scene->modelsManager);
+    fillModelInstancesIndices(&scene->modelsManager, &scene->transformManager);
 }
 
-void fillLightVolumeInstancesIndices(LightManager* lan)
+void fillLightVolumeInstancesIndices(LightManager* lan, TransformManager* tman)
 {
 
     lan->instanceOffset.items    = malloc(sizeof(*lan->instanceOffset.items) * lan->lightLen);
@@ -385,9 +430,62 @@ void fillLightVolumeInstancesIndices(LightManager* lan)
     uint32_t instanceOffset = 0;
     for (int itemIdx = 0; itemIdx < lan->lightLen; itemIdx++)
     {
-        lan->instanceOffset.items[itemIdx] = instanceOffset;
+        lan->instanceOffset.items[itemIdx]   = instanceOffset;
+        lan->pLight[itemIdx].denseBaseOffset = instanceOffset;
+        instanceOffset += lan->pLight[itemIdx].lightVolumeInstanceCount;
+    }
 
-        instanceOffset += lan->pLight[itemIdx].model.instanceCount;
+    // Allocate single dense array and consolidate per-light staging allocations
+    lan->pDenseLightInstances = (LightVolumeInstance*) calloc(lan->lightInstanceCapacity, sizeof(LightVolumeInstance));
+
+    // Allocate transform nodes for light instances (appended after model transforms)
+    uint32_t transformBase = tman->count;
+    uint32_t newCount      = tman->count + lan->lightInstanceCapacity;
+    if (tman->pTransforms == NULL)
+    {
+        tman->pTransforms = (TransformNode*) calloc(newCount, sizeof(TransformNode));
+    }
+    else
+    {
+        tman->pTransforms = (TransformNode*) realloc(tman->pTransforms, newCount * sizeof(TransformNode));
+        memset(&tman->pTransforms[tman->count], 0, lan->lightInstanceCapacity * sizeof(TransformNode));
+    }
+    tman->count = newCount;
+
+    for (uint32_t l = 0; l < lan->lightLen; l++)
+    {
+        LightVolume* light = &lan->pLight[l];
+        uint32_t     base  = light->denseBaseOffset;
+        if (light->pStagingInstances)
+        {
+            memcpy(&lan->pDenseLightInstances[base], light->pStagingInstances,
+                   light->lightVolumeInstanceCount * sizeof(LightVolumeInstance));
+            free(light->pStagingInstances);
+            light->pStagingInstances = NULL;
+        }
+
+        // Set transformIdx and populate transform nodes from staging transforms
+        for (uint32_t i = 0; i < light->lightVolumeInstanceCount; i++)
+        {
+            uint32_t             tIdx = transformBase + base + i;
+            LightVolumeInstance* inst = &lan->pDenseLightInstances[base + i];
+            inst->transformIdx        = tIdx;
+
+            if (light->pStagingTransforms)
+            {
+                tman->pTransforms[tIdx] = light->pStagingTransforms[i];
+            }
+            else
+            {
+                transformInit(&tman->pTransforms[tIdx]);
+            }
+        }
+
+        if (light->pStagingTransforms)
+        {
+            free(light->pStagingTransforms);
+            light->pStagingTransforms = NULL;
+        }
     }
 }
 void fillParticleGroupsInstancesIndices(ParticleGroupManager* pgm)
@@ -423,7 +521,7 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
         light->liveInstanceCount  = 0;
         for (uint32_t i = 0; i < light->lightVolumeInstanceCount; i++)
         {
-            light->pLightVolumeInstance[i].alive = LIGHT_INSTANCE_ALIVE;
+            light->pStagingInstances[i].lifecycle = LIGHT_INSTANCE_ALIVE;
         }
 
         // apply_offset_to_indices(light->model.indices.items, light->model.indices.itemsLen,
@@ -444,7 +542,7 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
 
     (scene)->lightManager.packedLightIndex.itemsLen = getVolumetricLightsIndicesLenFromScene(scene);
     (scene)->lightManager.packedLightIndex.items    = getVolumetricLightsIndicesFromScene((scene));
-    fillLightVolumeInstancesIndices(&scene->lightManager);
+    fillLightVolumeInstancesIndices(&scene->lightManager, &scene->transformManager);
 }
 
 void fillSceneWithParticleData(SCENE* scene, ParticleGroup* particleGroups, uint32_t particleGroupsLen,
@@ -520,12 +618,12 @@ void disableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanc
 
     Model3DInstance* inst = &man->pDenseModelInstances[model->denseBaseOffset + instanceIndex];
 
-    if (inst->alive != 1)
+    if (inst->lifecycle != INSTANCE_ALIVE)
     {
         return;
     }
 
-    inst->alive = 0;
+    inst->lifecycle = INSTANCE_DISABLED;
 }
 
 void enableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex)
@@ -553,14 +651,14 @@ void enableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instance
 
     Model3DInstance* inst = &man->pDenseModelInstances[model->denseBaseOffset + instanceIndex];
 
-    if (inst->alive == 2)
+    if (inst->lifecycle == INSTANCE_DESTROYED)
     {
         fprintf(stderr, "[enableInstance] instance %u of model %u is permanently destroyed, cannot re-enable\n",
                 instanceIndex, modelIndex);
         return;
     }
 
-    inst->alive = 1;
+    inst->lifecycle = INSTANCE_ALIVE;
 }
 
 // ---------------------------------------------------------------------------
@@ -634,13 +732,13 @@ void destroyInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanc
 
     Model3DInstance* inst = &man->pDenseModelInstances[model->denseBaseOffset + instanceIndex];
 
-    if (inst->alive == INSTANCE_DESTROYED)
+    if (inst->lifecycle == INSTANCE_DESTROYED)
     {
         fprintf(stderr, "[destroyInstance] instance %u of model %u is already destroyed\n", instanceIndex, modelIndex);
         return;
     }
 
-    inst->alive = INSTANCE_DESTROYED;
+    inst->lifecycle = INSTANCE_DESTROYED;
 }
 
 void destroyModel(Models3DManager* man, uint32_t modelIndex)
@@ -671,7 +769,7 @@ int queryInstanceAlive(const Models3DManager* man, uint32_t modelIndex, uint32_t
     if (!model->alive || instanceIndex >= model->instanceCount)
         return -1;
 
-    return man->pDenseModelInstances[model->denseBaseOffset + instanceIndex].alive;
+    return man->pDenseModelInstances[model->denseBaseOffset + instanceIndex].lifecycle;
 }
 
 int queryModelAlive(const Models3DManager* man, uint32_t modelIndex)
@@ -709,14 +807,14 @@ void disableLightInstance(LightManager* man, uint32_t lightIndex, uint32_t insta
         return;
     }
 
-    LightVolumeInstance* inst = &light->pLightVolumeInstance[instanceIndex];
+    LightVolumeInstance* inst = &man->pDenseLightInstances[light->denseBaseOffset + instanceIndex];
 
-    if (inst->alive != LIGHT_INSTANCE_ALIVE)
+    if (inst->lifecycle != LIGHT_INSTANCE_ALIVE)
     {
         return;
     }
 
-    inst->alive = LIGHT_INSTANCE_DISABLED;
+    inst->lifecycle = LIGHT_INSTANCE_DISABLED;
 }
 
 void enableLightInstance(LightManager* man, uint32_t lightIndex, uint32_t instanceIndex)
@@ -742,16 +840,16 @@ void enableLightInstance(LightManager* man, uint32_t lightIndex, uint32_t instan
         return;
     }
 
-    LightVolumeInstance* inst = &light->pLightVolumeInstance[instanceIndex];
+    LightVolumeInstance* inst = &man->pDenseLightInstances[light->denseBaseOffset + instanceIndex];
 
-    if (inst->alive == LIGHT_INSTANCE_DESTROYED)
+    if (inst->lifecycle == LIGHT_INSTANCE_DESTROYED)
     {
         fprintf(stderr, "[enableLightInstance] instance %u of light %u is permanently destroyed, cannot re-enable\n",
                 instanceIndex, lightIndex);
         return;
     }
 
-    inst->alive = LIGHT_INSTANCE_ALIVE;
+    inst->lifecycle = LIGHT_INSTANCE_ALIVE;
 }
 
 // ---------------------------------------------------------------------------
@@ -823,16 +921,16 @@ void destroyLightInstance(LightManager* man, uint32_t lightIndex, uint32_t insta
         return;
     }
 
-    LightVolumeInstance* inst = &light->pLightVolumeInstance[instanceIndex];
+    LightVolumeInstance* inst = &man->pDenseLightInstances[light->denseBaseOffset + instanceIndex];
 
-    if (inst->alive == LIGHT_INSTANCE_DESTROYED)
+    if (inst->lifecycle == LIGHT_INSTANCE_DESTROYED)
     {
         fprintf(stderr, "[destroyLightInstance] instance %u of light %u is already destroyed\n", instanceIndex,
                 lightIndex);
         return;
     }
 
-    inst->alive = LIGHT_INSTANCE_DESTROYED;
+    inst->lifecycle = LIGHT_INSTANCE_DESTROYED;
 }
 
 void destroyLight(LightManager* man, uint32_t lightIndex)
@@ -851,13 +949,6 @@ void destroyLight(LightManager* man, uint32_t lightIndex)
     }
 
     light->alive = LIGHT_DESTROYED;
-
-    if (light->pLightVolumeInstance)
-    {
-        free(light->pLightVolumeInstance);
-        light->pLightVolumeInstance     = NULL;
-        light->lightVolumeInstanceCount = 0;
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -870,10 +961,10 @@ int queryLightInstanceAlive(const LightManager* man, uint32_t lightIndex, uint32
         return -1;
 
     const LightVolume* light = &man->pLight[lightIndex];
-    if (!light->pLightVolumeInstance || instanceIndex >= light->lightVolumeInstanceCount)
+    if (light->alive == LIGHT_DESTROYED || instanceIndex >= light->lightVolumeInstanceCount)
         return -1;
 
-    return light->pLightVolumeInstance[instanceIndex].alive;
+    return man->pDenseLightInstances[light->denseBaseOffset + instanceIndex].lifecycle;
 }
 
 int queryLightAlive(const LightManager* man, uint32_t lightIndex)

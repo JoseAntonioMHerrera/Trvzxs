@@ -1,6 +1,7 @@
 #include "uniformBuffer.h"
 #include "camera.h"
 #include "transform.h"
+#include "transformNode.h"
 
 MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene)
 {
@@ -45,39 +46,21 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
         {
             Model3DInstance* inst = &scene->modelsManager.pDenseModelInstances[model->denseBaseOffset + instanceIdx];
 
-            // Clear per-frame pass state from previous frame
-            inst->passFlags = 0;
-
-            if (inst->alive != INSTANCE_ALIVE)
+            if (inst->lifecycle != INSTANCE_ALIVE)
             {
                 continue;
             }
 
-            // Cascade-disable: if parent not alive this frame, mark child as pass-disabled.
-            // Parents precede children in the dense array, so parent->alive is already final.
-            if (inst->parentGlobalIdx != INSTANCE_NO_PARENT)
+            // Read resolved world matrix from transform hierarchy (resolved before UBO fill)
+            TransformNode* tnode = &scene->transformManager.pTransforms[inst->transformIdx];
+
+            // Skip if cascade-disabled by hierarchy resolve pass
+            if (tnode->passFlags == TRANSFORM_PASS_DISABLED)
             {
-                Model3DInstance* parent =
-                    &scene->modelsManager.pDenseModelInstances[inst->parentGlobalIdx];
-                if (parent->alive != INSTANCE_ALIVE)
-                {
-                    inst->passFlags = PASS_DISABLED;
-                    continue;
-                }
+                continue;
             }
 
-            // Rebuild local matrix from decomposed TRS components
-            instanceBuildMatrix(inst);
-
-            // Apply parent world transform: world = parent.world * child.local
-            if (inst->parentGlobalIdx != INSTANCE_NO_PARENT)
-            {
-                Model3DInstance* parent =
-                    &scene->modelsManager.pDenseModelInstances[inst->parentGlobalIdx];
-                glm_mat4_mul(parent->m, inst->m, inst->m);
-            }
-
-            glm_mat4_copy(inst->m, pTransformations[transformationsIdx].model);
+            glm_mat4_copy(tnode->worldMatrix, pTransformations[transformationsIdx].model);
 
             vec4 view;
             glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsIdx].view);
@@ -155,21 +138,25 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
 
         for (uint32_t instanceIdx = 0; instanceIdx < light->lightVolumeInstanceCount; instanceIdx++)
         {
-            if (light->pLightVolumeInstance[instanceIdx].alive != LIGHT_INSTANCE_ALIVE)
+            LightVolumeInstance* inst =
+                &scene->lightManager.pDenseLightInstances[light->denseBaseOffset + instanceIdx];
+
+            if (inst->lifecycle != LIGHT_INSTANCE_ALIVE)
             {
                 continue;
             }
 
-            mat4 auxModelInstance;
-            glm_mat4_identity(auxModelInstance);
+            // Read resolved world matrix from transform hierarchy
+            TransformNode* tnode = &scene->transformManager.pTransforms[inst->transformIdx];
 
-            vec3 scale = {light->pLightVolumeInstance[instanceIdx].scale,
-                          light->pLightVolumeInstance[instanceIdx].scale,
-                          light->pLightVolumeInstance[instanceIdx].scale};
-            glm_translate_make(auxModelInstance, light->pLightVolumeInstance[instanceIdx].position);
-            glm_scale(auxModelInstance, scale);
+            // Skip if cascade-disabled by hierarchy resolve pass
+            if (tnode->passFlags == TRANSFORM_PASS_DISABLED)
+            {
+                continue;
+            }
 
-            glm_mat4_copy(auxModelInstance, pTransformations[transformationsCount].mvp.model);
+            // Use the resolved world matrix directly as the model matrix
+            glm_mat4_copy(tnode->worldMatrix, pTransformations[transformationsCount].mvp.model);
 
             // Camera — stack copy, no heap allocation
             Camera3D camInstance;
@@ -179,12 +166,17 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
             glm_vec3_copy(camera.up, camInstance.up);
             pTransformations[transformationsCount].camera = camInstance;
 
+            // Extract position from world matrix column 3 (translation)
+            vec3 worldPos;
+            glm_vec3_copy(tnode->worldMatrix[3], worldPos);
+
             vec3 result;
-            getRotatingPositionAroundLight(light->pLightVolumeInstance[instanceIdx].position, result, deltaTime, 3);
+            getRotatingPositionAroundLight(worldPos, result, deltaTime, 3);
 
             glm_vec3_copy(result, pTransformations[transformationsCount].data.position);
-            pTransformations[transformationsCount].data.color = light->pLightVolumeInstance[instanceIdx].color;
-            pTransformations[transformationsCount].data.scale = light->pLightVolumeInstance[instanceIdx].scale;
+            pTransformations[transformationsCount].data.color = inst->color;
+            // Extract uniform scale from transform node
+            pTransformations[transformationsCount].data.scale = tnode->scale[0];
 
             glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsCount].mvp.view);
 

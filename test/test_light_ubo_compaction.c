@@ -1,6 +1,7 @@
 #include "test_harness.h"
 #include "test_helpers.h"
 #include "uniformBuffer.h"
+#include "transformNode.h"
 #include "light.h"
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,22 @@ static SCENE* make_light_test_scene(uint32_t lightCount, uint32_t instancesPerLi
 
     scene->lightManager = make_test_light_manager(lightCount, instancesPerLight);
 
+    // Allocate transforms for light instances
+    uint32_t total = lightCount * instancesPerLight;
+    scene->transformManager = make_test_transform_manager(total);
+
+    // Wire transformIdx
+    uint32_t tIdx = 0;
+    for (uint32_t l = 0; l < lightCount; l++)
+    {
+        LightVolume* light = &scene->lightManager.pLight[l];
+        for (uint32_t i = 0; i < instancesPerLight; i++)
+        {
+            scene->lightManager.pDenseLightInstances[light->denseBaseOffset + i].transformIdx = tIdx;
+            tIdx++;
+        }
+    }
+
     scene->camera.eye[2] = 5.0f;
     scene->camera.up[1]  = 1.0f;
 
@@ -42,6 +59,7 @@ static void free_light_test_scene(SCENE* scene)
     if (!scene)
         return;
     free_test_light_manager(&scene->lightManager);
+    free_test_transform_manager(&scene->transformManager);
     free(scene);
 }
 
@@ -55,6 +73,7 @@ void test_light_all_alive_full_output(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 6);
@@ -73,8 +92,9 @@ void test_light_one_instance_destroyed_compacted(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
-    scene->lightManager.pLight[0].pLightVolumeInstance[1].alive = LIGHT_INSTANCE_DESTROYED;
+    scene->lightManager.pDenseLightInstances[scene->lightManager.pLight[0].denseBaseOffset +1].lifecycle = LIGHT_INSTANCE_DESTROYED;
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 3);
@@ -90,8 +110,9 @@ void test_light_one_instance_disabled_compacted(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
-    scene->lightManager.pLight[0].pLightVolumeInstance[2].alive = LIGHT_INSTANCE_DISABLED;
+    scene->lightManager.pDenseLightInstances[scene->lightManager.pLight[0].denseBaseOffset +2].lifecycle = LIGHT_INSTANCE_DISABLED;
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 3);
@@ -108,8 +129,9 @@ void test_light_all_instances_dead_zero_output(void)
     Camera3D         cam   = make_test_camera();
 
     for (uint32_t i = 0; i < 4; i++)
-        scene->lightManager.pLight[0].pLightVolumeInstance[i].alive = LIGHT_INSTANCE_DESTROYED;
+        scene->lightManager.pDenseLightInstances[scene->lightManager.pLight[0].denseBaseOffset +i].lifecycle = LIGHT_INSTANCE_DESTROYED;
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
@@ -127,12 +149,12 @@ void test_light_disabled_skips_all_instances(void)
 
     scene->lightManager.pLight[0].alive = LIGHT_DISABLED;
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 3);
-    // Model 1 offset should be 0 (compacted past disabled light 0)
     ASSERT_EQ(scene->lightManager.instanceOffset.items[1], 0);
 
     free(result);
@@ -147,6 +169,7 @@ void test_light_destroyed_skips_all_instances(void)
 
     scene->lightManager.pLight[0].alive = LIGHT_DESTROYED;
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
@@ -162,13 +185,11 @@ void test_light_mixed_state_multi_light(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
-    // Light 0: kill instance 1 and 3 -> 2 live
-    scene->lightManager.pLight[0].pLightVolumeInstance[1].alive = LIGHT_INSTANCE_DESTROYED;
-    scene->lightManager.pLight[0].pLightVolumeInstance[3].alive = LIGHT_INSTANCE_DISABLED;
-    // Light 1: disable entire light -> 0 live
+    scene->lightManager.pDenseLightInstances[scene->lightManager.pLight[0].denseBaseOffset +1].lifecycle = LIGHT_INSTANCE_DESTROYED;
+    scene->lightManager.pDenseLightInstances[scene->lightManager.pLight[0].denseBaseOffset +3].lifecycle = LIGHT_INSTANCE_DISABLED;
     scene->lightManager.pLight[1].alive = LIGHT_DISABLED;
-    // Light 2: all alive -> 4 live
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 2);
@@ -189,36 +210,33 @@ void test_light_ubo_multi_frame_stability(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
-    // Frame 1
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r1 = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 3);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
     free(r1);
 
-    // Kill an instance
     destroyLightInstance(&scene->lightManager, 0, 0);
 
-    // Frame 2
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r2 = updateLightUniformBuffers(&sc, 0.016f, cam, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 5);
     free(r2);
 
-    // Disable light 1
     disableLight(&scene->lightManager, 1);
 
-    // Frame 3
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r3 = updateLightUniformBuffers(&sc, 0.032f, cam, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 2);
     free(r3);
 
-    // Re-enable light 1
     enableLight(&scene->lightManager, 1);
 
-    // Frame 4
+    resolveTransforms(&scene->transformManager);
     LightTransformations* r4 = updateLightUniformBuffers(&sc, 0.048f, cam, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 2);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
@@ -236,6 +254,7 @@ void test_light_destroy_then_ubo_fill(void)
 
     destroyLight(&scene->lightManager, 0);
 
+    resolveTransforms(&scene->transformManager);
     LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
