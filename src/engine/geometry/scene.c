@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 void apply_offset_to_indices(TRVZXS_SIZE* indices, size_t num_indices, TRVZXS_SIZE offset)
 {
     for (size_t i = 0; i < num_indices; i++)
@@ -315,8 +316,25 @@ void fillModelInstancesIndices(Models3DManager* man)
     uint32_t instanceOffset = 0;
     for (int itemIdx = 0; itemIdx < man->modelLen; itemIdx++)
     {
-        man->instanceOffset.items[itemIdx] = instanceOffset;
+        man->instanceOffset.items[itemIdx]   = instanceOffset;
+        man->pModel[itemIdx].denseBaseOffset = instanceOffset;
         instanceOffset += man->pModel[itemIdx].instanceCount;
+    }
+
+    // Allocate single dense array and consolidate per-model temporary allocations
+    man->pDenseModelInstances = (Model3DInstance*) calloc(man->modelInstanceCapacity, sizeof(Model3DInstance));
+
+    for (uint32_t m = 0; m < man->modelLen; m++)
+    {
+        Model3D* model         = &man->pModel[m];
+        uint32_t base          = model->denseBaseOffset;
+        if (model->pStagingInstances)
+        {
+            memcpy(&man->pDenseModelInstances[base], model->pStagingInstances,
+                   model->instanceCount * sizeof(Model3DInstance));
+            free(model->pStagingInstances);
+            model->pStagingInstances = NULL;
+        }
     }
 }
 
@@ -334,7 +352,8 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
         Model3D* model = &(scene)->modelsManager.pModel[objIndex];
 
         // Initialize lifecycle fields for runtime disable/enable/destroy
-        model->alive = 1;
+        model->alive             = 1;
+        model->liveInstanceCount = 0;
 
         model->indiceOffset = indexOffset;
         indexOffset += model->indices.itemsLen;
@@ -400,7 +419,8 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
         LightVolume* light = &(scene)->lightManager.pLight[objIndex];
 
         // Initialize lifecycle fields
-        light->alive = LIGHT_ALIVE;
+        light->alive              = LIGHT_ALIVE;
+        light->liveInstanceCount  = 0;
         for (uint32_t i = 0; i < light->lightVolumeInstanceCount; i++)
         {
             light->pLightVolumeInstance[i].alive = LIGHT_INSTANCE_ALIVE;
@@ -498,7 +518,7 @@ void disableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanc
         return;
     }
 
-    Model3DInstance* inst = &model->pModelInstance[instanceIndex];
+    Model3DInstance* inst = &man->pDenseModelInstances[model->denseBaseOffset + instanceIndex];
 
     if (inst->alive != 1)
     {
@@ -531,7 +551,7 @@ void enableInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instance
         return;
     }
 
-    Model3DInstance* inst = &model->pModelInstance[instanceIndex];
+    Model3DInstance* inst = &man->pDenseModelInstances[model->denseBaseOffset + instanceIndex];
 
     if (inst->alive == 2)
     {
@@ -612,7 +632,7 @@ void destroyInstance(Models3DManager* man, uint32_t modelIndex, uint32_t instanc
         return;
     }
 
-    Model3DInstance* inst = &model->pModelInstance[instanceIndex];
+    Model3DInstance* inst = &man->pDenseModelInstances[model->denseBaseOffset + instanceIndex];
 
     if (inst->alive == INSTANCE_DESTROYED)
     {
@@ -638,15 +658,8 @@ void destroyModel(Models3DManager* man, uint32_t modelIndex)
         return;
     }
 
-    // Mark as permanently dead
+    // Mark as permanently dead — instances stay in dense array as dead slots
     model->alive = 0;
-
-    if (model->pModelInstance)
-    {
-        free(model->pModelInstance);
-        model->pModelInstance     = NULL;
-        model->modelInstanceCount = 0;
-    }
 }
 
 int queryInstanceAlive(const Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex)
@@ -655,10 +668,10 @@ int queryInstanceAlive(const Models3DManager* man, uint32_t modelIndex, uint32_t
         return -1;
 
     const Model3D* model = &man->pModel[modelIndex];
-    if (!model->pModelInstance || instanceIndex >= model->instanceCount)
+    if (!model->alive || instanceIndex >= model->instanceCount)
         return -1;
 
-    return model->pModelInstance[instanceIndex].alive;
+    return man->pDenseModelInstances[model->denseBaseOffset + instanceIndex].alive;
 }
 
 int queryModelAlive(const Models3DManager* man, uint32_t modelIndex)

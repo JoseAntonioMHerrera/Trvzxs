@@ -93,7 +93,9 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
             .pSemaphores    = &sync->graphicsTimeline,
             .pValues        = &waitValue,
         };
-        vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
+        VkResult waitResult = vkWaitSemaphores(device, &waitInfo, 100000000ULL); // 100ms
+        if (waitResult == VK_TIMEOUT)
+            return;
     }
 
     // GPU finished with this frame slot's commands.
@@ -106,7 +108,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     uint32_t aquireImageIndex = dm->currentFrame;
 
     VkResult nextImageResult =
-        vkAcquireNextImageKHR(device, dm->graphicPipeline->swapchain->VkSwapchain, UINT64_MAX,
+        vkAcquireNextImageKHR(device, dm->graphicPipeline->swapchain->VkSwapchain, 100000000ULL, // 100ms
                               gdp->imgViewSemaphore[dm->currentFrame], VK_NULL_HANDLE, &aquireImageIndex);
 
     switch (nextImageResult)
@@ -118,8 +120,11 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         recreateSwapChain(pd, ld, window, rg);
         dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
         return;
+    case VK_TIMEOUT:
+    case VK_NOT_READY:
+        return;
     default:
-        exit(1);
+        return; // Surface lost or other error — let the main loop handle shutdown
     }
 
     // --- Command recording ---
@@ -180,6 +185,9 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboLights,
            sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
 
+    free(uboModels);
+    free(uboLights);
+
     // Submit both queues with timeline semaphore sync
     rgSubmit(rg, graphicsCB, computeCB, sync,
              gdp->imgViewSemaphore[dm->currentFrame],
@@ -200,6 +208,12 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     };
 
     VkResult presentResult = vkQueuePresentKHR(*ld->queueManager.presentQueue, &presentInfo);
+
+    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR ||
+        presentResult == VK_ERROR_SURFACE_LOST_KHR)
+    {
+        recreateSwapChain(pd, ld, window, rg);
+    }
 
     dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
 }

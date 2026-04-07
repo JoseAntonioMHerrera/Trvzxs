@@ -17,3 +17,9 @@ void instanceBuildMatrix(Model3DInstance* inst);
 
 // Initialize TRS to identity (position=0, rotation=identity, scale=1)
 void instanceInitTransform(Model3DInstance* inst);
+
+// Global index: model's denseBaseOffset + local instance index
+uint32_t computeGlobalInstanceIndex(Model3D* model, uint32_t localIdx);
+
+// Resolve global index to instance pointer in the dense array
+Model3DInstance* resolveGlobalInstance(Models3DManager* man, uint32_t globalIdx);

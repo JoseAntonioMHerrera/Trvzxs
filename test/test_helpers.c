@@ -13,32 +13,35 @@ Models3DManager make_test_manager(uint32_t modelCount, uint32_t instancesPerMode
     man.pModel   = (Model3D*) calloc(modelCount, sizeof(Model3D));
     man.modelLen = modelCount;
 
-    uint32_t totalInstances = 0;
+    uint32_t totalInstances = modelCount * instancesPerModel;
 
+    man.modelInstanceCapacity    = totalInstances;
+    man.pDenseModelInstances     = (Model3DInstance*) calloc(totalInstances, sizeof(Model3DInstance));
+
+    uint32_t denseOffset = 0;
     for (uint32_t m = 0; m < modelCount; m++)
     {
         Model3D* model = &man.pModel[m];
 
-        model->pModelInstance     = (Model3DInstance*) calloc(instancesPerModel, sizeof(Model3DInstance));
         model->instanceCount      = instancesPerModel;
         model->liveInstanceCount  = instancesPerModel;
         model->modelInstanceCount = instancesPerModel;
         model->alive              = MODEL_ALIVE;
+        model->denseBaseOffset    = denseOffset;
 
         for (uint32_t i = 0; i < instancesPerModel; i++)
         {
-            instanceInitTransform(&model->pModelInstance[i]);
-            model->pModelInstance[i].alive   = INSTANCE_ALIVE;
-            model->pModelInstance[i].color.r = 1.0f;
-            model->pModelInstance[i].color.g = 1.0f;
-            model->pModelInstance[i].color.b = 1.0f;
-            model->pModelInstance[i].color.a = 1.0f;
+            Model3DInstance* inst = &man.pDenseModelInstances[denseOffset + i];
+            instanceInitTransform(inst);
+            inst->alive   = INSTANCE_ALIVE;
+            inst->color.r = 1.0f;
+            inst->color.g = 1.0f;
+            inst->color.b = 1.0f;
+            inst->color.a = 1.0f;
         }
 
-        totalInstances += instancesPerModel;
+        denseOffset += instancesPerModel;
     }
-
-    man.modelInstanceCapacity    = totalInstances;
     man.modelInstanceLen         = totalInstances;
     man.instanceOffset.items     = (uint32_t*) calloc(modelCount, sizeof(uint32_t));
     man.instanceOffset.itemsLen  = modelCount;
@@ -53,19 +56,70 @@ Models3DManager make_test_manager(uint32_t modelCount, uint32_t instancesPerMode
     return man;
 }
 
+Models3DManager make_test_manager_varied(uint32_t modelCount, const uint32_t* instanceCounts)
+{
+    Models3DManager man;
+    memset(&man, 0, sizeof(man));
+
+    man.pModel   = (Model3D*) calloc(modelCount, sizeof(Model3D));
+    man.modelLen = modelCount;
+
+    uint32_t totalInstances = 0;
+    for (uint32_t m = 0; m < modelCount; m++)
+        totalInstances += instanceCounts[m];
+
+    man.modelInstanceCapacity = totalInstances;
+    man.pDenseModelInstances  = (Model3DInstance*) calloc(totalInstances, sizeof(Model3DInstance));
+
+    uint32_t denseOffset = 0;
+    for (uint32_t m = 0; m < modelCount; m++)
+    {
+        Model3D* model = &man.pModel[m];
+
+        model->instanceCount      = instanceCounts[m];
+        model->liveInstanceCount  = instanceCounts[m];
+        model->modelInstanceCount = instanceCounts[m];
+        model->alive              = MODEL_ALIVE;
+        model->denseBaseOffset    = denseOffset;
+
+        for (uint32_t i = 0; i < instanceCounts[m]; i++)
+        {
+            Model3DInstance* inst = &man.pDenseModelInstances[denseOffset + i];
+            instanceInitTransform(inst);
+            inst->alive   = INSTANCE_ALIVE;
+            inst->color.r = 1.0f;
+            inst->color.g = 1.0f;
+            inst->color.b = 1.0f;
+            inst->color.a = 1.0f;
+        }
+
+        denseOffset += instanceCounts[m];
+    }
+    man.modelInstanceLen         = totalInstances;
+    man.instanceOffset.items     = (uint32_t*) calloc(modelCount, sizeof(uint32_t));
+    man.instanceOffset.itemsLen  = modelCount;
+
+    uint32_t offset = 0;
+    for (uint32_t m = 0; m < modelCount; m++)
+    {
+        man.instanceOffset.items[m] = offset;
+        offset += instanceCounts[m];
+    }
+
+    return man;
+}
+
 void free_test_manager(Models3DManager* man)
 {
     if (!man)
         return;
 
-    for (uint32_t m = 0; m < man->modelLen; m++)
-    {
-        free(man->pModel[m].pModelInstance);
-    }
+    free(man->pDenseModelInstances);
     free(man->pModel);
     free(man->instanceOffset.items);
 
-    man->pModel              = NULL;
+    man->pDenseModelInstances = NULL;
+    man->pModel               = NULL;
     man->instanceOffset.items = NULL;
     man->modelLen             = 0;
 }

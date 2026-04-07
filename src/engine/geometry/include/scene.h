@@ -77,7 +77,7 @@ void destroyModel(Models3DManager* man, uint32_t modelIndex);
 // --- Runtime model lifecycle: queries ---
 
 // Returns the alive state of an instance, or -1 if the model/instance index
-// is out of range or the model is destroyed (pModelInstance freed).
+// is out of range.
 int queryInstanceAlive(const Models3DManager* man, uint32_t modelIndex, uint32_t instanceIndex);
 
 // Returns the alive state of a model, or -1 if modelIndex is out of range.

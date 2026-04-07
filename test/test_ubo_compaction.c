@@ -60,7 +60,7 @@ void test_one_instance_destroyed_compacted(void)
     GraphicSwapchain sc   = make_fake_swapchain();
     Camera3D        cam   = make_test_camera();
 
-    scene->modelsManager.pModel[0].pModelInstance[1].alive = INSTANCE_DESTROYED;
+    scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1].alive = INSTANCE_DESTROYED;
 
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
@@ -77,7 +77,7 @@ void test_one_instance_disabled_compacted(void)
     GraphicSwapchain sc   = make_fake_swapchain();
     Camera3D        cam   = make_test_camera();
 
-    scene->modelsManager.pModel[0].pModelInstance[2].alive = INSTANCE_DISABLED;
+    scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 2].alive = INSTANCE_DISABLED;
 
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
@@ -95,7 +95,7 @@ void test_all_instances_dead_zero_output(void)
     Camera3D        cam   = make_test_camera();
 
     for (uint32_t i = 0; i < 4; i++)
-        scene->modelsManager.pModel[0].pModelInstance[i].alive = INSTANCE_DESTROYED;
+        scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + i].alive = INSTANCE_DESTROYED;
 
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 
@@ -150,8 +150,8 @@ void test_mixed_state_multi_model(void)
     Camera3D        cam   = make_test_camera();
 
     // Model 0: kill instance 1 and 3 -> 2 live
-    scene->modelsManager.pModel[0].pModelInstance[1].alive = INSTANCE_DESTROYED;
-    scene->modelsManager.pModel[0].pModelInstance[3].alive = INSTANCE_DISABLED;
+    scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1].alive = INSTANCE_DESTROYED;
+    scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 3].alive = INSTANCE_DISABLED;
     // Model 1: disable entire model -> 0 live
     scene->modelsManager.pModel[1].alive = MODEL_DISABLED;
     // Model 2: all alive -> 4 live
@@ -178,14 +178,14 @@ void test_compaction_preserves_correct_transforms(void)
 
     // Set distinct positions so we can verify which survived compaction
     // Instance 0: position X=1
-    instanceSetPosition(&scene->modelsManager.pModel[0].pModelInstance[0], (vec3){1.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 0], (vec3){1.0f, 0.0f, 0.0f});
     // Instance 1: position X=2 (will be killed)
-    instanceSetPosition(&scene->modelsManager.pModel[0].pModelInstance[1], (vec3){2.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1], (vec3){2.0f, 0.0f, 0.0f});
     // Instance 2: position X=3
-    instanceSetPosition(&scene->modelsManager.pModel[0].pModelInstance[2], (vec3){3.0f, 0.0f, 0.0f});
+    instanceSetPosition(&scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 2], (vec3){3.0f, 0.0f, 0.0f});
 
     // Kill instance 1
-    scene->modelsManager.pModel[0].pModelInstance[1].alive = INSTANCE_DESTROYED;
+    scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1].alive = INSTANCE_DESTROYED;
 
     MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
 

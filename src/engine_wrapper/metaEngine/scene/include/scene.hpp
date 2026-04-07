@@ -321,11 +321,11 @@ public:
     }
     void initInstanceDataModel(Model3D *pModel, uint32_t instanceCount)
     {
-        pModel->pModelInstance = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
+        pModel->pStagingInstances = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
 
         for (uint32_t instanceIndex = 0; instanceIndex < instanceCount; instanceIndex++)
         {
-            Model3DInstance *inst = &pModel->pModelInstance[instanceIndex];
+            Model3DInstance *inst = &pModel->pStagingInstances[instanceIndex];
             instanceInitTransform(inst);
             inst->alive = INSTANCE_ALIVE;
             inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
