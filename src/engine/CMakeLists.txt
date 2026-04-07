@@ -87,6 +87,7 @@ target_compile_definitions(engine_mod
   PRIVATE
   $<$<CONFIG:Debug>:DEBUG>
   $<$<CONFIG:Release>:NDEBUG>
+  $<$<BOOL:${VMA_DUMP}>:VMA_DUMP>
 )
 
 target_sources(${PROJECT_NAME} PUBLIC ${ENGINE_HEADERS} )

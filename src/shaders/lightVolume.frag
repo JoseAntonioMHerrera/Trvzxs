@@ -1,31 +1,31 @@
 #version 450
 
-struct MVP {
-    mat4 m;
-    mat4 v;
-    mat4 p;
-};
-
-struct CameraData{
-    vec3 eye;
-    vec3 center;
-    vec3 up;
+// Per-frame globals (binding 9) — shared camera/projection data
+layout(binding = 9) uniform FrameGlobals {
+    mat4 view;
+    mat4 proj;
+    mat4 viewProj;
+    mat4 invViewProj;
+    vec3 cameraEye;
+    float _pad1;
+    vec3 cameraCenter;
+    float _pad2;
+    vec3 cameraUp;
+    float _pad3;
     vec2 screenSize;
-};
+    vec2 _pad4;
+} globals;
+
 struct LightInstanceData {
+    mat4 model;
     vec4 color;
-    vec4 position;
+    vec3 position;
     float scale;
 };
-struct LightInstance {
-    MVP mvp;
-    mat4 inverseProjView;
-    CameraData camera;
-    LightInstanceData data;
-};
-layout(binding = 7) uniform UniformBufferObject {
-    LightInstance lightInstance[2000]; // Migrar a SSBO buffers
-} ubo;
+
+layout(binding = 7) uniform LightInstances {
+    LightInstanceData instances[2000];
+} lights;
 
 layout(binding = 5) uniform sampler2D geometryBuffer;
 layout(binding = 6) uniform sampler2D normalsBuffer;
@@ -60,27 +60,14 @@ layout(location = 0) out vec4 outColor;  // writes to colorAttachmentRef
 
 vec3 calculateBlinnPhong(vec3 worldPos, vec3 normal, vec3 albedo) {
     // Hardcoded light properties for testing
-    vec4 lightInput = ubo.lightInstance[instanceIndex].data.position;
-    vec3 lightPos = lightInput.xyz;
-    uint index = uint(gl_FragCoord.y) * uint(ubo.lightInstance[instanceIndex].camera.screenSize.x) + uint(gl_FragCoord.x);
-    /*pixels[index].pixel.r = lightPos.x;
-    pixels[index].pixel.g = lightPos.y;
-    pixels[index].pixel.b = lightPos.z;
-    pixels[index].pixel.a = 0.0;
-    pixels[index].pixel2.r = normal.x;
-    pixels[index].pixel2.g = normal.y;
-    pixels[index].pixel2.b = normal.z;
-    pixels[index].pixel3.a = 0.0;
-    pixels[index].pixel3.r = albedo.x;
-    pixels[index].pixel3.g = albedo.y;
-    pixels[index].pixel3.b = albedo.z;
-    pixels[index].pixel3.a = 0.0;*/
-    vec3 lightColor = ubo.lightInstance[instanceIndex].data.color.xyz;  // Define lightColor
+    vec3 lightPos = lights.instances[instanceIndex].position;
+    uint index = uint(gl_FragCoord.y) * uint(globals.screenSize.x) + uint(gl_FragCoord.x);
+    vec3 lightColor = lights.instances[instanceIndex].color.xyz;
     float lightIntensity = 1.0;
     float specularPower = 32.0; // Shininess
 
     vec3 lightDir = normalize(lightPos - worldPos);
-    vec3 viewDir = normalize(ubo.lightInstance[instanceIndex].camera.eye.xyz - worldPos);  // Camera to surface
+    vec3 viewDir = normalize(globals.cameraEye - worldPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
 
     float distance = length(lightPos - worldPos);
@@ -102,7 +89,7 @@ vec3 calculateBlinnPhong(vec3 worldPos, vec3 normal, vec3 albedo) {
 
 void main() {
     // Read from G-buffer via screen-space UV
-    vec2 screenUV = gl_FragCoord.xy / ubo.lightInstance[instanceIndex].camera.screenSize;
+    vec2 screenUV = gl_FragCoord.xy / globals.screenSize;
     vec4 geoData = texture(geometryBuffer, screenUV);
     vec4 normalData = texture(normalsBuffer, screenUV);
 
@@ -116,20 +103,17 @@ void main() {
     float geometryDepth = geoData.a;
 
 
-    vec4 lightInput = ubo.lightInstance[instanceIndex].data.position;
-    vec3 lightPos = lightInput.xyz;
+    vec3 lightPos = lights.instances[instanceIndex].position;
 
     // Project light position to screen space
-    vec4 lightClipPos = ubo.lightInstance[instanceIndex].mvp.p *
-                        ubo.lightInstance[instanceIndex].mvp.v *
-                        vec4(lightPos, 1.0);
+    vec4 lightClipPos = globals.proj * globals.view * vec4(lightPos, 1.0);
     vec3 lightNDC = lightClipPos.xyz / lightClipPos.w;
-    vec2 lightScreenPos = (lightNDC.xy * 0.5 + 0.5) * ubo.lightInstance[instanceIndex].camera.screenSize;
+    vec2 lightScreenPos = (lightNDC.xy * 0.5 + 0.5) * globals.screenSize;
 
     // Check if current fragment is close to projected light position
     float screenDistance = distance(gl_FragCoord.xy, lightScreenPos);
     if (screenDistance < 20.0) {  // 5 pixel radius
-        outColor = vec4(ubo.lightInstance[instanceIndex].data.color.xyz, geoData.a);  // dot
+        outColor = vec4(lights.instances[instanceIndex].color.xyz, geoData.a);  // dot
         return;
     }
 
@@ -140,9 +124,9 @@ void main() {
             if(gl_FragCoord.z < geoData.a){
                 discard;
             }else {
-                vec2 screenCoord = gl_FragCoord.xy / ubo.lightInstance[instanceIndex].camera.screenSize;
+                vec2 screenCoord = gl_FragCoord.xy / globals.screenSize;
                 vec4 clipSpacePos = vec4(screenCoord * 2.0 - 1.0, geometryDepth, 1.0);
-                vec4 worldPos = ubo.lightInstance[instanceIndex].inverseProjView * clipSpacePos;
+                vec4 worldPos = globals.invViewProj * clipSpacePos;
                 worldPos /= worldPos.w;
                 vec3 worldPosition = worldPos.xyz;
 
@@ -158,9 +142,9 @@ void main() {
             if(gl_FragCoord.z < geoData.a){
                 outColor = vec4(1.0, 1.0, 1.0, 1.0); // White wireframe
             }else{
-                vec2 screenCoord = gl_FragCoord.xy / ubo.lightInstance[instanceIndex].camera.screenSize;
+                vec2 screenCoord = gl_FragCoord.xy / globals.screenSize;
                 vec4 clipSpacePos = vec4(screenCoord * 2.0 - 1.0, geometryDepth, 1.0);
-                vec4 worldPos = ubo.lightInstance[instanceIndex].inverseProjView * clipSpacePos;
+                vec4 worldPos = globals.invViewProj * clipSpacePos;
                 worldPos /= worldPos.w;
                 vec3 worldPosition = worldPos.xyz;
                 vec3 normal = normalize(normalData.xyz);

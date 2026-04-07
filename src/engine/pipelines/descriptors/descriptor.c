@@ -67,7 +67,7 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
             {
                 .buffer = lightGraphic->deviceBuffer->pUbo->uniformBuffers[i],
                 .offset = 0,
-                .range  = sizeof(LightTransformations) * lightGraphic->scene->lightManager.lightInstanceCapacity,
+                .range  = sizeof(LightInstanceUBO) * lightGraphic->scene->lightManager.lightInstanceCapacity,
             }};
 
         VkDescriptorBufferInfo deltaUBOInfo = {

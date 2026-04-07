@@ -20,6 +20,22 @@ void rgInit(RenderGraph* rg, VkDevice device, PhysicalDevice* pd,
     rg->swapchainHeight     = swapchainHeight;
     rg->swapchainImageCount = swapchainImageCount;
     rg->isCompiled          = false;
+
+#ifdef DEBUG
+    // 2 timestamps per pass (begin + end), per frame-in-flight
+    rg->gpuTimestampQueryCount = swapchainImageCount * RG_MAX_PASSES * 2;
+    VkQueryPoolCreateInfo qpci = {
+        .sType      = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+        .queryType  = VK_QUERY_TYPE_TIMESTAMP,
+        .queryCount = rg->gpuTimestampQueryCount,
+    };
+    VkResult qpResult = vkCreateQueryPool(device, &qpci, NULL, &rg->gpuTimestampPool);
+    assert(qpResult == VK_SUCCESS);
+
+    rg->timestampPeriodNs = pd->gpuProperties.limits.timestampPeriod;
+    rg->gpuTimingFrames   = 0;
+    memset(rg->gpuAccumUs, 0, sizeof(rg->gpuAccumUs));
+#endif
 }
 
 void rgDestroy(RenderGraph* rg)
@@ -46,6 +62,11 @@ void rgDestroy(RenderGraph* rg)
             }
         }
     }
+
+#ifdef DEBUG
+    if (rg->gpuTimestampPool != VK_NULL_HANDLE)
+        vkDestroyQueryPool(rg->device, rg->gpuTimestampPool, NULL);
+#endif
 
     // Destroy transient resources
     for (uint32_t r = 0; r < rg->resourceCount; r++)
@@ -778,6 +799,20 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer comp
     assert(rg->isCompiled);
     rg->hasComputeWork = false;
 
+#ifdef DEBUG
+    // Per-pass query layout: each pass gets 2 queries (begin + end).
+    // Query index = queryBase + orderIdx*2 (+0 begin, +1 end).
+    // Reset each pass's queries on the CB that will write them,
+    // so graphics pass queries reset on graphicsCB, compute on computeCB.
+    uint32_t queryBase = frameIndex * RG_MAX_PASSES * 2;
+    for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
+    {
+        RGPass* p = &rg->passes[rg->executionOrder[orderIdx]];
+        VkCommandBuffer resetCB = (p->queueType == RG_QUEUE_COMPUTE) ? computeCB : graphicsCB;
+        vkCmdResetQueryPool(resetCB, rg->gpuTimestampPool, queryBase + orderIdx * 2, 2);
+    }
+#endif
+
     for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
     {
         uint32_t passIdx = rg->executionOrder[orderIdx];
@@ -815,6 +850,12 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer comp
                 pass->bufferBarrierCount, pass->bufferBarriers,
                 pass->imageBarrierCount, pass->imageBarriers);
         }
+
+#ifdef DEBUG
+        // GPU timestamp: begin pass (all queue types)
+        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                            rg->gpuTimestampPool, queryBase + orderIdx * 2);
+#endif
 
         if (pass->type == RG_PASS_GRAPHICS)
         {
@@ -893,6 +934,12 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer comp
                 pass->execute(cmd, pass, pass->userData);
         }
 
+#ifdef DEBUG
+        // GPU timestamp: end pass (all queue types)
+        vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                            rg->gpuTimestampPool, queryBase + orderIdx * 2 + 1);
+#endif
+
         // Emit release barriers on the SOURCE queue's CB (queue ownership transfer)
         if (pass->releaseImageBarrierCount > 0 || pass->releaseBufferBarrierCount > 0)
         {
@@ -919,6 +966,80 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer comp
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// GPU timing readback (DEBUG only)
+// ---------------------------------------------------------------------------
+
+#ifdef DEBUG
+static const char* rgPassTypeStr(RGPassType t)
+{
+    switch (t)
+    {
+    case RG_PASS_GRAPHICS: return "gfx";
+    case RG_PASS_COMPUTE:  return "cmp";
+    case RG_PASS_TRANSFER: return "xfr";
+    default:               return "???";
+    }
+}
+
+#define GPU_TIMING_INTERVAL 120
+
+void rgCollectGpuTimings(RenderGraph* rg, uint32_t frameIndex)
+{
+    uint32_t queryBase  = frameIndex * RG_MAX_PASSES * 2;
+    uint32_t queryCount = rg->executionOrderCount * 2;
+
+    // Each query returns (timestamp, availability) when WITH_AVAILABILITY_BIT is set
+    uint64_t results[RG_MAX_PASSES * 2][2]; // [queryIdx][0=timestamp, 1=available]
+    vkGetQueryPoolResults(
+        rg->device, rg->gpuTimestampPool,
+        queryBase, queryCount,
+        sizeof(results[0]) * queryCount, results,
+        sizeof(results[0]),
+        VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+
+    float nsPerTick = rg->timestampPeriodNs;
+
+    for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
+    {
+        uint64_t beginAvail = results[orderIdx * 2][1];
+        uint64_t endAvail   = results[orderIdx * 2 + 1][1];
+        if (!beginAvail || !endAvail)
+            continue; // query not ready (first few frames)
+
+        uint64_t begin = results[orderIdx * 2][0];
+        uint64_t end   = results[orderIdx * 2 + 1][0];
+        double   us    = (double)(end - begin) * nsPerTick / 1000.0;
+        rg->gpuAccumUs[orderIdx] += us;
+    }
+
+    rg->gpuTimingFrames++;
+
+    if (rg->gpuTimingFrames >= GPU_TIMING_INTERVAL)
+    {
+        double n       = (double)rg->gpuTimingFrames;
+        double totalUs = 0;
+
+        printf("\n── GPU pass timing (avg over %u frames, µs) ──\n", rg->gpuTimingFrames);
+        for (uint32_t orderIdx = 0; orderIdx < rg->executionOrderCount; orderIdx++)
+        {
+            uint32_t passIdx = rg->executionOrder[orderIdx];
+            RGPass*  pass    = &rg->passes[passIdx];
+            double   avg     = rg->gpuAccumUs[orderIdx] / n;
+            totalUs += avg;
+            printf("  pass %u [%s]     : %8.1f\n", passIdx, rgPassTypeStr(pass->type), avg);
+        }
+        printf("  ─────────────────────────────\n");
+        printf("  TOTAL GPU        : %8.1f  (%.2f ms)\n", totalUs, totalUs / 1000.0);
+        printf("────────────────────────────────────────────\n\n");
+        fflush(stdout);
+
+        memset(rg->gpuAccumUs, 0, sizeof(rg->gpuAccumUs));
+        rg->gpuTimingFrames = 0;
+    }
+}
+#endif
 
 // ---------------------------------------------------------------------------
 // Submit (per-frame, after rgExecute)

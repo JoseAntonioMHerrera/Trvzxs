@@ -3,13 +3,6 @@
 #include "camera.h"
 #include "vertex.h"
 
-typedef struct MODEL_VIEW_PROJECTION
-{
-    mat4 model;
-    mat4 view;
-    mat4 proj;
-} MODEL_VIEW_PROJECTION;
-
 // --- Per-frame globals: written once per frame, shared across all pipelines (binding 9) ---
 
 typedef struct FrameGlobals

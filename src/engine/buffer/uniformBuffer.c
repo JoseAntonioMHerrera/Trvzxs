@@ -76,23 +76,11 @@ void getRotatingPositionAroundLight(vec3 lightPos, vec3 result, float deltaTime,
     result[2] = lightPos[2] + sinf(accumulatedAngle) * radius; // Z
 }
 
-LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float deltaTime, Camera3D camera, SCENE* scene)
+void updateLightUniformBuffersDirect(void* mappedBuffer, float deltaTime, SCENE* scene)
 {
+    LightInstanceUBO* pInstances       = (LightInstanceUBO*) mappedBuffer;
+    uint32_t          transformationsCount = 0;
 
-    static struct timespec startTime;
-    static int             initialized = 0;
-    struct timespec        currentTime;
-    clock_gettime(CLOCK_MONOTONIC, &currentTime);
-
-    // Calculate the difference in seconds
-    float time = (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_nsec - startTime.tv_nsec) / 1e9f;
-
-    // Allocate for full capacity — compaction fills only the live portion.
-    // lightInstanceCapacity is immutable; lightInstanceCount gets overwritten with live count below.
-    LightTransformations* pTransformations =
-        malloc(sizeof(LightTransformations) * scene->lightManager.lightInstanceCapacity);
-
-    uint32_t transformationsCount = 0;
     for (uint32_t lightIdx = 0; lightIdx < scene->lightManager.lightLen; lightIdx++)
     {
         LightVolume* light = &scene->lightManager.pLight[lightIdx];
@@ -127,16 +115,8 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
                 continue;
             }
 
-            // Use the resolved world matrix directly as the model matrix
-            glm_mat4_copy(tnode->worldMatrix, pTransformations[transformationsCount].mvp.model);
-
-            // Camera — stack copy, no heap allocation
-            Camera3D camInstance;
-            glm_vec2_copy(camera.screenSize, camInstance.screenSize);
-            glm_vec3_copy(camera.eye, camInstance.eye);
-            glm_vec3_copy(camera.center, camInstance.center);
-            glm_vec3_copy(camera.up, camInstance.up);
-            pTransformations[transformationsCount].camera = camInstance;
+            // Model matrix from resolved transform
+            glm_mat4_copy(tnode->worldMatrix, pInstances[transformationsCount].model);
 
             // Extract position from world matrix column 3 (translation)
             vec3 worldPos;
@@ -145,23 +125,9 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
             vec3 result;
             getRotatingPositionAroundLight(worldPos, result, deltaTime, 3);
 
-            glm_vec3_copy(result, pTransformations[transformationsCount].data.position);
-            pTransformations[transformationsCount].data.color = inst->color;
-            // Extract uniform scale from transform node
-            pTransformations[transformationsCount].data.scale = tnode->scale[0];
-
-            glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsCount].mvp.view);
-
-            float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
-            glm_perspective(glm_rad(45.0f), aspectRatio, 0.1f, 500.0f, pTransformations[transformationsCount].mvp.proj);
-
-            // Adjust for Vulkan's coordinate system
-            pTransformations[transformationsCount].mvp.proj[1][1] *= -1;
-            mat4 proj_view;
-            glm_mat4_mul(pTransformations[transformationsCount].mvp.proj,
-                         pTransformations[transformationsCount].mvp.view, proj_view);
-
-            glm_mat4_inv(proj_view, pTransformations[transformationsCount].mInverseVP);
+            glm_vec3_copy(result, pInstances[transformationsCount].position);
+            pInstances[transformationsCount].color = inst->color;
+            pInstances[transformationsCount].scale = tnode->scale[0];
 
             transformationsCount++;
         }
@@ -170,10 +136,8 @@ LightTransformations* updateLightUniformBuffers(GraphicSwapchain* dsm, float del
         light->liveInstanceCount = transformationsCount - lightStartIdx;
     }
 
-    // Update lightInstanceCount to the actual live count for the memcpy
+    // Update lightInstanceCount to the actual live count
     scene->lightManager.lightInstanceCount = transformationsCount;
-
-    return pTransformations;
 }
 
 void freeMappedUniformBufferLocalMemory(mat4** instancedTranformations)
@@ -220,7 +184,7 @@ int createLightInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
 
     assert(ubos);
 
-    VkDeviceSize bufferSize = sizeof(LightTransformations) * lightInstanceCount;
+    VkDeviceSize bufferSize = sizeof(LightInstanceUBO) * lightInstanceCount;
 
     ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ubosLen);
 

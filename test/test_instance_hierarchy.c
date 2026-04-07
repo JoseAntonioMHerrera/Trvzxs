@@ -47,7 +47,8 @@ void test_parent_child_position(void)
     instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0);
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     // Parent world = its own local: (10, 0, 0)
     TransformNode* pNode = &tman->pTransforms[parent->transformIdx];
@@ -88,7 +89,8 @@ void test_three_level_chain(void)
     instanceSetParent(tman, &scene->modelsManager, 0, 2, 0, 1); // child -> mid
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     // Grandparent: (10, 0, 0)
     ASSERT_FLOAT_EQ(tman->pTransforms[gp->transformIdx].worldMatrix[3][0], 10.0f);
@@ -127,7 +129,8 @@ void test_cross_model_parenting(void)
     instanceSetParent(tman, &scene->modelsManager, 1, 0, 0, 1);
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     // Child world = parent(5,5,5) + local(1,1,1) = (6,6,6)
     TransformNode* cNode = &tman->pTransforms[child->transformIdx];
@@ -161,7 +164,8 @@ void test_parent_scale_affects_child(void)
     instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0);
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     // Parent at origin, scale 2x. Child local (5,0,0) -> world (10,0,0)
     TransformNode* cNode = &tman->pTransforms[child->transformIdx];
@@ -194,7 +198,8 @@ void test_multiple_children_same_parent(void)
     instanceSetParent(tman, &scene->modelsManager, 0, 3, 0, 0);
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     ASSERT_FLOAT_EQ(tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx].worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx].worldMatrix[3][0], 11.0f);
@@ -228,7 +233,8 @@ void test_cascade_disable_skips_chain(void)
     scene->modelsManager.pDenseModelInstances[0].lifecycle = INSTANCE_DISABLED;
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* result = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(result, scene);
 
     // All 3 skipped
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
@@ -263,7 +269,8 @@ void test_reenable_parent_restores_children(void)
     scene->modelsManager.pDenseModelInstances[0].lifecycle = INSTANCE_DISABLED;
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* r1 = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* r1 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(r1, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
     free(r1);
 
@@ -272,7 +279,8 @@ void test_reenable_parent_restores_children(void)
     scene->modelsManager.pDenseModelInstances[0].lifecycle = INSTANCE_ALIVE;
 
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* r2 = updateModelUniformBuffers(&sc, 0.016f, cam, scene);
+    ModelInstanceUBO* r2 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(r2, scene);
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
 
     // Child world position correct: (10, 5, 0)
@@ -303,7 +311,8 @@ void test_clear_parent_makes_root(void)
 
     // Frame 1: parented -> child at (10, 5, 0)
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* r1 = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* r1 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(r1, scene);
     TransformNode* cNode = &tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 5.0f);
@@ -314,7 +323,8 @@ void test_clear_parent_makes_root(void)
 
     // Frame 2: unparented -> child at (0, 5, 0)
     resolveTransforms(tman);
-    MODEL_VIEW_PROJECTION* r2 = updateModelUniformBuffers(&sc, 0.016f, cam, scene);
+    ModelInstanceUBO* r2 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(r2, scene);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 0.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 0.0f);
@@ -558,18 +568,20 @@ void test_cross_type_ubo_model_and_light(void)
     resolveTransforms(tman);
 
     // Model UBO fill — model instance should produce 1 entry
-    MODEL_VIEW_PROJECTION* modelUBO = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* modelUBO = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(modelUBO, scene);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 1);
     // Model matrix should contain model's world position (10,0,0)
     ASSERT_FLOAT_EQ(modelUBO[0].model[3][0], 10.0f);
     ASSERT_FLOAT_EQ(modelUBO[0].model[3][1], 0.0f);
 
     // Light UBO fill — light instance should produce 1 entry
-    LightTransformations* lightUBO = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* lightUBO = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(lightUBO, 0.0f, scene);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 1);
     // Light model matrix should contain light's world position (10,5,0)
-    ASSERT_FLOAT_EQ(lightUBO[0].mvp.model[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(lightUBO[0].mvp.model[3][1], 5.0f);
+    ASSERT_FLOAT_EQ(lightUBO[0].model[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(lightUBO[0].model[3][1], 5.0f);
 
     free(modelUBO);
     free(lightUBO);
@@ -601,10 +613,12 @@ void test_cross_type_ubo_cascade_disable_both(void)
 
     resolveTransforms(tman);
 
-    MODEL_VIEW_PROJECTION* modelUBO = updateModelUniformBuffers(&sc, 0.0f, cam, scene);
+    ModelInstanceUBO* modelUBO = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
+    updateModelUniformBuffersDirect(modelUBO, scene);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 0);
 
-    LightTransformations* lightUBO = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* lightUBO = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(lightUBO, 0.0f, scene);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
 
     free(modelUBO);
@@ -633,17 +647,19 @@ void test_cross_type_ubo_parent_move_updates_light(void)
 
     // Frame 1: model at origin
     resolveTransforms(tman);
-    LightTransformations* lightUBO1 = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
-    ASSERT_FLOAT_EQ(lightUBO1[0].mvp.model[3][0], 0.0f);
-    ASSERT_FLOAT_EQ(lightUBO1[0].mvp.model[3][1], 5.0f);
+    LightInstanceUBO* lightUBO1 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(lightUBO1, 0.0f, scene);
+    ASSERT_FLOAT_EQ(lightUBO1[0].model[3][0], 0.0f);
+    ASSERT_FLOAT_EQ(lightUBO1[0].model[3][1], 5.0f);
     free(lightUBO1);
 
     // Frame 2: move model to (20, 0, 0) — light should follow
     transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){20.0f, 0.0f, 0.0f});
     resolveTransforms(tman);
-    LightTransformations* lightUBO2 = updateLightUniformBuffers(&sc, 0.016f, cam, scene);
-    ASSERT_FLOAT_EQ(lightUBO2[0].mvp.model[3][0], 20.0f);
-    ASSERT_FLOAT_EQ(lightUBO2[0].mvp.model[3][1], 5.0f);
+    LightInstanceUBO* lightUBO2 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(lightUBO2, 0.016f, scene);
+    ASSERT_FLOAT_EQ(lightUBO2[0].model[3][0], 20.0f);
+    ASSERT_FLOAT_EQ(lightUBO2[0].model[3][1], 5.0f);
     free(lightUBO2);
 
     free_test_scene_mixed(scene);

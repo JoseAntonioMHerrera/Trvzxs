@@ -70,7 +70,8 @@ void test_light_draw_params_within_bounds_all_alive(void)
     Camera3D         cam   = make_test_camera();
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     uint32_t cap = scene->lightManager.lightInstanceCapacity;
     for (uint32_t i = 0; i < scene->lightManager.lightLen; i++)
@@ -95,7 +96,8 @@ void test_light_draw_params_within_bounds_mixed_state(void)
     disableLight(&scene->lightManager, 2);
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     uint32_t cap = scene->lightManager.lightInstanceCapacity;
     for (uint32_t i = 0; i < scene->lightManager.lightLen; i++)
@@ -120,19 +122,22 @@ void test_light_memcpy_len_within_capacity(void)
     Camera3D         cam   = make_test_camera();
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r1 = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* r1 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r1, 0.0f, scene);
     ASSERT_EQ(scene->lightManager.lightInstanceCount <= scene->lightManager.lightInstanceCapacity, 1);
     free(r1);
 
     disableLight(&scene->lightManager, 0);
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r2 = updateLightUniformBuffers(&sc, 0.016f, cam, scene);
+    LightInstanceUBO* r2 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r2, 0.016f, scene);
     ASSERT_EQ(scene->lightManager.lightInstanceCount <= scene->lightManager.lightInstanceCapacity, 1);
     free(r2);
 
     enableLight(&scene->lightManager, 0);
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r3 = updateLightUniformBuffers(&sc, 0.032f, cam, scene);
+    LightInstanceUBO* r3 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r3, 0.032f, scene);
     ASSERT_EQ(scene->lightManager.lightInstanceCount <= scene->lightManager.lightInstanceCapacity, 1);
     free(r3);
 
@@ -180,7 +185,8 @@ void test_light_liveInstanceCount_zero_before_first_fill(void)
     Camera3D         cam = make_test_camera();
 
     resolveTransforms(&scene.transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, &scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene.lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, &scene);
 
     ASSERT_EQ(scene.lightManager.pLight[0].liveInstanceCount, 4);
 
@@ -226,7 +232,8 @@ void test_light_ubo_fill_after_destroy_light(void)
     ASSERT_EQ(scene->lightManager.pLight[0].alive, LIGHT_DESTROYED);
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.pLight[1].liveInstanceCount, 3);
@@ -251,7 +258,8 @@ void test_light_compacted_offsets_monotonic(void)
     destroyLightInstance(&scene->lightManager, 2, 2);
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     for (uint32_t i = 1; i < scene->lightManager.lightLen; i++)
     {
@@ -289,7 +297,8 @@ void test_all_lights_dead_zero_total(void)
     destroyLight(&scene->lightManager, 1);
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* result = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* result = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(result, 0.0f, scene);
 
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
     for (uint32_t i = 0; i < scene->lightManager.lightLen; i++)
@@ -360,27 +369,31 @@ void test_single_light_single_instance_lifecycle(void)
     Camera3D         cam   = make_test_camera();
 
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r1 = updateLightUniformBuffers(&sc, 0.0f, cam, scene);
+    LightInstanceUBO* r1 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r1, 0.0f, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 1);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 1);
     free(r1);
 
     disableLightInstance(&scene->lightManager, 0, 0);
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r2 = updateLightUniformBuffers(&sc, 0.016f, cam, scene);
+    LightInstanceUBO* r2 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r2, 0.016f, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
     free(r2);
 
     enableLightInstance(&scene->lightManager, 0, 0);
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r3 = updateLightUniformBuffers(&sc, 0.032f, cam, scene);
+    LightInstanceUBO* r3 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r3, 0.032f, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 1);
     free(r3);
 
     destroyLightInstance(&scene->lightManager, 0, 0);
     resolveTransforms(&scene->transformManager);
-    LightTransformations* r4 = updateLightUniformBuffers(&sc, 0.048f, cam, scene);
+    LightInstanceUBO* r4 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
+    updateLightUniformBuffersDirect(r4, 0.048f, scene);
     ASSERT_EQ(scene->lightManager.pLight[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->lightManager.lightInstanceCount, 0);
     free(r4);

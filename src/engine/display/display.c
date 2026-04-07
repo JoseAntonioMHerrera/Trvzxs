@@ -10,6 +10,81 @@
 #include "mat4.h"
 #include "affine.h"
 #include <assert.h>
+#include <time.h>
+#include <stdio.h>
+
+// ── Frame timing instrumentation ──────────────────────────────────────────────
+#ifdef DEBUG
+#define FRAME_TIMING_INTERVAL 120 // print averages every N frames
+
+typedef struct FrameTiming
+{
+    double semaphoreWait;
+    double deletionQueue;
+    double ssboDescriptor;
+    double acquireImage;
+    double cmdRecord;
+    double resolveTransforms;
+    double uboGlobals;
+    double uboModels;
+    double uboLights;
+    double submit;
+    double present;
+    double totalCpu;
+} FrameTiming;
+
+static FrameTiming g_accumTiming  = {0};
+static uint32_t    g_timingFrames = 0;
+
+static inline double timespecDiffUs(struct timespec* start, struct timespec* end)
+{
+    return (double)(end->tv_sec - start->tv_sec) * 1e6 + (double)(end->tv_nsec - start->tv_nsec) / 1e3;
+}
+
+static void accumulateTiming(FrameTiming* t)
+{
+    g_accumTiming.semaphoreWait    += t->semaphoreWait;
+    g_accumTiming.deletionQueue    += t->deletionQueue;
+    g_accumTiming.ssboDescriptor   += t->ssboDescriptor;
+    g_accumTiming.acquireImage     += t->acquireImage;
+    g_accumTiming.cmdRecord        += t->cmdRecord;
+    g_accumTiming.resolveTransforms += t->resolveTransforms;
+    g_accumTiming.uboGlobals       += t->uboGlobals;
+    g_accumTiming.uboModels        += t->uboModels;
+    g_accumTiming.uboLights        += t->uboLights;
+    g_accumTiming.submit           += t->submit;
+    g_accumTiming.present          += t->present;
+    g_accumTiming.totalCpu         += t->totalCpu;
+    g_timingFrames++;
+
+    if (g_timingFrames >= FRAME_TIMING_INTERVAL)
+    {
+        double n = (double) g_timingFrames;
+        printf("\n── Frame timing (avg over %u frames, µs) ──\n", g_timingFrames);
+        printf("  semaphore wait   : %8.1f\n", g_accumTiming.semaphoreWait / n);
+        printf("  deletion queue   : %8.1f\n", g_accumTiming.deletionQueue / n);
+        printf("  ssbo descriptor  : %8.1f\n", g_accumTiming.ssboDescriptor / n);
+        printf("  acquire image    : %8.1f\n", g_accumTiming.acquireImage / n);
+        printf("  cmd record       : %8.1f\n", g_accumTiming.cmdRecord / n);
+        printf("  resolveTransforms: %8.1f\n", g_accumTiming.resolveTransforms / n);
+        printf("  ubo globals      : %8.1f\n", g_accumTiming.uboGlobals / n);
+        printf("  ubo models       : %8.1f\n", g_accumTiming.uboModels / n);
+        printf("  ubo lights       : %8.1f\n", g_accumTiming.uboLights / n);
+        printf("  submit           : %8.1f\n", g_accumTiming.submit / n);
+        printf("  present          : %8.1f\n", g_accumTiming.present / n);
+        printf("  ─────────────────────────────\n");
+        printf("  TOTAL CPU frame  : %8.1f  (%.2f ms)\n", g_accumTiming.totalCpu / n,
+               g_accumTiming.totalCpu / n / 1000.0);
+        printf("──────────────────────────────────────────\n\n");
+        fflush(stdout);
+
+        g_accumTiming  = (FrameTiming){0};
+        g_timingFrames = 0;
+    }
+}
+
+#define MARK_TIME(name) struct timespec name; clock_gettime(CLOCK_MONOTONIC, &name)
+#endif // DEBUG
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp)
 {
     for (size_t i = 0; i < gdp->maxFrames; i++)
@@ -82,6 +157,10 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
                GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics, VkDevice device,
                SDL_Window* window, float deltaTime, Camera3D camera, RenderGraph* rg)
 {
+#ifdef DEBUG
+    MARK_TIME(tFrameStart);
+#endif
+
     FrameSync* sync = &ld->frameSync;
 
     // CPU pacing: wait for frame N-maxFrames to finish on the graphics timeline
@@ -99,12 +178,27 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
             return;
     }
 
+#ifdef DEBUG
+    MARK_TIME(tAfterSemaphore);
+
+    // Read back GPU timestamps from the completed frame slot
+    rgCollectGpuTimings(rg, dm->currentFrame);
+#endif
+
     // GPU finished with this frame slot's commands.
     // Safe to destroy any resources enqueued MAX_FRAMES_IN_FLIGHT frames ago.
     flushDeletionQueue(&ld->deletionQueue, ld->device, ld->allocator);
     advanceDeletionQueue(&ld->deletionQueue);
 
+#ifdef DEBUG
+    MARK_TIME(tAfterDeletion);
+#endif
+
     updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterSSBO);
+#endif
 
     uint32_t aquireImageIndex = dm->currentFrame;
 
@@ -127,6 +221,10 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     default:
         return; // Surface lost or other error — let the main loop handle shutdown
     }
+
+#ifdef DEBUG
+    MARK_TIME(tAfterAcquire);
+#endif
 
     // --- Command recording ---
     VkCommandBuffer graphicsCB = gdp->commandBuffer[dm->currentFrame];
@@ -163,8 +261,16 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     vkEndCommandBuffer(graphicsCB);
     vkEndCommandBuffer(computeCB);
 
+#ifdef DEBUG
+    MARK_TIME(tAfterCmdRecord);
+#endif
+
     // Resolve transform hierarchy before UBO fills — single forward pass
     resolveTransforms(&dm->graphicPipeline[0].scene->transformManager);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterResolve);
+#endif
 
     // Update per-frame globals (view, proj, invViewProj, camera) — computed once, written to binding 9
     FrameGlobals globals;
@@ -172,22 +278,34 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     memcpy(dm->graphicPipeline[0].pGlobalsUbo->uniformBuffersMapped[dm->currentFrame], &globals,
            sizeof(FrameGlobals));
 
+#ifdef DEBUG
+    MARK_TIME(tAfterGlobals);
+#endif
+
     // Model UBO fill — writes ModelInstanceUBO (mat4 model only) directly to mapped memory
     updateModelUniformBuffersDirect(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
                                     dm->graphicPipeline[0].scene);
 
-    // Light UBO fill — still uses old path (Phase 3 will migrate)
-    LightTransformations* uboLights =
-        updateLightUniformBuffers(dm->graphicPipeline->swapchain, deltaTime, camera, dm->graphicPipeline[2].scene);
-    memcpy(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame], uboLights,
-           sizeof(*uboLights) * dm->graphicPipeline[2].scene->lightManager.lightInstanceCount);
+#ifdef DEBUG
+    MARK_TIME(tAfterModels);
+#endif
 
-    free(uboLights);
+    // Light UBO fill — writes LightInstanceUBO directly to mapped memory
+    updateLightUniformBuffersDirect(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
+                                    deltaTime, dm->graphicPipeline[2].scene);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterLights);
+#endif
 
     // Submit both queues with timeline semaphore sync
     rgSubmit(rg, graphicsCB, computeCB, sync,
              gdp->imgViewSemaphore[dm->currentFrame],
              gdp->renderEndFlag[dm->currentFrame]);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterSubmit);
+#endif
 
     // Present
     VkSemaphore    presentWait[] = {gdp->renderEndFlag[dm->currentFrame]};
@@ -210,6 +328,26 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     {
         recreateSwapChain(pd, ld, window, rg);
     }
+
+#ifdef DEBUG
+    MARK_TIME(tAfterPresent);
+
+    FrameTiming timing = {
+        .semaphoreWait    = timespecDiffUs(&tFrameStart, &tAfterSemaphore),
+        .deletionQueue    = timespecDiffUs(&tAfterSemaphore, &tAfterDeletion),
+        .ssboDescriptor   = timespecDiffUs(&tAfterDeletion, &tAfterSSBO),
+        .acquireImage     = timespecDiffUs(&tAfterSSBO, &tAfterAcquire),
+        .cmdRecord        = timespecDiffUs(&tAfterAcquire, &tAfterCmdRecord),
+        .resolveTransforms = timespecDiffUs(&tAfterCmdRecord, &tAfterResolve),
+        .uboGlobals       = timespecDiffUs(&tAfterResolve, &tAfterGlobals),
+        .uboModels        = timespecDiffUs(&tAfterGlobals, &tAfterModels),
+        .uboLights        = timespecDiffUs(&tAfterModels, &tAfterLights),
+        .submit           = timespecDiffUs(&tAfterLights, &tAfterSubmit),
+        .present          = timespecDiffUs(&tAfterSubmit, &tAfterPresent),
+        .totalCpu         = timespecDiffUs(&tFrameStart, &tAfterPresent),
+    };
+    accumulateTiming(&timing);
+#endif
 
     dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
 }
