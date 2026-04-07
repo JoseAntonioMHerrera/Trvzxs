@@ -318,6 +318,10 @@ public:
             lightVolumeGraphicPipeline->scene->lightManager
                 .lightInstanceCapacity);
 
+        // Per-frame globals UBO (binding 9) — shared across all pipelines
+        gdp->pGlobalsUbo = (UniformBufferManager *)malloc(sizeof(*gdp->pGlobalsUbo));
+        createFrameGlobalsUniformBuffersMapped(pd, ld, gdp->maxFrames, gdp->pGlobalsUbo);
+
         std::cout
             << "RETORNO UNIFORMBUFFERS MAPPED TRANSFORM MATRIX"
             << '\n';

@@ -69,4 +69,7 @@ typedef struct GraphicPipelineToSurface
     ComputePipeline* computeP;
     uint32_t         computePipelineCount;
 
+    // Per-frame globals UBO (binding 9): view, proj, viewProj, invViewProj, camera
+    UniformBufferManager* pGlobalsUbo;
+
 } GraphicPipelineToSurface;

@@ -30,4 +30,7 @@ int                    createLightInstanceTransformationsUniformBuffersMapped(Ph
 
 int  createDeltaTimeUniformBuffers(PhysicalDevice* pd, LogicalDevice* ld, const uint32_t ubosLen,
                                    UniformBufferManager* ubos);
+int  createFrameGlobalsUniformBuffersMapped(PhysicalDevice* pd, LogicalDevice* ld, const uint32_t ubosLen,
+                                             UniformBufferManager* ubos);
+void updateFrameGlobals(FrameGlobals* globals, GraphicSwapchain* dsm, Camera3D camera);
 void freeMappedUniformBufferLocalMemory(mat4** instancedTranformations);
