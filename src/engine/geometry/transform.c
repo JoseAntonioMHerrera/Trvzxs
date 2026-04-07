@@ -60,6 +60,16 @@ void instanceRotateAxis(Model3DInstance* inst, float angleDeg, vec3 axis)
     glm_quat_normalize_to(result, inst->rotation);
 }
 
+uint32_t computeGlobalInstanceIndex(Model3D* model, uint32_t localIdx)
+{
+    return model->denseBaseOffset + localIdx;
+}
+
+Model3DInstance* resolveGlobalInstance(Models3DManager* man, uint32_t globalIdx)
+{
+    return &man->pDenseModelInstances[globalIdx];
+}
+
 void instanceBuildMatrix(Model3DInstance* inst)
 {
     // M = T * R * S

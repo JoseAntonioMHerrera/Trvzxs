@@ -56,10 +56,9 @@ typedef struct Model3D
     // Fill loop skips the entire model when alive != 1.
     uint32_t alive;
 
-    Model3DInstance* pModelInstance;
+    uint32_t         denseBaseOffset;      // starting index of this model's instances in pDenseModelInstances
     uint32_t         modelInstanceCount;
-    Model3D*         pChild;
-    uint32_t         childLen;
+    Model3DInstance* pStagingInstances;   // temporary per-model allocation during init, NULLed after consolidation
 } Model3D;
 
 typedef struct Models3DManager
@@ -68,6 +67,8 @@ typedef struct Models3DManager
     uint32_t modelLen;
     uint32_t modelInstanceCapacity; // total instance slots across all models (immutable after init)
     uint32_t modelInstanceLen;      // live instance count (updated per frame by UBO fill)
+
+    Model3DInstance* pDenseModelInstances; // single dense allocation; indexed via Model3D.denseBaseOffset
 
     GEOM_VERTEX* pPackedModelVertex;
     uint32_t     packedModelVertexLen;

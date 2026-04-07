@@ -55,9 +55,10 @@ Model3D* create_plane(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t s
     // Set defaults
     model->vertexOffset  = 0;
     model->indiceOffset  = 0;
-    model->instanceCount = 1;
-    model->pChild        = NULL;
-    model->childLen      = 0;
+    model->instanceCount     = 1;
+    model->liveInstanceCount = 0;
+    model->denseBaseOffset   = 0;
+    model->pStagingInstances = NULL;
 
     // Starting coordinates (top-left corner of plane)
     float start_x = globalCoords->x - size / 2.0f;
@@ -143,9 +144,10 @@ Model3D* create_quad(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t si
     // Set defaults
     model->vertexOffset  = 0;
     model->indiceOffset  = 0;
-    model->instanceCount = 1;
-    model->pChild        = NULL;
-    model->childLen      = 0;
+    model->instanceCount     = 1;
+    model->liveInstanceCount = 0;
+    model->denseBaseOffset   = 0;
+    model->pStagingInstances = NULL;
 
     float s  = size / 2.0f;
     float cx = globalCoords->x;
@@ -194,9 +196,10 @@ Model3D* create_cube(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t si
     // Set defaults
     model->vertexOffset  = 0;
     model->indiceOffset  = 0;
-    model->instanceCount = 1;
-    model->pChild        = NULL;
-    model->childLen      = 0;
+    model->instanceCount     = 1;
+    model->liveInstanceCount = 0;
+    model->denseBaseOffset   = 0;
+    model->pStagingInstances = NULL;
 
     float s  = size / 2.0f;
     float cx = globalCoords->x;
@@ -254,9 +257,10 @@ Model3D* create_cube_no_vertex_optimization(const GEOM_VERTEX_POSITION* const gl
     // Set defaults
     model->vertexOffset  = 0;
     model->indiceOffset  = 0;
-    model->instanceCount = 1;
-    model->pChild        = NULL;
-    model->childLen      = 0;
+    model->instanceCount     = 1;
+    model->liveInstanceCount = 0;
+    model->denseBaseOffset   = 0;
+    model->pStagingInstances = NULL;
 
     float s  = size / 2.0f;
     float cx = globalCoords->x;
@@ -355,9 +359,10 @@ Model3D* create_sphere(const GEOM_VERTEX_POSITION* const globalCoords, uint32_t 
     // Set defaults
     model->vertexOffset  = 0;
     model->indiceOffset  = 0;
-    model->instanceCount = 1;
-    model->pChild        = NULL;
-    model->childLen      = 0;
+    model->instanceCount     = 1;
+    model->liveInstanceCount = 0;
+    model->denseBaseOffset   = 0;
+    model->pStagingInstances = NULL;
 
     float cx = globalCoords->x;
     float cy = globalCoords->y;

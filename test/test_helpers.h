@@ -7,7 +7,11 @@
 // instanceOffset array allocated and filled with cumulative sums.
 Models3DManager make_test_manager(uint32_t modelCount, uint32_t instancesPerModel);
 
-// Frees everything allocated by make_test_manager.
+// Like make_test_manager but each model can have a different instance count.
+// `instanceCounts` is an array of length `modelCount`.
+Models3DManager make_test_manager_varied(uint32_t modelCount, const uint32_t* instanceCounts);
+
+// Frees everything allocated by make_test_manager / make_test_manager_varied.
 void free_test_manager(Models3DManager* man);
 
 // Creates a LightManager with `lightCount` lights, each having `instancesPerLight` instances.

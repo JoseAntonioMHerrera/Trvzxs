@@ -43,14 +43,16 @@ MODEL_VIEW_PROJECTION* updateModelUniformBuffers(GraphicSwapchain* dsm, float de
 
         for (uint32_t instanceIdx = 0; instanceIdx < model->instanceCount; instanceIdx++)
         {
-            if (model->pModelInstance[instanceIdx].alive != 1)
+            Model3DInstance* inst = &scene->modelsManager.pDenseModelInstances[model->denseBaseOffset + instanceIdx];
+
+            if (inst->alive != 1)
             {
                 continue;
             }
 
             // Rebuild model matrix from decomposed TRS components
-            instanceBuildMatrix(&model->pModelInstance[instanceIdx]);
-            glm_mat4_copy(model->pModelInstance[instanceIdx].m, pTransformations[transformationsIdx].model);
+            instanceBuildMatrix(inst);
+            glm_mat4_copy(inst->m, pTransformations[transformationsIdx].model);
 
             vec4 view;
             glm_lookat(camera.eye, camera.center, camera.up, pTransformations[transformationsIdx].view);

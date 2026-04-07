@@ -38,7 +38,7 @@ extern "C"
 #include <chrono>
 // TODO move this to central display
 const int MARGIN = 20;
-const double TARGET_FPS = 300; // Assuming 60Hz refresh rate
+const double TARGET_FPS = 100; // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
 
 // Global variables for camera control
@@ -296,10 +296,12 @@ int main()
                 case SDL_MOUSEMOTION:
                     if (resizing)
                     {
-                        pendingResizeW = initialWidth  + (event.motion.x - initialMouseX);
+                        pendingResizeW = initialWidth + (event.motion.x - initialMouseX);
                         pendingResizeH = initialHeight + (event.motion.y - initialMouseY);
-                        if (pendingResizeW < 128) pendingResizeW = 128;
-                        if (pendingResizeH < 128) pendingResizeH = 128;
+                        if (pendingResizeW < 128)
+                            pendingResizeW = 128;
+                        if (pendingResizeH < 128)
+                            pendingResizeH = 128;
                     }
                     else if (mouseLookActive)
                     {
@@ -462,8 +464,8 @@ int main()
                 // Update camera screen size to match the new swapchain extent
                 int w, h;
                 SDL_Vulkan_GetDrawableSize(window, &w, &h);
-                camera->screenSize[0] = (float) w;
-                camera->screenSize[1] = (float) h;
+                camera->screenSize[0] = (float)w;
+                camera->screenSize[1] = (float)h;
             }
 
             // Llamada a la función drawFrame

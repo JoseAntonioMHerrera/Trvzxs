@@ -56,12 +56,12 @@ Model3D* load_obj_to_geom_object(const char* filename)
     }
 
     // Set defaults
-    model->vertexOffset   = 0;
-    model->indiceOffset   = 0;
-    model->instanceCount  = 0;
-    model->pChild         = NULL;
-    model->childLen       = 0;
-    model->pModelInstance = 0;
+    model->vertexOffset      = 0;
+    model->indiceOffset      = 0;
+    model->instanceCount     = 0;
+    model->liveInstanceCount = 0;
+    model->denseBaseOffset   = 0;
+    model->pStagingInstances = NULL;
 
     // Convert mesh data to Model3D format
     uint32_t vertex_count         = 0;
