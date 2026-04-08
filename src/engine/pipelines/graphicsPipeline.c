@@ -627,7 +627,7 @@ void createParticleGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager
         .pDynamicState       = &dynamicState,
         .layout              = *gdp->pipelineLayout,
         .renderPass          = *gdp->renderPass,
-        .subpass             = 2,
+        .subpass             = 0,
         .pDepthStencilState  = &depthStencil,
         .basePipelineHandle  = VK_NULL_HANDLE, // Optional
         .basePipelineIndex   = -1,             // Optional
@@ -836,7 +836,7 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
         .pDynamicState       = &dynamicState,
         .layout              = *gdp->pipelineLayout,
         .renderPass          = *gdp->renderPass,
-        .subpass             = 1,
+        .subpass             = 0,
         .basePipelineHandle  = VK_NULL_HANDLE, // Optional
         .basePipelineIndex   = -1,             // Optional
         .pNext               = VK_NULL_HANDLE,

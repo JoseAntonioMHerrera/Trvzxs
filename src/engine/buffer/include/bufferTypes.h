@@ -8,6 +8,11 @@ typedef struct UniformBufferManager
     uint32_t       uniformBuffersLen;
     VmaAllocation* uniformAllocations;
     void**         uniformBuffersMapped;
+
+    // Staging buffers for device-local UBOs/SSBOs that need per-frame CPU upload
+    VkBuffer*      stagingBuffers;
+    VmaAllocation* stagingAllocations;
+    VkDeviceSize   stagingSize; // per-buffer size for vkCmdCopyBuffer
 } UniformBufferManager;
 
 typedef struct SSBOBufferManager

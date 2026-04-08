@@ -303,11 +303,11 @@ public:
                                gdp->texture->mipLevels);
         std::cout << "RETORNO createTextureImageView" << '\n';
         gdp->deviceBuffer->pUbo =
-            (UniformBufferManager *)malloc(sizeof(*gdp->deviceBuffer->pUbo));
+            (UniformBufferManager *)calloc(1, sizeof(*gdp->deviceBuffer->pUbo));
         particleGraphicPipeline->computeP->deviceBuffer->pUbo =
-            (UniformBufferManager *)malloc(sizeof(*gdp->deviceBuffer->pUbo));
+            (UniformBufferManager *)calloc(1, sizeof(*gdp->deviceBuffer->pUbo));
         lightVolumeGraphicPipeline->deviceBuffer->pUbo =
-            (UniformBufferManager *)malloc(
+            (UniformBufferManager *)calloc(1,
                 sizeof(*lightVolumeGraphicPipeline->deviceBuffer->pUbo));
         createModelInstanceTransformationsUniformBuffersMapped(
             pd, ld, gdp->maxFrames, gdp->deviceBuffer->pUbo,
@@ -319,7 +319,7 @@ public:
                 .lightInstanceCapacity);
 
         // Per-frame globals UBO (binding 9) — shared across all pipelines
-        gdp->pGlobalsUbo = (UniformBufferManager *)malloc(sizeof(*gdp->pGlobalsUbo));
+        gdp->pGlobalsUbo = (UniformBufferManager *)calloc(1, sizeof(*gdp->pGlobalsUbo));
         createFrameGlobalsUniformBuffersMapped(pd, ld, gdp->maxFrames, gdp->pGlobalsUbo);
 
         std::cout
@@ -375,28 +375,11 @@ public:
         lightVolumeGraphicPipeline->dsl = gdp->dsl;
         std::cout << "RETORNO SETLAYOUT" << '\n';
 
-        createModelsGraphicPipeline(gdp, dispM, &ld->device);
-        std::cout << "RETORNO GRAPHIC PIPELINE FLAG METAENGINE" << '\n';
-        createParticleGraphicPipeline(particleGraphicPipeline, dispM,
-                                      &ld->device);
-        std::cout << "RETORNO PARTICLE GRAPHIC PIPELINE FLAG METAENGINE"
-                  << '\n';
-        createLightVolumeGraphicPipeline(lightVolumeGraphicPipeline, dispM,
-                                         &ld->device);
-        // createDepthPrepassGraphicsPipeline(depthPrepassGraphicPipeline, dispM,
-        //                                    &ld->device);
-        std::cout << "RETORNO LIGHT VOLUME GRAPHIC PIPELINE FLAG METAENGINE"
-                  << '\n';
-        // gdp->computeP = (ComputePipeline*) (sizeof(*gdp->computeP));
-        particleGraphicPipeline->computeP->pipelineLayout =
-            particleGraphicPipeline->pipelineLayout;
-        std::cout << "RETORNO GRPAHICSPIPLINE" << '\n';
-        createParticleComputePipeline(particleGraphicPipeline->computeP,
-                                      ld->device);
-        /*createOcclusionCullingComputePipeline(&oclComputeP,
-                                              ld->device);*/
-        std::cout << "RETORNO COMPUTEPIPELINE" << '\n';
-        std::cout << "RETORNO COMMANDBUFFER" << '\n';
+        // Pipeline creation deferred until after rgCompile — see below.
+        // The render graph creates single-subpass render passes; pipelines
+        // must be created with those render passes (not the old multi-subpass
+        // one) to ensure subpass compatibility.
+        // Compute pipeline also deferred (needs particle pipelineLayout).
         createSyncObjects(gdp, &ld->device);
         createSyncObjects(particleGraphicPipeline, &ld->device);
         createFrameSync(&ld->frameSync, ld->device, gdp->maxFrames);
@@ -622,8 +605,28 @@ public:
             .access        = RG_READ,
         });
 
-        // Compile: topological sort + barrier generation
+        // Compile: topological sort + barrier generation + render pass creation
         rgCompile(&this->renderGraph);
+
+        // Create graphics pipelines AFTER rgCompile so they use the render
+        // graph's single-subpass render passes (subpass 0) instead of the
+        // old multi-subpass render pass.
+        gdp->renderPass = &this->renderGraph.passes[pModels].renderPass;
+        createModelsGraphicPipeline(gdp, dispM, &ld->device);
+
+        lightVolumeGraphicPipeline->renderPass = &this->renderGraph.passes[pLights].renderPass;
+        createLightVolumeGraphicPipeline(lightVolumeGraphicPipeline, dispM, &ld->device);
+
+        particleGraphicPipeline->renderPass = &this->renderGraph.passes[pParticles].renderPass;
+        createParticleGraphicPipeline(particleGraphicPipeline, dispM, &ld->device);
+
+        // Compute pipeline needs particle pipelineLayout (created above)
+        particleGraphicPipeline->computeP->pipelineLayout =
+            particleGraphicPipeline->pipelineLayout;
+        createParticleComputePipeline(particleGraphicPipeline->computeP,
+                                      ld->device);
+
+        // createDepthPrepassGraphicsPipeline(depthPrepassGraphicPipeline, dispM, &ld->device);
 
         std::cout << "Init vulkan ended." << std::endl;
         this->displayManager =

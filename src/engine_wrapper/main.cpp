@@ -38,7 +38,9 @@ extern "C"
 #include <chrono>
 // TODO move this to central display
 const int MARGIN = 20;
-const double TARGET_FPS = 100; // Assuming 60Hz refresh rate
+const int LIGHT_INSTANCE_COUNT = 10;
+const int MODEL_INSTANCE_COUNT = 5000;
+const double TARGET_FPS = 200; // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
 
 // Global variables for camera control
@@ -194,14 +196,14 @@ int main()
         glm_vec3_copy(up, camera->up);
         glm_vec2_copy(screenSize, camera->screenSize);
         scene->addCamera3D(camera);
-        GEOM_VERTEX_COLOR_RGBA lightColors[2000];
-        vec3                   lightPositions[2000];
-        float                  lightScales[2000];
+        GEOM_VERTEX_COLOR_RGBA lightColors[LIGHT_INSTANCE_COUNT];
+        vec3 lightPositions[LIGHT_INSTANCE_COUNT];
+        float lightScales[LIGHT_INSTANCE_COUNT];
 
-        vec3 vecPos  = {cubeLightPosition->x + 5, cubeLightPosition->y, cubeLightPosition->z};
+        vec3 vecPos = {cubeLightPosition->x + 5, cubeLightPosition->y, cubeLightPosition->z};
         vec3 vecPos2 = {cubeLightPosition->x, cubeLightPosition->y, cubeLightPosition->z};
 
-        for (int i = 0; i < 2000; i++)
+        for (int i = 0; i < LIGHT_INSTANCE_COUNT; i++)
         {
             if (i % 2 == 0)
             {
@@ -216,7 +218,7 @@ int main()
                 lightScales[i] = 1.0f;
             }
         }
-        scene->initInstanceDataLight(&scene->getVolumetricLight(0), 2000,
+        scene->initInstanceDataLight(&scene->getVolumetricLight(0), LIGHT_INSTANCE_COUNT,
                                      lightColors, lightPositions, lightScales);
         // GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
         // scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
@@ -224,7 +226,7 @@ int main()
         scene->addModel(load_obj_to_geom_object(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj")));
 
         // scene->addModel(&light->model);
-        scene->initInstanceDataModel(&scene->getModel(0), 2000);
+        scene->initInstanceDataModel(&scene->getModel(0), MODEL_INSTANCE_COUNT);
 
         scene->init();
         std::cout << "QUE??????\n";
@@ -548,6 +550,11 @@ int main()
                     engine->metaDrawFrame(window, (float)deltaTime);
 
                 lastFrameTime = currentTime;
+                frameCount++;
+                if (frameCount >= MAX_FRAME_COUNT)
+                {
+                    running = 0;
+                }
 
                 // Frame pacing: Sleep to align with next vsync
                 double sleepTime = FRAME_TIME - (getCurrentTime() - currentTime);
