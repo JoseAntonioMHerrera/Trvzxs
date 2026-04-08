@@ -23,8 +23,8 @@ struct LightInstanceData {
     float scale;
 };
 
-layout(binding = 7) uniform LightInstances {
-    LightInstanceData instances[2000];
+layout(std430, binding = 7) buffer LightInstances {
+    LightInstanceData instances[];
 } lights;
 
 layout(location = 0) in vec3 point;

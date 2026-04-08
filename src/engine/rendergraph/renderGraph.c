@@ -983,7 +983,7 @@ static const char* rgPassTypeStr(RGPassType t)
     }
 }
 
-#define GPU_TIMING_INTERVAL 120
+#define GPU_TIMING_INTERVAL 3
 
 void rgCollectGpuTimings(RenderGraph* rg, uint32_t frameIndex)
 {

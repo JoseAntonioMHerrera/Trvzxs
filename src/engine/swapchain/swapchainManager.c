@@ -3,6 +3,7 @@
 #include "deletionQueue.h"
 #include "descriptor.h"
 #include "renderGraph.h"
+#include "graphicConfiguration.h"
 // TODO: maybe move this function  def/decl to image.h
 VkImageView createImageView(GraphicSwapchain* dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels,
                             VkImageAspectFlags aspectMask)
@@ -344,8 +345,15 @@ void chooseSwapExtent2D(VkExtent2D* extent, VkSurfaceCapabilitiesKHR* capabiliti
 {
     int width, height;
     SDL_Vulkan_GetDrawableSize(window, &width, &height);
+    fprintf(stderr, "[swapchain] SDL drawable size: %d x %d\n", width, height);
+
+    // Enforce the configured resolution so profiling numbers are reproducible
+    width  = WINDOW_WIDTH;
+    height = WINDOW_HEIGHT;
+
     extent->width  = CLAMP(width, capabilities->minImageExtent.width, capabilities->maxImageExtent.width);
     extent->height = CLAMP(height, capabilities->minImageExtent.height, capabilities->maxImageExtent.height);
+    fprintf(stderr, "[swapchain] Enforced extent: %u x %u\n", extent->width, extent->height);
 }
 
 VkSurfaceFormatKHR* chooseSwapSurfaceFormat(VkSurfaceFormatKHR* availableFormats, uint8_t availableFormatsCount)

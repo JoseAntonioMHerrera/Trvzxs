@@ -15,7 +15,7 @@
 
 // ── Frame timing instrumentation ──────────────────────────────────────────────
 #ifdef DEBUG
-#define FRAME_TIMING_INTERVAL 120 // print averages every N frames
+#define FRAME_TIMING_INTERVAL 3 // print averages every N frames
 
 typedef struct FrameTiming
 {
@@ -226,6 +226,39 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     MARK_TIME(tAfterAcquire);
 #endif
 
+    // Resolve transform hierarchy before any UBO/SSBO fills
+    resolveTransforms(&dm->graphicPipeline[0].scene->transformManager);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterResolve);
+#endif
+
+    // Update per-frame globals (view, proj, invViewProj, camera) — computed once, written to binding 9
+    FrameGlobals globals;
+    updateFrameGlobals(&globals, dm->graphicPipeline->swapchain, camera);
+    memcpy(dm->graphicPipeline[0].pGlobalsUbo->uniformBuffersMapped[dm->currentFrame], &globals,
+           sizeof(FrameGlobals));
+
+#ifdef DEBUG
+    MARK_TIME(tAfterGlobals);
+#endif
+
+    // Model UBO fill — writes ModelInstanceUBO (mat4 model only) directly to mapped memory
+    updateModelUniformBuffersDirect(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
+                                    dm->graphicPipeline[0].scene);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterModels);
+#endif
+
+    // Light SSBO fill — write to host-visible staging buffer
+    updateLightUniformBuffersDirect(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
+                                    deltaTime, dm->graphicPipeline[2].scene);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterLights);
+#endif
+
     // --- Command recording ---
     VkCommandBuffer graphicsCB = gdp->commandBuffer[dm->currentFrame];
     VkCommandBuffer computeCB  = particleGraphics->computeP->commandBuffer[dm->currentFrame];
@@ -237,6 +270,28 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     vkBeginCommandBuffer(graphicsCB, &beginInfo);
     vkBeginCommandBuffer(computeCB, &beginInfo);
+
+    // Copy staging → device-local SSBO for light instances
+    {
+        UniformBufferManager* lightUbo = lightGraphics->deviceBuffer->pUbo;
+        VkBufferCopy          copyRegion = {.srcOffset = 0, .dstOffset = 0, .size = lightUbo->stagingSize};
+        vkCmdCopyBuffer(graphicsCB, lightUbo->stagingBuffers[dm->currentFrame],
+                        lightUbo->uniformBuffers[dm->currentFrame], 1, &copyRegion);
+
+        VkBufferMemoryBarrier barrier = {
+            .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .buffer              = lightUbo->uniformBuffers[dm->currentFrame],
+            .offset              = 0,
+            .size                = lightUbo->stagingSize,
+        };
+        vkCmdPipelineBarrier(graphicsCB, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 1,
+                             &barrier, 0, NULL);
+    }
 
     // Update per-frame resource handles
     rg->resources[0].image     = gdp->swapchain->p_scImages[dm->currentFrame];
@@ -263,39 +318,6 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
 #ifdef DEBUG
     MARK_TIME(tAfterCmdRecord);
-#endif
-
-    // Resolve transform hierarchy before UBO fills — single forward pass
-    resolveTransforms(&dm->graphicPipeline[0].scene->transformManager);
-
-#ifdef DEBUG
-    MARK_TIME(tAfterResolve);
-#endif
-
-    // Update per-frame globals (view, proj, invViewProj, camera) — computed once, written to binding 9
-    FrameGlobals globals;
-    updateFrameGlobals(&globals, dm->graphicPipeline->swapchain, camera);
-    memcpy(dm->graphicPipeline[0].pGlobalsUbo->uniformBuffersMapped[dm->currentFrame], &globals,
-           sizeof(FrameGlobals));
-
-#ifdef DEBUG
-    MARK_TIME(tAfterGlobals);
-#endif
-
-    // Model UBO fill — writes ModelInstanceUBO (mat4 model only) directly to mapped memory
-    updateModelUniformBuffersDirect(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
-                                    dm->graphicPipeline[0].scene);
-
-#ifdef DEBUG
-    MARK_TIME(tAfterModels);
-#endif
-
-    // Light UBO fill — writes LightInstanceUBO directly to mapped memory
-    updateLightUniformBuffersDirect(lightGraphics->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
-                                    deltaTime, dm->graphicPipeline[2].scene);
-
-#ifdef DEBUG
-    MARK_TIME(tAfterLights);
 #endif
 
     // Submit both queues with timeline semaphore sync
@@ -337,12 +359,12 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         .deletionQueue    = timespecDiffUs(&tAfterSemaphore, &tAfterDeletion),
         .ssboDescriptor   = timespecDiffUs(&tAfterDeletion, &tAfterSSBO),
         .acquireImage     = timespecDiffUs(&tAfterSSBO, &tAfterAcquire),
-        .cmdRecord        = timespecDiffUs(&tAfterAcquire, &tAfterCmdRecord),
-        .resolveTransforms = timespecDiffUs(&tAfterCmdRecord, &tAfterResolve),
+        .resolveTransforms = timespecDiffUs(&tAfterAcquire, &tAfterResolve),
         .uboGlobals       = timespecDiffUs(&tAfterResolve, &tAfterGlobals),
         .uboModels        = timespecDiffUs(&tAfterGlobals, &tAfterModels),
         .uboLights        = timespecDiffUs(&tAfterModels, &tAfterLights),
-        .submit           = timespecDiffUs(&tAfterLights, &tAfterSubmit),
+        .cmdRecord        = timespecDiffUs(&tAfterLights, &tAfterCmdRecord),
+        .submit           = timespecDiffUs(&tAfterCmdRecord, &tAfterSubmit),
         .present          = timespecDiffUs(&tAfterSubmit, &tAfterPresent),
         .totalCpu         = timespecDiffUs(&tFrameStart, &tAfterPresent),
     };
