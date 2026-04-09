@@ -302,6 +302,52 @@ public:
         lightVolume->lightVolumeInstanceCount = instanceCount;
     }
 
+    // Grid layout: one light per grid cell, matching initInstanceDataModel grid
+    void initLightsGrid(LightVolume *lightVolume, uint32_t instanceCount,
+                        int gridCols, float gridSpacing)
+    {
+        GEOM_VERTEX_COLOR_RGBA *colors = (GEOM_VERTEX_COLOR_RGBA *)malloc(sizeof(GEOM_VERTEX_COLOR_RGBA) * instanceCount);
+        vec3  *positions = (vec3 *)malloc(sizeof(vec3) * instanceCount);
+        float *scales    = (float *)malloc(sizeof(float) * instanceCount);
+
+        for (uint32_t i = 0; i < instanceCount; i++)
+        {
+            int col = i % gridCols;
+            int row = i / gridCols;
+            positions[i][0] = (col - (gridCols - 1) / 2.0f) * gridSpacing;
+            positions[i][1] = (row - 2.0f) * gridSpacing;
+            positions[i][2] = 0.0f;
+            colors[i] = (i % 2 == 0) ? GEOM_VERTEX_COLOR_RGBA{0.0f, 1.0f, 0.0f, 1.0f}
+                                      : GEOM_VERTEX_COLOR_RGBA{1.0f, 0.0f, 0.0f, 1.0f};
+            scales[i] = 1.0f;
+        }
+        initInstanceDataLight(lightVolume, instanceCount, colors, positions, scales);
+        free(colors); free(positions); free(scales);
+    }
+
+    // Two groups of overlapping cubes covering both model planes from initInstanceDataModelDualPlane.
+    // perSide lights at each plane position (x = ±planeGap).
+    void initLightsDualPlane(LightVolume *lightVolume, float planeGap, float cubeScale, uint32_t perSide)
+    {
+        uint32_t count = perSide * 2;
+        GEOM_VERTEX_COLOR_RGBA *colors = (GEOM_VERTEX_COLOR_RGBA *)malloc(sizeof(GEOM_VERTEX_COLOR_RGBA) * count);
+        vec3  *positions = (vec3 *)malloc(sizeof(vec3) * count);
+        float *scales    = (float *)malloc(sizeof(float) * count);
+
+        for (uint32_t i = 0; i < count; i++)
+        {
+            bool rightSide = (i < perSide);
+            positions[i][0] = rightSide ? planeGap : -planeGap;
+            positions[i][1] = 0.0f;
+            positions[i][2] = 0.0f;
+            colors[i] = rightSide ? GEOM_VERTEX_COLOR_RGBA{0.0f, 1.0f, 0.0f, 1.0f}
+                                  : GEOM_VERTEX_COLOR_RGBA{1.0f, 0.0f, 0.0f, 1.0f};
+            scales[i] = cubeScale;
+        }
+        initInstanceDataLight(lightVolume, count, colors, positions, scales);
+        free(colors); free(positions); free(scales);
+    }
+
     void initInstanceDataParticle(ParticleGroup *particleGroup, uint32_t instanceCount, ParticleInstance *instanceData)
     {
 
@@ -321,10 +367,52 @@ public:
 
         // free(instanceData);
     }
+    // Two parallel planes of models at x = ±planeGap, each with instanceCount/2
+    // models spread in a YZ grid. Designed for two overlapping light cubes.
+    void initInstanceDataModelDualPlane(Model3D *pModel, uint32_t instanceCount)
+    {
+        pModel->pStagingInstances  = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
+        pModel->pStagingTransforms = (TransformNode *)calloc(instanceCount, sizeof(TransformNode));
+
+        uint32_t half     = instanceCount / 2;
+        uint32_t gridSide = (uint32_t)sqrtf((float)half);
+        if (gridSide * gridSide < half) gridSide++;
+
+        const float gridSpacing = 1.0f;
+        const float planeGap    = 5.0f; // half-distance between the two planes
+
+        for (uint32_t i = 0; i < instanceCount; i++)
+        {
+            Model3DInstance *inst = &pModel->pStagingInstances[i];
+            inst->lifecycle = INSTANCE_ALIVE;
+            inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
+
+            TransformNode *node = &pModel->pStagingTransforms[i];
+            transformInit(node);
+
+            bool     rightPlane = (i < half);
+            uint32_t localIdx   = rightPlane ? i : (i - half);
+            uint32_t col = localIdx % gridSide;
+            uint32_t row = localIdx / gridSide;
+
+            vec3 pos = {
+                rightPlane ? planeGap : -planeGap,
+                (col - gridSide / 2.0f) * gridSpacing,
+                (row - gridSide / 2.0f) * gridSpacing
+            };
+            transformSetPosition(node, pos);
+        }
+        pModel->instanceCount = instanceCount;
+    }
+
     void initInstanceDataModel(Model3D *pModel, uint32_t instanceCount)
     {
         pModel->pStagingInstances  = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
         pModel->pStagingTransforms = (TransformNode *)calloc(instanceCount, sizeof(TransformNode));
+
+        // Spread instances in a 10-column grid matching the light layout
+        const float gridSpacing = 8.0f;
+        const int   gridCols    = 5;
 
         for (uint32_t instanceIndex = 0; instanceIndex < instanceCount; instanceIndex++)
         {
@@ -332,16 +420,17 @@ public:
             inst->lifecycle = INSTANCE_ALIVE;
             inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
 
-            // Initialize staging transform with identity TRS
             TransformNode *node = &pModel->pStagingTransforms[instanceIndex];
             transformInit(node);
 
-            // Instance 0 offset to the right so both models are visible
-            if (instanceIndex == 0)
-            {
-                vec3 pos = {5.0f, 0.0f, 0.0f};
-                transformSetPosition(node, pos);
-            }
+            int col = instanceIndex % gridCols;
+            int row = instanceIndex / gridCols;
+            vec3 pos = {
+                (col - (gridCols - 1) / 2.0f) * gridSpacing,
+                (row - 2.0f) * gridSpacing,
+                0.0f
+            };
+            transformSetPosition(node, pos);
         }
         pModel->instanceCount = instanceCount;
     }

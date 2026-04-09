@@ -40,6 +40,7 @@ extern "C"
 const int MARGIN = 20;
 const int LIGHT_INSTANCE_COUNT = 10;
 const int MODEL_INSTANCE_COUNT = 5000;
+
 const double TARGET_FPS = 200; // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
 
@@ -185,8 +186,8 @@ int main()
 
         scene->initInstanceDataParticle(particleGroup, particleInstancesLen, pParticleInstance);
         scene->addParticleGroup(particleGroup);
-        vec3 eye = {1.5f, 1.5f, 1.5f};
-        vec3 center = {0.0f, 0.0f, 0.0f};
+        vec3 eye = {0.0f, 0.0f, 0.0f};
+        vec3 center = {5.0f, 0.0f, 0.0f};
         vec3 up = {0.0f, 0.0f, 1.0f};
         vec2 screenSize = {WINDOW_WIDTH, WINDOW_HEIGHT};
         glm_vec2_print(screenSize, stdout);
@@ -196,37 +197,12 @@ int main()
         glm_vec3_copy(up, camera->up);
         glm_vec2_copy(screenSize, camera->screenSize);
         scene->addCamera3D(camera);
-        GEOM_VERTEX_COLOR_RGBA lightColors[LIGHT_INSTANCE_COUNT];
-        vec3 lightPositions[LIGHT_INSTANCE_COUNT];
-        float lightScales[LIGHT_INSTANCE_COUNT];
-
-        vec3 vecPos = {cubeLightPosition->x + 5, cubeLightPosition->y, cubeLightPosition->z};
-        vec3 vecPos2 = {cubeLightPosition->x, cubeLightPosition->y, cubeLightPosition->z};
-
-        for (int i = 0; i < LIGHT_INSTANCE_COUNT; i++)
-        {
-            if (i % 2 == 0)
-            {
-                lightColors[i] = {0.0, 1.0, 0.0, 1.0};
-                glm_vec3_copy(vecPos, lightPositions[i]);
-                lightScales[i] = 1.0f;
-            }
-            else
-            {
-                lightColors[i] = {1.0, 0.0, 0.0, 1.0};
-                glm_vec3_copy(vecPos2, lightPositions[i]);
-                lightScales[i] = 1.0f;
-            }
-        }
-        scene->initInstanceDataLight(&scene->getVolumetricLight(0), LIGHT_INSTANCE_COUNT,
-                                     lightColors, lightPositions, lightScales);
-        // GEOM_VERTEX_POSITION* planeCenter = new GEOM_VERTEX_POSITION{0, 0, 0};
-        // scene->addModel(std::move(Model<GEOM_OBJECT>(PRIMITIVE_TYPE::PLANE, planeCenter, 1000)));
+        // Two overlapping light cubes covering both model planes
+        // planeGap=5 matches initInstanceDataModelDualPlane; scale=6 → 60 units covers 50-unit model spread
+        scene->initLightsDualPlane(&scene->getVolumetricLight(0), 5.0f, 6.0f, 5);
 
         scene->addModel(load_obj_to_geom_object(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj")));
-
-        // scene->addModel(&light->model);
-        scene->initInstanceDataModel(&scene->getModel(0), MODEL_INSTANCE_COUNT);
+        scene->initInstanceDataModelDualPlane(&scene->getModel(0), MODEL_INSTANCE_COUNT);
 
         scene->init();
         std::cout << "QUE??????\n";

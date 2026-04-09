@@ -24,6 +24,7 @@ set(SHADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/particle.comp"
     "${CMAKE_CURRENT_SOURCE_DIR}/lightVolume.vert"
     "${CMAKE_CURRENT_SOURCE_DIR}/lightVolume.frag"
+    "${CMAKE_CURRENT_SOURCE_DIR}/depthPrepass.vert"
 
     # Add more shaders as needed
 )

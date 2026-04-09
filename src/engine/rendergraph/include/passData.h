@@ -9,6 +9,13 @@ typedef struct LogicalDevice            LogicalDevice;
 // Each pass callback casts userData to the appropriate type to access its pipeline,
 // descriptor sets, and scene data.
 
+typedef struct DepthPrepassData
+{
+    GraphicPipelineToSurface* depthPipeline; // depth-only pipeline (vertex shader, no fragment)
+    GraphicPipelineToSurface* modelPipeline; // model pipeline (shares vertex/index buffers + descriptors)
+    DisplayManager*           dm;
+} DepthPrepassData;
+
 typedef struct ModelPassData
 {
     GraphicPipelineToSurface* pipeline;

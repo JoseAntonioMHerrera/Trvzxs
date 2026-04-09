@@ -9,7 +9,7 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineTo
 {
     VkDescriptorPoolSize       poolSizes[] = {{
                                                   .type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                  .descriptorCount = maxFrames * 3, // models + deltaTime + globals
+                                                  .descriptorCount = maxFrames * 2, // deltaTime + globals
                                         },
                                               {
                                                   .type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -17,7 +17,7 @@ void createDescriptorPool(uint32_t maxFrames, VkDevice device, GraphicPipelineTo
                                         },
                                               {
                                                   .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                                  .descriptorCount = maxFrames * 4, // prevSSBO + curSSBO + readback + lightInstances
+                                                  .descriptorCount = maxFrames * 5, // prevSSBO + curSSBO + readback + lightInstances + modelInstances
                                         }};
     VkDescriptorPoolCreateInfo poolInfo    = {
            .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -121,7 +121,7 @@ void createDescriptorSet(uint32_t maxFrames, VkDevice device, GraphicPipelineToS
                 .dstSet           = gdp->descriptorSet[i],
                 .dstBinding       = 0,
                 .dstArrayElement  = 0,
-                .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 .descriptorCount  = 1,
                 .pBufferInfo      = &transformUBOInfo[0],
                 .pImageInfo       = VK_NULL_HANDLE, // Optional
@@ -271,8 +271,8 @@ void createDescriptorSetLayout(LogicalDevice* ld, GraphicPipelineToSurface* gdp,
 
     VkDescriptorSetLayoutBinding uboInstanceTransform = {
         .binding            = 0,
-        .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount    = 1, // TODO! parametrizar, num uniform buffers
+        .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount    = 1,
         .pImmutableSamplers = VK_NULL_HANDLE,
         .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
     };

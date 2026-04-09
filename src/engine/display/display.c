@@ -271,6 +271,28 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     vkBeginCommandBuffer(graphicsCB, &beginInfo);
     vkBeginCommandBuffer(computeCB, &beginInfo);
 
+    // Copy staging → device-local SSBO for model instances
+    {
+        UniformBufferManager* modelUbo  = gdp->deviceBuffer->pUbo;
+        VkBufferCopy          copyRegion = {.srcOffset = 0, .dstOffset = 0, .size = modelUbo->stagingSize};
+        vkCmdCopyBuffer(graphicsCB, modelUbo->stagingBuffers[dm->currentFrame],
+                        modelUbo->uniformBuffers[dm->currentFrame], 1, &copyRegion);
+
+        VkBufferMemoryBarrier barrier = {
+            .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .buffer              = modelUbo->uniformBuffers[dm->currentFrame],
+            .offset              = 0,
+            .size                = modelUbo->stagingSize,
+        };
+        vkCmdPipelineBarrier(graphicsCB, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, NULL, 1,
+                             &barrier, 0, NULL);
+    }
+
     // Copy staging → device-local SSBO for light instances
     {
         UniformBufferManager* lightUbo = lightGraphics->deviceBuffer->pUbo;
