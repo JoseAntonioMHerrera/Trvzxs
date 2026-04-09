@@ -10,8 +10,8 @@ layout(binding = 9) uniform FrameGlobals {
 } globals;
 
 // Per-instance model matrices (binding 0) — one mat4 per live instance
-layout(binding = 0) uniform InstanceModels {
-    mat4 model[2000];
+layout(std430, binding = 0) buffer InstanceModels {
+    mat4 model[];
 } instances;
 
 layout(location = 0) in vec3 inPosition;

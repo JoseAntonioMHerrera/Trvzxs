@@ -7,6 +7,59 @@
 #include <math.h>
 
 // ---------------------------------------------------------------------------
+// Depth prepass — vertex-only, populates depth buffer for Early-Z in color pass
+// ---------------------------------------------------------------------------
+
+void executeDepthPrepass(VkCommandBuffer cmd, const RGPass* pass, void* userData)
+{
+    DepthPrepassData*         data     = (DepthPrepassData*) userData;
+    GraphicPipelineToSurface* depthGdp = data->depthPipeline;
+    GraphicPipelineToSurface* modelGdp = data->modelPipeline;
+    uint32_t                  frame    = data->dm->currentFrame;
+
+    // Bind the depth-only pipeline (vertex shader only, no fragment)
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *depthGdp->pipeline);
+
+    VkViewport viewport = {
+        .x        = 0.0f,
+        .y        = 0.0f,
+        .width    = (float) modelGdp->swapchain->currentExtent2D.width,
+        .height   = (float) modelGdp->swapchain->currentExtent2D.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent = modelGdp->swapchain->currentExtent2D,
+    };
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    // Reuse the model pipeline's descriptor sets (same SSBO binding 0 + UBO binding 9)
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *depthGdp->pipelineLayout, 0, 1,
+                            &modelGdp->descriptorSet[frame], 0, VK_NULL_HANDLE);
+
+    // Bind the same vertex + index buffers as the model pass
+    VkDeviceSize   offsets[]     = {0};
+    const VkBuffer localBuffer[] = {*modelGdp->deviceBuffer->buffer};
+    vkCmdBindVertexBuffers(cmd, 0, 1, localBuffer, offsets);
+    vkCmdBindIndexBuffer(cmd, *modelGdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+    // Draw the same geometry as the model pass — identical draw calls
+    const SCENE* scene = modelGdp->scene;
+    for (int i = 0; i < scene->modelsManager.modelLen; i++)
+    {
+        if (scene->modelsManager.pModel[i].liveInstanceCount > 0)
+            vkCmdDrawIndexed(cmd, scene->modelsManager.pModel[i].indices.itemsLen,
+                             scene->modelsManager.pModel[i].liveInstanceCount,
+                             scene->modelsManager.pModel[i].indiceOffset,
+                             scene->modelsManager.pModel[i].vertexOffset,
+                             scene->modelsManager.instanceOffset.items[i]);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Model pass — extracted from startRenderPass() subpass 0
 // ---------------------------------------------------------------------------
 

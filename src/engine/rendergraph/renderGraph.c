@@ -141,6 +141,11 @@ void rgPassSetCallback(RenderGraph* rg, uint32_t passIndex, RGPassExecuteFn fn, 
     rg->passes[passIndex].userData = userData;
 }
 
+void rgPassSetName(RenderGraph* rg, uint32_t passIndex, RGPassName name)
+{
+    rg->passes[passIndex].name = name;
+}
+
 void rgPassSetQueue(RenderGraph* rg, uint32_t passIndex, RGQueueType queueType)
 {
     rg->passes[passIndex].queueType = queueType;
@@ -589,6 +594,7 @@ static void rgCreateRenderPassForRGPass(RenderGraph* rg, RGPass* pass)
         .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
                          VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                         VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
                          VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
         .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
     };
@@ -1028,7 +1034,7 @@ void rgCollectGpuTimings(RenderGraph* rg, uint32_t frameIndex)
             RGPass*  pass    = &rg->passes[passIdx];
             double   avg     = rg->gpuAccumUs[orderIdx] / n;
             totalUs += avg;
-            printf("  pass %u [%s]     : %8.1f\n", passIdx, rgPassTypeStr(pass->type), avg);
+            printf("  pass %u %-16s [%s] : %8.1f\n", passIdx, rgPassNameStr(pass->name), rgPassTypeStr(pass->type), avg);
         }
         printf("  ─────────────────────────────\n");
         printf("  TOTAL GPU        : %8.1f  (%.2f ms)\n", totalUs, totalUs / 1000.0);

@@ -44,6 +44,29 @@ typedef enum RGQueueType
     RG_QUEUE_TRANSFER,
 } RGQueueType;
 
+typedef enum RGPassName
+{
+    RG_PASS_NAME_UNNAMED,
+    RG_PASS_NAME_DEPTH_PREPASS,
+    RG_PASS_NAME_MODELS,
+    RG_PASS_NAME_LIGHTS,
+    RG_PASS_NAME_PARTICLES,
+    RG_PASS_NAME_PARTICLE_COMPUTE,
+} RGPassName;
+
+static inline const char* rgPassNameStr(RGPassName n)
+{
+    switch (n)
+    {
+    case RG_PASS_NAME_DEPTH_PREPASS:    return "depthPrepass";
+    case RG_PASS_NAME_MODELS:           return "models";
+    case RG_PASS_NAME_LIGHTS:           return "lights";
+    case RG_PASS_NAME_PARTICLES:        return "particles";
+    case RG_PASS_NAME_PARTICLE_COMPUTE: return "particleCompute";
+    default:                            return "unnamed";
+    }
+}
+
 // --- Resources ---
 
 typedef struct RGResource
@@ -109,6 +132,7 @@ typedef void (*RGPassExecuteFn)(VkCommandBuffer cmd, const RGPass* pass, void* u
 struct RGPass
 {
     RGPassType  type;
+    RGPassName  name;
     RGQueueType queueType;
     bool        isActive;
 

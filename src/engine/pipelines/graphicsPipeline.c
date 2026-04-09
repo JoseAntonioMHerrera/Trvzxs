@@ -282,11 +282,14 @@ void createModelsGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* 
         .pNext             = VK_NULL_HANDLE,
     };
 
+    // Depth prepass populates the depth buffer — color pass only reads it.
+    // LESS_OR_EQUAL matches fragments at exactly the prepass depth (same geometry).
+    // depthWriteEnable=FALSE because the depth buffer is already complete.
     VkPipelineDepthStencilStateCreateInfo depthStencil = {
         .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable       = VK_TRUE,
-        .depthWriteEnable      = VK_TRUE,
-        .depthCompareOp        = VK_COMPARE_OP_LESS,
+        .depthWriteEnable      = VK_FALSE,
+        .depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL,
         .depthBoundsTestEnable = VK_FALSE,
         .minDepthBounds        = 0.0f, // Optional
         .maxDepthBounds        = 1.0f, // Optional
@@ -869,8 +872,8 @@ void createDepthPrepassGraphicsPipeline(GraphicPipelineToSurface* depthGdp, Disp
                                                  .pName  = "main",
                                                  .pNext  = VK_NULL_HANDLE};
 
-    // Use your existing vertex input setup (models use GEOM_VERTEX)
-    depthGdp->objectIADLen = 2; // Position + normal (same as models)
+    // Depth prepass only needs position — single vertex attribute
+    depthGdp->objectIADLen = 1;
     fillDepthPassVertexInputAttributeDescription(&depthGdp->objectIAD, depthGdp->objectIADLen);
     depthGdp->objectIBDLen = 1;
     fillDepthPassVertexBindingDescriptions(&depthGdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_VERTEX));

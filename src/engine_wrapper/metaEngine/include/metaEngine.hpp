@@ -42,6 +42,7 @@ private:
     Scene scene;
     uint32_t currentSceneIndex = 0;
     RenderGraph renderGraph;
+    DepthPrepassData depthPrepassData;
     ModelPassData modelPassData;
     LightPassData lightPassData;
     ParticlePassData particlePassData;
@@ -466,8 +467,28 @@ public:
             .isExternal = true,
         });
 
-        // Pass 0: Models — writes G-buffer + normals + depth
+        // Pass 0: Depth prepass — vertex-only, populates depth buffer
+        uint32_t pDepthPrepass = rgAddPass(&this->renderGraph, RG_PASS_GRAPHICS);
+        rgPassSetName(&this->renderGraph, pDepthPrepass, RG_PASS_NAME_DEPTH_PREPASS);
+        rgPassAddOutput(&this->renderGraph, pDepthPrepass, (RGResourceUsage){
+            .resourceIndex = rDepth,
+            .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                          VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .access     = RG_WRITE,
+        });
+
+        this->depthPrepassData = (DepthPrepassData){
+            .depthPipeline = depthPrepassGraphicPipeline,
+            .modelPipeline = gdp,
+            .dm            = dispM,
+        };
+        rgPassSetCallback(&this->renderGraph, pDepthPrepass, executeDepthPrepass, &this->depthPrepassData);
+
+        // Pass 1: Models — reads depth (prepass populated it), writes G-buffer + normals
         uint32_t pModels = rgAddPass(&this->renderGraph, RG_PASS_GRAPHICS);
+        rgPassSetName(&this->renderGraph, pModels, RG_PASS_NAME_MODELS);
         rgPassAddOutput(&this->renderGraph, pModels, (RGResourceUsage){
             .resourceIndex = rGBuffer,
             .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -482,13 +503,24 @@ public:
             .stageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             .access     = RG_WRITE,
         });
+        // Depth: input triggers a barrier from the prepass (depth write → read),
+        // output makes the render graph create a pDepthStencilAttachment so the
+        // hardware depth test works. The pipeline has depthWriteEnable=FALSE so
+        // no actual depth writes occur despite the output declaration.
+        rgPassAddInput(&this->renderGraph, pModels, (RGResourceUsage){
+            .resourceIndex = rDepth,
+            .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+            .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+            .stageMask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            .access     = RG_READ,
+        });
         rgPassAddOutput(&this->renderGraph, pModels, (RGResourceUsage){
             .resourceIndex = rDepth,
             .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
             .stageMask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
                           VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            .access     = RG_WRITE,
+            .access     = RG_READ,
         });
 
         this->modelPassData = (ModelPassData){
@@ -499,6 +531,7 @@ public:
 
         // Pass 1: Lights — reads G-buffer + normals, writes color
         uint32_t pLights = rgAddPass(&this->renderGraph, RG_PASS_GRAPHICS);
+        rgPassSetName(&this->renderGraph, pLights, RG_PASS_NAME_LIGHTS);
         rgPassAddInput(&this->renderGraph, pLights, (RGResourceUsage){
             .resourceIndex = rGBuffer,
             .layout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -536,6 +569,7 @@ public:
 
         // Pass 2: Particles — reads + writes color
         uint32_t pParticles = rgAddPass(&this->renderGraph, RG_PASS_GRAPHICS);
+        rgPassSetName(&this->renderGraph, pParticles, RG_PASS_NAME_PARTICLES);
         rgPassAddInput(&this->renderGraph, pParticles, (RGResourceUsage){
             .resourceIndex = rColor,
             .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -574,6 +608,7 @@ public:
 
         // Pass 3: Particle compute — reads prev SSBO, writes curr SSBO
         uint32_t pParticleCompute = rgAddPass(&this->renderGraph, RG_PASS_COMPUTE);
+        rgPassSetName(&this->renderGraph, pParticleCompute, RG_PASS_NAME_PARTICLE_COMPUTE);
         rgPassSetQueue(&this->renderGraph, pParticleCompute, RG_QUEUE_COMPUTE);
         rgPassAddInput(&this->renderGraph, pParticleCompute, (RGResourceUsage){
             .resourceIndex = rSSBOPrev,
@@ -611,6 +646,13 @@ public:
         // Create graphics pipelines AFTER rgCompile so they use the render
         // graph's single-subpass render passes (subpass 0) instead of the
         // old multi-subpass render pass.
+
+        // Depth prepass pipeline — uses the render graph's depth-only render pass
+        depthPrepassGraphicPipeline->renderPass = &this->renderGraph.passes[pDepthPrepass].renderPass;
+        depthPrepassGraphicPipeline->dsl = gdp->dsl;
+        depthPrepassGraphicPipeline->descriptorSet = gdp->descriptorSet;
+        createDepthPrepassGraphicsPipeline(depthPrepassGraphicPipeline, dispM, &ld->device);
+
         gdp->renderPass = &this->renderGraph.passes[pModels].renderPass;
         createModelsGraphicPipeline(gdp, dispM, &ld->device);
 
@@ -625,8 +667,6 @@ public:
             particleGraphicPipeline->pipelineLayout;
         createParticleComputePipeline(particleGraphicPipeline->computeP,
                                       ld->device);
-
-        // createDepthPrepassGraphicsPipeline(depthPrepassGraphicPipeline, dispM, &ld->device);
 
         std::cout << "Init vulkan ended." << std::endl;
         this->displayManager =

@@ -156,8 +156,6 @@ int createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
 
     VkDeviceSize bufferSize = sizeof(ModelInstanceUBO) * modelInstanceLen;
 
-    ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * ubosLen);
-
     uint32_t uniformBuffersLen = ubosLen;
 
     if (uniformBuffersLen < 1)
@@ -165,14 +163,31 @@ int createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
         uniformBuffersLen = 1;
     }
 
+    // Device-local SSBOs for fast GPU reads (descriptor binds these)
     ubos->uniformBuffers     = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
     ubos->uniformAllocations = (VmaAllocation*) malloc(sizeof(VmaAllocation) * uniformBuffersLen);
     ubos->uniformBuffersLen  = uniformBuffersLen;
 
     for (TRVZXS_SIZE i = 0; i < uniformBuffersLen; i++)
     {
-        createVkBufferMapped(ld->allocator, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                             &ubos->uniformBuffers[i], &ubos->uniformAllocations[i], &ubos->uniformBuffersMapped[i]);
+        createVkBuffer(ld->allocator, bufferSize,
+                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                       VK_SHARING_MODE_EXCLUSIVE, VMA_BRIDGE_MEMORY_GPU_ONLY,
+                       &ubos->uniformBuffers[i], &ubos->uniformAllocations[i]);
+    }
+
+    // Host-visible staging buffers for CPU writes (mapped pointers go here)
+    ubos->stagingBuffers     = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
+    ubos->stagingAllocations = (VmaAllocation*) malloc(sizeof(VmaAllocation) * uniformBuffersLen);
+    ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * uniformBuffersLen);
+    ubos->stagingSize        = bufferSize;
+
+    for (TRVZXS_SIZE i = 0; i < uniformBuffersLen; i++)
+    {
+        createVkBufferMapped(ld->allocator, bufferSize,
+                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                             &ubos->stagingBuffers[i], &ubos->stagingAllocations[i],
+                             &ubos->uniformBuffersMapped[i]);
     }
 
     return 1;
