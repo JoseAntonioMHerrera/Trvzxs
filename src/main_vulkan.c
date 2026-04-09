@@ -131,7 +131,6 @@ static void deferDestroyDeviceBuffer(DeletionQueue* queue, DeviceBufferManager* 
     {
         for (uint32_t i = 0; i < dbm->pUbo->uniformBuffersLen; i++)
             deferDestroyBuffer(queue, dbm->pUbo->uniformBuffers[i], dbm->pUbo->uniformAllocations[i]);
-        // Staging buffers (used for device-local SSBO upload path)
         if (dbm->pUbo->stagingBuffers)
         {
             for (uint32_t i = 0; i < dbm->pUbo->uniformBuffersLen; i++)

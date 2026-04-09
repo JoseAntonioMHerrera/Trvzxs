@@ -38,7 +38,7 @@ extern "C"
 #include <chrono>
 // TODO move this to central display
 const int MARGIN = 20;
-const int LIGHT_INSTANCE_COUNT = 10;
+const int LIGHT_INSTANCE_COUNT = 2;
 const int MODEL_INSTANCE_COUNT = 5000;
 
 const double TARGET_FPS = 200; // Assuming 60Hz refresh rate
@@ -199,7 +199,7 @@ int main()
         scene->addCamera3D(camera);
         // Two overlapping light cubes covering both model planes
         // planeGap=5 matches initInstanceDataModelDualPlane; scale=6 → 60 units covers 50-unit model spread
-        scene->initLightsDualPlane(&scene->getVolumetricLight(0), 5.0f, 6.0f, 5);
+        scene->initLightsDualPlane(&scene->getVolumetricLight(0), 5.0f, 6.0f, 1);
 
         scene->addModel(load_obj_to_geom_object(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj")));
         scene->initInstanceDataModelDualPlane(&scene->getModel(0), MODEL_INSTANCE_COUNT);
