@@ -89,32 +89,26 @@ void fillModelVertexBindingDescriptions(VkVertexInputBindingDescription** object
 }
 
 void fillModelVertexInputAttributeDescription(VkVertexInputAttributeDescription** objectsIAD, uint32_t viadLen)
-{ // MOVE  object input attribute description to each primitive
+{
     *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription) * viadLen);
-    // GEOM_OBJECT coordinates
 
+    // Position (vec3)
     (*objectsIAD)[0].binding  = 0;
     (*objectsIAD)[0].location = 0;
     (*objectsIAD)[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[0].offset   = offsetof(GEOM_VERTEX, point);
+    (*objectsIAD)[0].offset   = offsetof(MODEL_VERTEX, point);
 
-    // GEOM_OBJECT colors
+    // TexCoord (vec2)
     (*objectsIAD)[1].binding  = 0;
     (*objectsIAD)[1].location = 1;
-    (*objectsIAD)[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[1].offset   = offsetof(GEOM_VERTEX, color);
+    (*objectsIAD)[1].format   = VK_FORMAT_R32G32_SFLOAT;
+    (*objectsIAD)[1].offset   = offsetof(MODEL_VERTEX, texCoord);
 
-    // GEOM_OBJECT colors
+    // Normal (vec3)
     (*objectsIAD)[2].binding  = 0;
     (*objectsIAD)[2].location = 2;
     (*objectsIAD)[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[2].offset   = offsetof(GEOM_VERTEX, textCoords);
-
-    // GEOM_OBJECT colors
-    (*objectsIAD)[3].binding  = 0;
-    (*objectsIAD)[3].location = 3;
-    (*objectsIAD)[3].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[3].offset   = offsetof(GEOM_VERTEX, normal);
+    (*objectsIAD)[2].offset   = offsetof(MODEL_VERTEX, normal);
 }
 
 void fillDepthPassVertexBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,
@@ -128,14 +122,14 @@ void fillDepthPassVertexBindingDescriptions(VkVertexInputBindingDescription** ob
 }
 
 void fillDepthPassVertexInputAttributeDescription(VkVertexInputAttributeDescription** objectsIAD, uint32_t viadLen)
-{ // MOVE  object input attribute description to each primitive
+{
     *objectsIAD = (VkVertexInputAttributeDescription*) malloc(sizeof(VkVertexInputAttributeDescription) * viadLen);
-    // GEOM_OBJECT coordinates
 
+    // Position only (vec3)
     (*objectsIAD)[0].binding  = 0;
     (*objectsIAD)[0].location = 0;
     (*objectsIAD)[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    (*objectsIAD)[0].offset   = offsetof(GEOM_VERTEX, point);
+    (*objectsIAD)[0].offset   = offsetof(MODEL_VERTEX, point);
 }
 
 void fillLightVolumeBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,
@@ -298,11 +292,11 @@ void createModelsGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* 
         .back                  = {}, // Optional
     };
 
-    // MODELS VERTEX INPUT
-    gdp->objectIADLen = 4;
+    // MODELS VERTEX INPUT — lean MODEL_VERTEX (32B, no color/bary)
+    gdp->objectIADLen = 3;
     fillModelVertexInputAttributeDescription(&gdp->objectIAD, gdp->objectIADLen);
     gdp->objectIBDLen = 1;
-    fillModelVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_VERTEX));
+    fillModelVertexBindingDescriptions(&gdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(MODEL_VERTEX));
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
         .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -876,7 +870,7 @@ void createDepthPrepassGraphicsPipeline(GraphicPipelineToSurface* depthGdp, Disp
     depthGdp->objectIADLen = 1;
     fillDepthPassVertexInputAttributeDescription(&depthGdp->objectIAD, depthGdp->objectIADLen);
     depthGdp->objectIBDLen = 1;
-    fillDepthPassVertexBindingDescriptions(&depthGdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(GEOM_VERTEX));
+    fillDepthPassVertexBindingDescriptions(&depthGdp->objectIBD, VK_VERTEX_INPUT_RATE_VERTEX, sizeof(MODEL_VERTEX));
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
         .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,

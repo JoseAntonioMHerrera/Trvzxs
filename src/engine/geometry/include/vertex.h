@@ -65,6 +65,14 @@ typedef struct GEOM_VERTEX
         float x, y, z;
     } bary;
 } GEOM_VERTEX;
+
+// Lean vertex for model rendering — drops dead color and unused bary (64B → 32B)
+typedef struct MODEL_VERTEX
+{
+    union GEOM_VERTEX_POSITION point;     // 12 bytes (vec3)
+    struct { float u, v; }     texCoord;  // 8 bytes (vec2)
+    struct GEOM_VERTEX_NORMAL  normal;    // 12 bytes (vec3)
+} MODEL_VERTEX;
 typedef struct GEOM_VERTEX_G_BUFFER
 {
     union GEOM_VERTEX_POSITION    geometry;
