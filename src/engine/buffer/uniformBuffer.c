@@ -176,7 +176,7 @@ int createModelInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
                        &ubos->uniformBuffers[i], &ubos->uniformAllocations[i]);
     }
 
-    // Host-visible staging buffers for CPU writes (mapped pointers go here)
+    // Host-visible staging buffers for CPU writes
     ubos->stagingBuffers     = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
     ubos->stagingAllocations = (VmaAllocation*) malloc(sizeof(VmaAllocation) * uniformBuffersLen);
     ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * uniformBuffersLen);
@@ -221,7 +221,7 @@ int createLightInstanceTransformationsUniformBuffersMapped(PhysicalDevice* pd, L
                        &ubos->uniformBuffers[i], &ubos->uniformAllocations[i]);
     }
 
-    // Host-visible staging buffers for CPU writes (mapped pointers go here)
+    // Host-visible staging buffers for CPU writes
     ubos->stagingBuffers     = (VkBuffer*) malloc(sizeof(VkBuffer) * uniformBuffersLen);
     ubos->stagingAllocations = (VmaAllocation*) malloc(sizeof(VmaAllocation) * uniformBuffersLen);
     ubos->uniformBuffersMapped = malloc(sizeof(*ubos->uniformBuffersMapped) * uniformBuffersLen);
