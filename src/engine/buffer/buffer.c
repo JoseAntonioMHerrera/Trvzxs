@@ -88,7 +88,7 @@ void createGeometryBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferMan
 {
 
     VkDeviceSize geometryBufferSize =
-        sizeof(*(scene->modelsManager.pPackedModelVertex)) * scene->modelsManager.packedModelVertexLen;
+        sizeof(*(scene->modelsManager.pPackedModelVertexLean)) * scene->modelsManager.packedModelVertexLeanLen;
 
     dbm->stagingBuffer = malloc(sizeof(*dbm->stagingBuffer));
     dbm->stagingAlloc  = malloc(sizeof(*dbm->stagingAlloc));
@@ -98,7 +98,7 @@ void createGeometryBuffer(PhysicalDevice* pd, LogicalDevice* ld, DeviceBufferMan
 
     void* memoryMappedData;
     vmaBridgeMapMemory(ld->allocator, *dbm->stagingAlloc, &memoryMappedData);
-    memcpy(memoryMappedData, scene->modelsManager.pPackedModelVertex, (size_t) geometryBufferSize);
+    memcpy(memoryMappedData, scene->modelsManager.pPackedModelVertexLean, (size_t) geometryBufferSize);
     vmaBridgeUnmapMemory(ld->allocator, *dbm->stagingAlloc);
 
     dbm->buffer      = malloc(sizeof(*dbm->buffer));

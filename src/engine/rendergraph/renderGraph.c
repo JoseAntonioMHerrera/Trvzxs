@@ -22,19 +22,26 @@ void rgInit(RenderGraph* rg, VkDevice device, PhysicalDevice* pd,
     rg->isCompiled          = false;
 
 #ifdef DEBUG
-    // 2 timestamps per pass (begin + end), per frame-in-flight
-    rg->gpuTimestampQueryCount = swapchainImageCount * RG_MAX_PASSES * 2;
-    VkQueryPoolCreateInfo qpci = {
-        .sType      = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
-        .queryType  = VK_QUERY_TYPE_TIMESTAMP,
-        .queryCount = rg->gpuTimestampQueryCount,
-    };
-    VkResult qpResult = vkCreateQueryPool(device, &qpci, NULL, &rg->gpuTimestampPool);
-    assert(qpResult == VK_SUCCESS);
-
-    rg->timestampPeriodNs = pd->gpuProperties.limits.timestampPeriod;
-    rg->gpuTimingFrames   = 0;
+    rg->gpuTimestampQueryCount = 0;
+    rg->gpuTimestampPool       = VK_NULL_HANDLE;
+    rg->timestampPeriodNs      = 0;
+    rg->gpuTimingFrames        = 0;
     memset(rg->gpuAccumUs, 0, sizeof(rg->gpuAccumUs));
+
+    if (device != VK_NULL_HANDLE)
+    {
+        // 2 timestamps per pass (begin + end), per frame-in-flight
+        rg->gpuTimestampQueryCount = swapchainImageCount * RG_MAX_PASSES * 2;
+        VkQueryPoolCreateInfo qpci = {
+            .sType      = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+            .queryType  = VK_QUERY_TYPE_TIMESTAMP,
+            .queryCount = rg->gpuTimestampQueryCount,
+        };
+        VkResult qpResult = vkCreateQueryPool(device, &qpci, NULL, &rg->gpuTimestampPool);
+        assert(qpResult == VK_SUCCESS);
+
+        rg->timestampPeriodNs = pd->gpuProperties.limits.timestampPeriod;
+    }
 #endif
 }
 

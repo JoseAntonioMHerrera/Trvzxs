@@ -15,18 +15,14 @@ layout(std430, binding = 0) buffer InstanceModels {
 } instances;
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec4 inColor;
-layout(location = 2) in vec2 inTexCoord;
-layout(location = 3) in vec4 inNormals;
+layout(location = 1) in vec2 inTexCoord;
+layout(location = 2) in vec3 inNormal;
 
-layout(location = 0) out vec4 fragColor;
-layout(location = 1) out vec2 fragTexCoord;
-layout(location = 2) out vec4 outNormals;
+layout(location = 0) out vec2 fragTexCoord;
+layout(location = 1) out vec3 outNormal;
 
 void main() {
     gl_Position = globals.proj * globals.view * instances.model[gl_InstanceIndex] * vec4(inPosition, 1.0);
-    fragColor = inColor;
     fragTexCoord = inTexCoord;
-    vec3 worldNormal = normalize(mat3(instances.model[gl_InstanceIndex]) * inNormals.xyz);
-    outNormals = vec4(worldNormal, inNormals.w);
+    outNormal = normalize(mat3(instances.model[gl_InstanceIndex]) * inNormal);
 }

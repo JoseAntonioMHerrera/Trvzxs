@@ -39,11 +39,11 @@ void sceneDeletor(SCENE *scene) {
              // Free packed vertices if they exist
              if (scene->modelsManager.packedModelVertexLen > 0)
              {
-                        scene->modelsManager.packedModelVertexLen, (void *)scene->modelsManager.pPackedModelVertex);
                  free(scene->modelsManager.pPackedModelVertex);
              }
-             else
+             if (scene->modelsManager.pPackedModelVertexLean)
              {
+                 free(scene->modelsManager.pPackedModelVertexLean);
              }
 
              // Free instanceOffset array

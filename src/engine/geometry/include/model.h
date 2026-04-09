@@ -77,6 +77,9 @@ typedef struct Models3DManager
     GEOM_VERTEX* pPackedModelVertex;
     uint32_t     packedModelVertexLen;
 
+    MODEL_VERTEX* pPackedModelVertexLean;
+    uint32_t      packedModelVertexLeanLen;
+
     ArrayUint32_t packedModelIndex;
 
     ArrayUint32_t instanceOffset;

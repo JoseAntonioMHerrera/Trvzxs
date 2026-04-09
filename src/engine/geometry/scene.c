@@ -100,6 +100,31 @@ GEOM_VERTEX* getModelVerticesFromScene(const SCENE* const scene)
     return pVertex;
 }
 
+MODEL_VERTEX* getModelVerticesLeanFromScene(const SCENE* const scene)
+{
+    assert(scene->modelsManager.modelLen > 0);
+    MODEL_VERTEX* pVertex               = malloc(sizeof(MODEL_VERTEX) * scene->modelsManager.packedModelVertexLen);
+    uint32_t      indicesStorageIterator = 0;
+
+    for (int i = 0; i < scene->modelsManager.modelLen; i++)
+    {
+        for (int j = 0; j < scene->modelsManager.pModel[i].meshManager.meshesLen; j++)
+        {
+            for (int v = 0; v < scene->modelsManager.pModel[i].meshManager.pMesh[j].verticesLen; v++)
+            {
+                const GEOM_VERTEX* src    = &scene->modelsManager.pModel[i].meshManager.pMesh[j].pVertice[v];
+                MODEL_VERTEX*      dst    = &pVertex[indicesStorageIterator];
+                dst->point                = src->point;
+                dst->texCoord.u           = src->textCoords.u;
+                dst->texCoord.v           = src->textCoords.v;
+                dst->normal               = src->normal;
+                indicesStorageIterator++;
+            }
+        }
+    }
+    return pVertex;
+}
+
 uint32_t getVolumetricLightsIndicesLenFromScene(const SCENE* const scene)
 {
     uint32_t indicesLen = 0;
@@ -414,6 +439,9 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
 
     (scene)->modelsManager.packedModelVertexLen = getModelVerticesLenFromScene(scene);
     (scene)->modelsManager.pPackedModelVertex   = getModelVerticesFromScene(scene);
+
+    (scene)->modelsManager.packedModelVertexLeanLen = scene->modelsManager.packedModelVertexLen;
+    (scene)->modelsManager.pPackedModelVertexLean   = getModelVerticesLeanFromScene(scene);
 
     (scene)->modelsManager.packedModelIndex.itemsLen = getModelIndicesLenFromScene(scene);
     (scene)->modelsManager.packedModelIndex.items    = getModelIndicesFromScene((scene));
