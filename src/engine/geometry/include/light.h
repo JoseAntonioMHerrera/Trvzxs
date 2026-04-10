@@ -38,6 +38,7 @@ typedef struct LightVolume
     uint32_t             lightVolumeInstanceCount; // total allocated (capacity)
     uint32_t             liveInstanceCount;        // computed per frame by UBO fill
     uint32_t             alive;                    // LIGHT_ALIVE/DISABLED/DESTROYED
+    AABB                 localAABB;                // model-space bounding box, computed at load time
 } LightVolume;
 
 typedef struct LightManager

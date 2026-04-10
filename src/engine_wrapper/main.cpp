@@ -39,9 +39,9 @@ extern "C"
 // TODO move this to central display
 const int MARGIN = 20;
 const int LIGHT_INSTANCE_COUNT = 2;
-const int MODEL_INSTANCE_COUNT = 5000;
+const int MODEL_INSTANCE_COUNT = 20000;
 
-const double TARGET_FPS = 200; // Assuming 60Hz refresh rate
+const double TARGET_FPS = 60; // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
 
 // Global variables for camera control

@@ -1,5 +1,6 @@
 #pragma once
 #include "array.h"
+#include "frustum.h"
 #include "transformations.h"
 #include "vertex.h"
 
@@ -63,6 +64,7 @@ typedef struct Model3D
     uint32_t         modelInstanceCount;
     Model3DInstance* pStagingInstances;    // temporary per-model allocation during init, NULLed after consolidation
     TransformNode*   pStagingTransforms;   // temporary per-model TRS staging, NULLed after consolidation
+    AABB             localAABB;            // model-space bounding box, computed at load time
 } Model3D;
 
 typedef struct Models3DManager

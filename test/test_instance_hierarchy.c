@@ -44,7 +44,7 @@ void test_parent_child_position(void)
     transformSetPosition(&tman->pTransforms[parent->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
     transformSetPosition(&tman->pTransforms[child->transformIdx],  (vec3){0.0f, 5.0f, 0.0f});
 
-    instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0);
+    transformSetParent(tman, child->transformIdx, parent->transformIdx);
 
     resolveTransforms(tman);
     ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
@@ -85,8 +85,8 @@ void test_three_level_chain(void)
     transformSetPosition(&tman->pTransforms[mid->transformIdx],   (vec3){0.0f, 20.0f, 0.0f});
     transformSetPosition(&tman->pTransforms[child->transformIdx], (vec3){0.0f, 0.0f, 30.0f});
 
-    instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0); // mid -> gp
-    instanceSetParent(tman, &scene->modelsManager, 0, 2, 0, 1); // child -> mid
+    transformSetParent(tman, mid->transformIdx, gp->transformIdx);
+    transformSetParent(tman, child->transformIdx, mid->transformIdx);
 
     resolveTransforms(tman);
     ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
@@ -126,7 +126,7 @@ void test_cross_model_parenting(void)
     transformSetPosition(&tman->pTransforms[parent->transformIdx], (vec3){5.0f, 5.0f, 5.0f});
     transformSetPosition(&tman->pTransforms[child->transformIdx],  (vec3){1.0f, 1.0f, 1.0f});
 
-    instanceSetParent(tman, &scene->modelsManager, 1, 0, 0, 1);
+    transformSetParent(tman, child->transformIdx, parent->transformIdx);
 
     resolveTransforms(tman);
     ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
@@ -161,7 +161,7 @@ void test_parent_scale_affects_child(void)
 
     transformSetPosition(&tman->pTransforms[child->transformIdx], (vec3){5.0f, 0.0f, 0.0f});
 
-    instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0);
+    transformSetParent(tman, child->transformIdx, parent->transformIdx);
 
     resolveTransforms(tman);
     ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
@@ -193,9 +193,12 @@ void test_multiple_children_same_parent(void)
     transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[2].transformIdx], (vec3){2.0f, 0.0f, 0.0f});
     transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[3].transformIdx], (vec3){3.0f, 0.0f, 0.0f});
 
-    instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0);
-    instanceSetParent(tman, &scene->modelsManager, 0, 2, 0, 0);
-    instanceSetParent(tman, &scene->modelsManager, 0, 3, 0, 0);
+    transformSetParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx,
+                       scene->modelsManager.pDenseModelInstances[0].transformIdx);
+    transformSetParent(tman, scene->modelsManager.pDenseModelInstances[2].transformIdx,
+                       scene->modelsManager.pDenseModelInstances[0].transformIdx);
+    transformSetParent(tman, scene->modelsManager.pDenseModelInstances[3].transformIdx,
+                       scene->modelsManager.pDenseModelInstances[0].transformIdx);
 
     resolveTransforms(tman);
     ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
@@ -225,8 +228,10 @@ void test_cascade_disable_skips_chain(void)
     transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 20.0f, 0.0f});
     transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[2].transformIdx], (vec3){0.0f, 0.0f, 30.0f});
 
-    instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0);
-    instanceSetParent(tman, &scene->modelsManager, 0, 2, 0, 1);
+    transformSetParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx,
+                       scene->modelsManager.pDenseModelInstances[0].transformIdx);
+    transformSetParent(tman, scene->modelsManager.pDenseModelInstances[2].transformIdx,
+                       scene->modelsManager.pDenseModelInstances[1].transformIdx);
 
     // Disable grandparent — via transform lifecycle
     tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx].lifecycle = TRANSFORM_DISABLED;
@@ -262,7 +267,8 @@ void test_reenable_parent_restores_children(void)
     transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
     transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
-    instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0);
+    transformSetParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx,
+                       scene->modelsManager.pDenseModelInstances[0].transformIdx);
 
     // Frame 1: disable parent -> both skipped
     tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx].lifecycle = TRANSFORM_DISABLED;
@@ -307,7 +313,8 @@ void test_clear_parent_makes_root(void)
     transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
     transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
-    instanceSetParent(tman, &scene->modelsManager, 0, 1, 0, 0);
+    transformSetParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx,
+                       scene->modelsManager.pDenseModelInstances[0].transformIdx);
 
     // Frame 1: parented -> child at (10, 5, 0)
     resolveTransforms(tman);
@@ -319,7 +326,7 @@ void test_clear_parent_makes_root(void)
     free(r1);
 
     // Clear parent
-    instanceClearParent(tman, &scene->modelsManager, 0, 1);
+    transformClearParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx);
 
     // Frame 2: unparented -> child at (0, 5, 0)
     resolveTransforms(tman);
@@ -347,7 +354,7 @@ void test_set_parent_rejects_wrong_order(void)
 
     // Try to parent instance 0 to instance 1 (wrong: parent must have lower index)
     CAPTURE_STDERR_BEGIN();
-    instanceSetParent(&tman, &man, 0, 0, 0, 1);
+    transformSetParent(&tman, 0, 1);
     CAPTURE_STDERR_END();
 
     ASSERT_STDERR_CONTAINS("[transformSetParent] rejected");
@@ -370,7 +377,7 @@ void test_set_parent_rejects_self(void)
     man.pDenseModelInstances[1].transformIdx = 1;
 
     CAPTURE_STDERR_BEGIN();
-    instanceSetParent(&tman, &man, 0, 1, 0, 1);
+    transformSetParent(&tman, 1, 1);
     CAPTURE_STDERR_END();
 
     ASSERT_STDERR_CONTAINS("[transformSetParent] rejected");
