@@ -314,9 +314,9 @@ void test_cull_keeps_visible_instances(void)
     set_unit_cube_aabb_on_models(scene);
     TransformManager* tman = &scene->transformManager;
 
-    transformSetPosition(&tman->pTransforms[0], (vec3){ 0.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[1], (vec3){ 2.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[2], (vec3){-2.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[0], (vec3){ 0.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[1], (vec3){ 2.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[2], (vec3){-2.0f, 0.0f, 0.0f});
 
     resolveTransforms(tman);
 
@@ -329,9 +329,9 @@ void test_cull_keeps_visible_instances(void)
     frustumCullScene(scene, &frustum);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(tman->pTransforms[0].passFlags, 0);
-    ASSERT_EQ(tman->pTransforms[1].passFlags, 0);
-    ASSERT_EQ(tman->pTransforms[2].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[0].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[1].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[2].passFlags, 0);
 
     free_test_scene(scene);
 }
@@ -346,9 +346,9 @@ void test_cull_marks_offscreen_instances(void)
     set_unit_cube_aabb_on_models(scene);
     TransformManager* tman = &scene->transformManager;
 
-    transformSetPosition(&tman->pTransforms[0], (vec3){    0.0f, 0.0f,   0.0f}); // visible
-    transformSetPosition(&tman->pTransforms[1], (vec3){ 1000.0f, 0.0f,   0.0f}); // off to side
-    transformSetPosition(&tman->pTransforms[2], (vec3){    0.0f, 0.0f, 200.0f}); // behind camera
+    transformSetPosition(&tman->pTransformsCold[0], (vec3){    0.0f, 0.0f,   0.0f}); // visible
+    transformSetPosition(&tman->pTransformsCold[1], (vec3){ 1000.0f, 0.0f,   0.0f}); // off to side
+    transformSetPosition(&tman->pTransformsCold[2], (vec3){    0.0f, 0.0f, 200.0f}); // behind camera
 
     resolveTransforms(tman);
 
@@ -361,9 +361,9 @@ void test_cull_marks_offscreen_instances(void)
     frustumCullScene(scene, &frustum);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(tman->pTransforms[0].passFlags, 0);
-    ASSERT_EQ(tman->pTransforms[1].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(tman->pTransforms[2].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[0].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
 
     free_test_scene(scene);
 }
@@ -380,14 +380,14 @@ void test_cull_skips_destroyed_and_already_disabled(void)
     TransformManager* tman = &scene->transformManager;
 
     // All three sit at the origin — would be visible
-    transformSetPosition(&tman->pTransforms[0], (vec3){0.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[1], (vec3){0.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[2], (vec3){0.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[0], (vec3){0.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[1], (vec3){0.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[2], (vec3){0.0f, 0.0f, 0.0f});
 
     // Instance 1: destroyed at the instance level (cull short-circuits before reading transform)
     scene->modelsManager.pDenseModelInstances[1].lifecycle = INSTANCE_DESTROYED;
     // Transform 2: lifecycle-disabled (resolve will set passFlags = DISABLED)
-    tman->pTransforms[2].lifecycle = TRANSFORM_DISABLED;
+    tman->pTransformsHot[2].lifecycle = TRANSFORM_DISABLED;
 
     resolveTransforms(tman);
 
@@ -401,11 +401,11 @@ void test_cull_skips_destroyed_and_already_disabled(void)
     CAPTURE_STDERR_END();
 
     // Alive + visible → not flagged
-    ASSERT_EQ(tman->pTransforms[0].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[0].passFlags, 0);
     // Destroyed instance: cull continued before touching the transform, so passFlags stays 0
-    ASSERT_EQ(tman->pTransforms[1].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[1].passFlags, 0);
     // Lifecycle-disabled transform: resolve set DISABLED, cull leaves it alone
-    ASSERT_EQ(tman->pTransforms[2].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
 
     free_test_scene(scene);
 }
@@ -422,10 +422,10 @@ void test_cull_lights_alongside_models(void)
     TransformManager* tman = &scene->transformManager;
 
     // model instances live at transform indices [0,1], lights at [2,3]
-    transformSetPosition(&tman->pTransforms[0], (vec3){    0.0f, 0.0f,   0.0f});
-    transformSetPosition(&tman->pTransforms[1], (vec3){ 1000.0f, 0.0f,   0.0f});
-    transformSetPosition(&tman->pTransforms[2], (vec3){    0.0f, 0.0f,   0.0f});
-    transformSetPosition(&tman->pTransforms[3], (vec3){    0.0f, 0.0f, 200.0f});
+    transformSetPosition(&tman->pTransformsCold[0], (vec3){    0.0f, 0.0f,   0.0f});
+    transformSetPosition(&tman->pTransformsCold[1], (vec3){ 1000.0f, 0.0f,   0.0f});
+    transformSetPosition(&tman->pTransformsCold[2], (vec3){    0.0f, 0.0f,   0.0f});
+    transformSetPosition(&tman->pTransformsCold[3], (vec3){    0.0f, 0.0f, 200.0f});
 
     resolveTransforms(tman);
 
@@ -438,10 +438,10 @@ void test_cull_lights_alongside_models(void)
     frustumCullScene(scene, &frustum);
     CAPTURE_STDERR_END();
 
-    ASSERT_EQ(tman->pTransforms[0].passFlags, 0);
-    ASSERT_EQ(tman->pTransforms[1].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(tman->pTransforms[2].passFlags, 0);
-    ASSERT_EQ(tman->pTransforms[3].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[0].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[2].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[3].passFlags, TRANSFORM_PASS_DISABLED);
 
     free_test_scene_mixed(scene);
 }

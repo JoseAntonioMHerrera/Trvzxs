@@ -197,9 +197,9 @@ void test_compaction_preserves_correct_transforms(void)
     Model3DInstance*  inst1 = &scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 1];
     Model3DInstance*  inst2 = &scene->modelsManager.pDenseModelInstances[scene->modelsManager.pModel[0].denseBaseOffset + 2];
 
-    transformSetPosition(&tman->pTransforms[inst0->transformIdx], (vec3){1.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[inst1->transformIdx], (vec3){2.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[inst2->transformIdx], (vec3){3.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[inst0->transformIdx], (vec3){1.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[inst1->transformIdx], (vec3){2.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[inst2->transformIdx], (vec3){3.0f, 0.0f, 0.0f});
 
     // Kill instance 1
     inst1->lifecycle = INSTANCE_DESTROYED;

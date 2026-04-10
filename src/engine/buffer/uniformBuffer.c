@@ -34,15 +34,15 @@ void updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene)
             }
 
             // Read resolved world matrix from transform hierarchy (resolved before UBO fill)
-            TransformNode* tnode = &scene->transformManager.pTransforms[inst->transformIdx];
+            TransformHot* hot = &scene->transformManager.pTransformsHot[inst->transformIdx];
 
             // Skip if cascade-disabled by hierarchy resolve pass
-            if (tnode->passFlags == TRANSFORM_PASS_DISABLED)
+            if (hot->passFlags == TRANSFORM_PASS_DISABLED)
             {
                 continue;
             }
 
-            glm_mat4_copy(tnode->worldMatrix, pInstances[transformationsIdx].model);
+            glm_mat4_copy(hot->worldMatrix, pInstances[transformationsIdx].model);
 
             transformationsIdx++;
         }
@@ -107,28 +107,29 @@ void updateLightUniformBuffersDirect(void* mappedBuffer, float deltaTime, SCENE*
                 continue;
             }
 
-            // Read resolved world matrix from transform hierarchy
-            TransformNode* tnode = &scene->transformManager.pTransforms[inst->transformIdx];
+            // Read resolved world matrix + scale from transform hierarchy
+            TransformHot*  hot  = &scene->transformManager.pTransformsHot[inst->transformIdx];
+            TransformCold* cold = &scene->transformManager.pTransformsCold[inst->transformIdx];
 
             // Skip if cascade-disabled by hierarchy resolve pass
-            if (tnode->passFlags == TRANSFORM_PASS_DISABLED)
+            if (hot->passFlags == TRANSFORM_PASS_DISABLED)
             {
                 continue;
             }
 
             // Model matrix from resolved transform
-            glm_mat4_copy(tnode->worldMatrix, pInstances[transformationsCount].model);
+            glm_mat4_copy(hot->worldMatrix, pInstances[transformationsCount].model);
 
             // Extract position from world matrix column 3 (translation)
             vec3 worldPos;
-            glm_vec3_copy(tnode->worldMatrix[3], worldPos);
+            glm_vec3_copy(hot->worldMatrix[3], worldPos);
 
             vec3 result;
             getRotatingPositionAroundLight(worldPos, result, deltaTime, 3);
 
             glm_vec3_copy(result, pInstances[transformationsCount].position);
             pInstances[transformationsCount].color = inst->color;
-            pInstances[transformationsCount].scale = tnode->scale[0];
+            pInstances[transformationsCount].scale = cold->scale[0];
 
             transformationsCount++;
         }

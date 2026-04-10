@@ -84,15 +84,15 @@ void test_dense_boundary_no_cross_contamination(void)
         man.pDenseModelInstances[i].transformIdx = i;
 
     // Set distinct positions on boundary instances
-    transformSetPosition(&tman.pTransforms[2], (vec3){99.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman.pTransforms[3], (vec3){77.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman.pTransformsCold[2], (vec3){99.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman.pTransformsCold[3], (vec3){77.0f, 0.0f, 0.0f});
 
     // Destroy model 0's last instance
     destroyInstance(&man, 0, 2);
 
     // Model 1's first instance must be untouched
     ASSERT_EQ(man.pDenseModelInstances[3].lifecycle, INSTANCE_ALIVE);
-    ASSERT_FLOAT_EQ(tman.pTransforms[3].position[0], 77.0f);
+    ASSERT_FLOAT_EQ(tman.pTransformsCold[3].position[0], 77.0f);
 
     // Destroy model 1's first instance
     destroyInstance(&man, 1, 0);
@@ -118,14 +118,14 @@ void test_resolve_global_instance(void)
         man.pDenseModelInstances[i].transformIdx = i;
 
     // Set a position on model 1, instance 1 (global index = 2+1 = 3)
-    transformSetPosition(&tman.pTransforms[3], (vec3){42.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman.pTransformsCold[3], (vec3){42.0f, 0.0f, 0.0f});
 
     uint32_t globalIdx = computeGlobalInstanceIndex(&man.pModel[1], 1);
     ASSERT_EQ(globalIdx, 3);
 
     Model3DInstance* inst = resolveGlobalInstance(&man, globalIdx);
     ASSERT_NOT_NULL(inst);
-    ASSERT_FLOAT_EQ(tman.pTransforms[inst->transformIdx].position[0], 42.0f);
+    ASSERT_FLOAT_EQ(tman.pTransformsCold[inst->transformIdx].position[0], 42.0f);
 
     free_test_manager(&man);
     free_test_transform_manager(&tman);
@@ -344,11 +344,11 @@ void test_staging_consolidation(void)
     man.pModel[0].alive              = MODEL_ALIVE;
     man.pModel[0].liveInstanceCount  = 0;
     man.pModel[0].pStagingInstances  = (Model3DInstance*) calloc(3, sizeof(Model3DInstance));
-    man.pModel[0].pStagingTransforms = (TransformNode*) calloc(3, sizeof(TransformNode));
+    man.pModel[0].pStagingTransforms = (TransformCold*) calloc(3, sizeof(TransformCold));
     for (uint32_t i = 0; i < 3; i++)
     {
         man.pModel[0].pStagingInstances[i].lifecycle = INSTANCE_ALIVE;
-        transformInit(&man.pModel[0].pStagingTransforms[i]);
+        transformInitCold(&man.pModel[0].pStagingTransforms[i]);
         transformSetPosition(&man.pModel[0].pStagingTransforms[i], (vec3){(float)i * 10.0f, 0.0f, 0.0f});
     }
 
@@ -357,11 +357,11 @@ void test_staging_consolidation(void)
     man.pModel[1].alive              = MODEL_ALIVE;
     man.pModel[1].liveInstanceCount  = 0;
     man.pModel[1].pStagingInstances  = (Model3DInstance*) calloc(2, sizeof(Model3DInstance));
-    man.pModel[1].pStagingTransforms = (TransformNode*) calloc(2, sizeof(TransformNode));
+    man.pModel[1].pStagingTransforms = (TransformCold*) calloc(2, sizeof(TransformCold));
     for (uint32_t i = 0; i < 2; i++)
     {
         man.pModel[1].pStagingInstances[i].lifecycle = INSTANCE_ALIVE;
-        transformInit(&man.pModel[1].pStagingTransforms[i]);
+        transformInitCold(&man.pModel[1].pStagingTransforms[i]);
         transformSetPosition(&man.pModel[1].pStagingTransforms[i], (vec3){100.0f + (float)i, 0.0f, 0.0f});
     }
 
@@ -378,11 +378,11 @@ void test_staging_consolidation(void)
     ASSERT_NOT_NULL(man.pDenseModelInstances);
 
     // Transform positions should be in the transform manager
-    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[0].transformIdx].position[0], 0.0f);
-    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[1].transformIdx].position[0], 10.0f);
-    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[2].transformIdx].position[0], 20.0f);
-    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[3].transformIdx].position[0], 100.0f);
-    ASSERT_FLOAT_EQ(tman.pTransforms[man.pDenseModelInstances[4].transformIdx].position[0], 101.0f);
+    ASSERT_FLOAT_EQ(tman.pTransformsCold[man.pDenseModelInstances[0].transformIdx].position[0], 0.0f);
+    ASSERT_FLOAT_EQ(tman.pTransformsCold[man.pDenseModelInstances[1].transformIdx].position[0], 10.0f);
+    ASSERT_FLOAT_EQ(tman.pTransformsCold[man.pDenseModelInstances[2].transformIdx].position[0], 20.0f);
+    ASSERT_FLOAT_EQ(tman.pTransformsCold[man.pDenseModelInstances[3].transformIdx].position[0], 100.0f);
+    ASSERT_FLOAT_EQ(tman.pTransformsCold[man.pDenseModelInstances[4].transformIdx].position[0], 101.0f);
 
     // Staging pointers should be NULLed
     ASSERT_NULL(man.pModel[0].pStagingInstances);
@@ -398,7 +398,8 @@ void test_staging_consolidation(void)
     free(man.pDenseModelInstances);
     free(man.pModel);
     free(man.instanceOffset.items);
-    free(tman.pTransforms);
+    free(tman.pTransformsHot);
+    free(tman.pTransformsCold);
 }
 
 // ---------------------------------------------------------------------------
@@ -439,7 +440,8 @@ void test_staging_consolidation_null_staging(void)
     free(man.pDenseModelInstances);
     free(man.pModel);
     free(man.instanceOffset.items);
-    free(tman.pTransforms);
+    free(tman.pTransformsHot);
+    free(tman.pTransformsCold);
 }
 
 // ---------------------------------------------------------------------------

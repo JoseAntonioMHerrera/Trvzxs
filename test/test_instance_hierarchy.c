@@ -41,8 +41,8 @@ void test_parent_child_position(void)
     Model3DInstance* parent = &scene->modelsManager.pDenseModelInstances[0];
     Model3DInstance* child  = &scene->modelsManager.pDenseModelInstances[1];
 
-    transformSetPosition(&tman->pTransforms[parent->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[child->transformIdx],  (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[parent->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[child->transformIdx],  (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, child->transformIdx, parent->transformIdx);
 
@@ -51,13 +51,13 @@ void test_parent_child_position(void)
     updateModelUniformBuffersDirect(result, scene);
 
     // Parent world = its own local: (10, 0, 0)
-    TransformNode* pNode = &tman->pTransforms[parent->transformIdx];
+    TransformHot* pNode = &tman->pTransformsHot[parent->transformIdx];
     ASSERT_FLOAT_EQ(pNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(pNode->worldMatrix[3][1], 0.0f);
     ASSERT_FLOAT_EQ(pNode->worldMatrix[3][2], 0.0f);
 
     // Child world = parent + local: (10, 5, 0)
-    TransformNode* cNode = &tman->pTransforms[child->transformIdx];
+    TransformHot* cNode = &tman->pTransformsHot[child->transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 0.0f);
@@ -81,9 +81,9 @@ void test_three_level_chain(void)
     Model3DInstance* mid   = &scene->modelsManager.pDenseModelInstances[1];
     Model3DInstance* child = &scene->modelsManager.pDenseModelInstances[2];
 
-    transformSetPosition(&tman->pTransforms[gp->transformIdx],    (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[mid->transformIdx],   (vec3){0.0f, 20.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[child->transformIdx], (vec3){0.0f, 0.0f, 30.0f});
+    transformSetPosition(&tman->pTransformsCold[gp->transformIdx],    (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[mid->transformIdx],   (vec3){0.0f, 20.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[child->transformIdx], (vec3){0.0f, 0.0f, 30.0f});
 
     transformSetParent(tman, mid->transformIdx, gp->transformIdx);
     transformSetParent(tman, child->transformIdx, mid->transformIdx);
@@ -93,17 +93,17 @@ void test_three_level_chain(void)
     updateModelUniformBuffersDirect(result, scene);
 
     // Grandparent: (10, 0, 0)
-    ASSERT_FLOAT_EQ(tman->pTransforms[gp->transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[gp->transformIdx].worldMatrix[3][1], 0.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[gp->transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[gp->transformIdx].worldMatrix[3][1], 0.0f);
 
     // Parent: gp + local = (10, 20, 0)
-    ASSERT_FLOAT_EQ(tman->pTransforms[mid->transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[mid->transformIdx].worldMatrix[3][1], 20.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[mid->transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[mid->transformIdx].worldMatrix[3][1], 20.0f);
 
     // Child: (10, 20, 30)
-    ASSERT_FLOAT_EQ(tman->pTransforms[child->transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[child->transformIdx].worldMatrix[3][1], 20.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[child->transformIdx].worldMatrix[3][2], 30.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[child->transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[child->transformIdx].worldMatrix[3][1], 20.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[child->transformIdx].worldMatrix[3][2], 30.0f);
 
     free(result);
     free_test_scene(scene);
@@ -123,8 +123,8 @@ void test_cross_model_parenting(void)
     Model3DInstance* parent = &scene->modelsManager.pDenseModelInstances[1];
     Model3DInstance* child  = &scene->modelsManager.pDenseModelInstances[2];
 
-    transformSetPosition(&tman->pTransforms[parent->transformIdx], (vec3){5.0f, 5.0f, 5.0f});
-    transformSetPosition(&tman->pTransforms[child->transformIdx],  (vec3){1.0f, 1.0f, 1.0f});
+    transformSetPosition(&tman->pTransformsCold[parent->transformIdx], (vec3){5.0f, 5.0f, 5.0f});
+    transformSetPosition(&tman->pTransformsCold[child->transformIdx],  (vec3){1.0f, 1.0f, 1.0f});
 
     transformSetParent(tman, child->transformIdx, parent->transformIdx);
 
@@ -133,7 +133,7 @@ void test_cross_model_parenting(void)
     updateModelUniformBuffersDirect(result, scene);
 
     // Child world = parent(5,5,5) + local(1,1,1) = (6,6,6)
-    TransformNode* cNode = &tman->pTransforms[child->transformIdx];
+    TransformHot* cNode = &tman->pTransformsHot[child->transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 6.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 6.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 6.0f);
@@ -156,10 +156,10 @@ void test_parent_scale_affects_child(void)
     Model3DInstance* parent = &scene->modelsManager.pDenseModelInstances[0];
     Model3DInstance* child  = &scene->modelsManager.pDenseModelInstances[1];
 
-    transformSetPosition(&tman->pTransforms[parent->transformIdx], (vec3){0.0f, 0.0f, 0.0f});
-    transformSetScaleUniform(&tman->pTransforms[parent->transformIdx], 2.0f);
+    transformSetPosition(&tman->pTransformsCold[parent->transformIdx], (vec3){0.0f, 0.0f, 0.0f});
+    transformSetScaleUniform(&tman->pTransformsCold[parent->transformIdx], 2.0f);
 
-    transformSetPosition(&tman->pTransforms[child->transformIdx], (vec3){5.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[child->transformIdx], (vec3){5.0f, 0.0f, 0.0f});
 
     transformSetParent(tman, child->transformIdx, parent->transformIdx);
 
@@ -168,7 +168,7 @@ void test_parent_scale_affects_child(void)
     updateModelUniformBuffersDirect(result, scene);
 
     // Parent at origin, scale 2x. Child local (5,0,0) -> world (10,0,0)
-    TransformNode* cNode = &tman->pTransforms[child->transformIdx];
+    TransformHot* cNode = &tman->pTransformsHot[child->transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 0.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 0.0f);
@@ -188,10 +188,10 @@ void test_multiple_children_same_parent(void)
     Camera3D         cam   = make_test_camera();
     TransformManager* tman = &scene->transformManager;
 
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){1.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[2].transformIdx], (vec3){2.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[3].transformIdx], (vec3){3.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){1.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[2].transformIdx], (vec3){2.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[3].transformIdx], (vec3){3.0f, 0.0f, 0.0f});
 
     transformSetParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx,
                        scene->modelsManager.pDenseModelInstances[0].transformIdx);
@@ -204,10 +204,10 @@ void test_multiple_children_same_parent(void)
     ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
     updateModelUniformBuffersDirect(result, scene);
 
-    ASSERT_FLOAT_EQ(tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx].worldMatrix[3][0], 11.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[scene->modelsManager.pDenseModelInstances[2].transformIdx].worldMatrix[3][0], 12.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[scene->modelsManager.pDenseModelInstances[3].transformIdx].worldMatrix[3][0], 13.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[0].transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx].worldMatrix[3][0], 11.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[2].transformIdx].worldMatrix[3][0], 12.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[3].transformIdx].worldMatrix[3][0], 13.0f);
 
     free(result);
     free_test_scene(scene);
@@ -224,9 +224,9 @@ void test_cascade_disable_skips_chain(void)
     Camera3D         cam   = make_test_camera();
     TransformManager* tman = &scene->transformManager;
 
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 20.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[2].transformIdx], (vec3){0.0f, 0.0f, 30.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 20.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[2].transformIdx], (vec3){0.0f, 0.0f, 30.0f});
 
     transformSetParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx,
                        scene->modelsManager.pDenseModelInstances[0].transformIdx);
@@ -234,7 +234,7 @@ void test_cascade_disable_skips_chain(void)
                        scene->modelsManager.pDenseModelInstances[1].transformIdx);
 
     // Disable grandparent — via transform lifecycle
-    tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx].lifecycle = TRANSFORM_DISABLED;
+    tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[0].transformIdx].lifecycle = TRANSFORM_DISABLED;
     scene->modelsManager.pDenseModelInstances[0].lifecycle = INSTANCE_DISABLED;
 
     resolveTransforms(tman);
@@ -246,8 +246,8 @@ void test_cascade_disable_skips_chain(void)
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 0);
 
     // Children transforms should have PASS_DISABLED set
-    ASSERT_EQ(tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(tman->pTransforms[scene->modelsManager.pDenseModelInstances[2].transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[2].transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
 
     free(result);
     free_test_scene(scene);
@@ -264,14 +264,14 @@ void test_reenable_parent_restores_children(void)
     Camera3D         cam   = make_test_camera();
     TransformManager* tman = &scene->transformManager;
 
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx,
                        scene->modelsManager.pDenseModelInstances[0].transformIdx);
 
     // Frame 1: disable parent -> both skipped
-    tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx].lifecycle = TRANSFORM_DISABLED;
+    tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[0].transformIdx].lifecycle = TRANSFORM_DISABLED;
     scene->modelsManager.pDenseModelInstances[0].lifecycle = INSTANCE_DISABLED;
 
     resolveTransforms(tman);
@@ -281,7 +281,7 @@ void test_reenable_parent_restores_children(void)
     free(r1);
 
     // Frame 2: re-enable parent -> both reappear
-    tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx].lifecycle = TRANSFORM_ALIVE;
+    tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[0].transformIdx].lifecycle = TRANSFORM_ALIVE;
     scene->modelsManager.pDenseModelInstances[0].lifecycle = INSTANCE_ALIVE;
 
     resolveTransforms(tman);
@@ -290,7 +290,7 @@ void test_reenable_parent_restores_children(void)
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
 
     // Child world position correct: (10, 5, 0)
-    TransformNode* cNode = &tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx];
+    TransformHot* cNode = &tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 0.0f);
@@ -310,8 +310,8 @@ void test_clear_parent_makes_root(void)
     Camera3D         cam   = make_test_camera();
     TransformManager* tman = &scene->transformManager;
 
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, scene->modelsManager.pDenseModelInstances[1].transformIdx,
                        scene->modelsManager.pDenseModelInstances[0].transformIdx);
@@ -320,7 +320,7 @@ void test_clear_parent_makes_root(void)
     resolveTransforms(tman);
     ModelInstanceUBO* r1 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
     updateModelUniformBuffersDirect(r1, scene);
-    TransformNode* cNode = &tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx];
+    TransformHot* cNode = &tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 5.0f);
     free(r1);
@@ -358,7 +358,7 @@ void test_set_parent_rejects_wrong_order(void)
     CAPTURE_STDERR_END();
 
     ASSERT_STDERR_CONTAINS("[transformSetParent] rejected");
-    ASSERT_EQ(tman.pTransforms[0].parentIdx, TRANSFORM_NO_PARENT);
+    ASSERT_EQ(tman.pTransformsHot[0].parentIdx, TRANSFORM_NO_PARENT);
 
     free_test_manager(&man);
     free_test_transform_manager(&tman);
@@ -381,7 +381,7 @@ void test_set_parent_rejects_self(void)
     CAPTURE_STDERR_END();
 
     ASSERT_STDERR_CONTAINS("[transformSetParent] rejected");
-    ASSERT_EQ(tman.pTransforms[1].parentIdx, TRANSFORM_NO_PARENT);
+    ASSERT_EQ(tman.pTransformsHot[1].parentIdx, TRANSFORM_NO_PARENT);
 
     free_test_manager(&man);
     free_test_transform_manager(&tman);
@@ -399,11 +399,11 @@ void test_cross_type_light_parented_to_model(void)
 
     // Model instance 0 at (10, 0, 0)
     Model3DInstance* modelInst = &scene->modelsManager.pDenseModelInstances[0];
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
 
     // Light instance 0 at local (0, 5, 0)
     LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
-    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     // Parent light to model instance via raw transform indices
     // Model transforms: [0, 2), Light transforms: [2, 3)
@@ -413,7 +413,7 @@ void test_cross_type_light_parented_to_model(void)
     resolveTransforms(tman);
 
     // Light world = parent(10,0,0) + local(0,5,0) = (10, 5, 0)
-    TransformNode* lNode = &tman->pTransforms[lightInst->transformIdx];
+    TransformHot* lNode = &tman->pTransformsHot[lightInst->transformIdx];
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][2], 0.0f);
@@ -433,19 +433,19 @@ void test_cross_type_cascade_disable(void)
     Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
     LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
 
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
 
     // Disable model instance's transform
-    tman->pTransforms[modelInst->transformIdx].lifecycle = TRANSFORM_DISABLED;
+    tman->pTransformsHot[modelInst->transformIdx].lifecycle = TRANSFORM_DISABLED;
 
     resolveTransforms(tman);
 
     // Model parent is disabled → light child cascade-disabled
-    ASSERT_EQ(tman->pTransforms[modelInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(tman->pTransforms[lightInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[modelInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[lightInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
 
     free_test_scene_mixed(scene);
 }
@@ -463,18 +463,18 @@ void test_cross_type_parent_scale_affects_light(void)
     LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
 
     // Model at origin, scale 3x
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){0.0f, 0.0f, 0.0f});
-    transformSetScaleUniform(&tman->pTransforms[modelInst->transformIdx], 3.0f);
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){0.0f, 0.0f, 0.0f});
+    transformSetScaleUniform(&tman->pTransformsCold[modelInst->transformIdx], 3.0f);
 
     // Light local (2, 0, 0)
-    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){2.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[lightInst->transformIdx], (vec3){2.0f, 0.0f, 0.0f});
 
     transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
 
     resolveTransforms(tman);
 
     // Light world = 3 * (2, 0, 0) = (6, 0, 0)
-    TransformNode* lNode = &tman->pTransforms[lightInst->transformIdx];
+    TransformHot* lNode = &tman->pTransformsHot[lightInst->transformIdx];
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][0], 6.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][1], 0.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][2], 0.0f);
@@ -494,23 +494,23 @@ void test_cross_type_reenable_restores_light(void)
     Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
     LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
 
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
 
     // Frame 1: disable parent
-    tman->pTransforms[modelInst->transformIdx].lifecycle = TRANSFORM_DISABLED;
+    tman->pTransformsHot[modelInst->transformIdx].lifecycle = TRANSFORM_DISABLED;
     resolveTransforms(tman);
-    ASSERT_EQ(tman->pTransforms[lightInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[lightInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
 
     // Frame 2: re-enable parent
-    tman->pTransforms[modelInst->transformIdx].lifecycle = TRANSFORM_ALIVE;
+    tman->pTransformsHot[modelInst->transformIdx].lifecycle = TRANSFORM_ALIVE;
     resolveTransforms(tman);
-    ASSERT_EQ(tman->pTransforms[lightInst->transformIdx].passFlags, 0);
+    ASSERT_EQ(tman->pTransformsHot[lightInst->transformIdx].passFlags, 0);
 
     // Light world position restored: (10, 5, 0)
-    TransformNode* lNode = &tman->pTransforms[lightInst->transformIdx];
+    TransformHot* lNode = &tman->pTransformsHot[lightInst->transformIdx];
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][2], 0.0f);
@@ -530,24 +530,24 @@ void test_cross_type_clear_parent(void)
     Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
     LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
 
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
 
     // Frame 1: parented → light at (10, 5, 0)
     resolveTransforms(tman);
-    ASSERT_FLOAT_EQ(tman->pTransforms[lightInst->transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[lightInst->transformIdx].worldMatrix[3][1], 5.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][1], 5.0f);
 
     // Clear parent
     transformClearParent(tman, lightInst->transformIdx);
 
     // Frame 2: unparented → light at (0, 5, 0)
     resolveTransforms(tman);
-    ASSERT_FLOAT_EQ(tman->pTransforms[lightInst->transformIdx].worldMatrix[3][0], 0.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[lightInst->transformIdx].worldMatrix[3][1], 5.0f);
-    ASSERT_FLOAT_EQ(tman->pTransforms[lightInst->transformIdx].worldMatrix[3][2], 0.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][0], 0.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][1], 5.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][2], 0.0f);
 
     free_test_scene_mixed(scene);
 }
@@ -567,8 +567,8 @@ void test_cross_type_ubo_model_and_light(void)
     Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
     LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
 
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
 
@@ -609,14 +609,14 @@ void test_cross_type_ubo_cascade_disable_both(void)
     Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
     LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
 
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
 
     // Disable model instance + its transform
     modelInst->lifecycle = INSTANCE_DISABLED;
-    tman->pTransforms[modelInst->transformIdx].lifecycle = TRANSFORM_DISABLED;
+    tman->pTransformsHot[modelInst->transformIdx].lifecycle = TRANSFORM_DISABLED;
 
     resolveTransforms(tman);
 
@@ -647,8 +647,8 @@ void test_cross_type_ubo_parent_move_updates_light(void)
     Model3DInstance*     modelInst = &scene->modelsManager.pDenseModelInstances[0];
     LightVolumeInstance* lightInst = &scene->lightManager.pDenseLightInstances[0];
 
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){0.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){0.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[lightInst->transformIdx], (vec3){0.0f, 5.0f, 0.0f});
 
     transformSetParent(tman, lightInst->transformIdx, modelInst->transformIdx);
 
@@ -661,7 +661,7 @@ void test_cross_type_ubo_parent_move_updates_light(void)
     free(lightUBO1);
 
     // Frame 2: move model to (20, 0, 0) — light should follow
-    transformSetPosition(&tman->pTransforms[modelInst->transformIdx], (vec3){20.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){20.0f, 0.0f, 0.0f});
     resolveTransforms(tman);
     LightInstanceUBO* lightUBO2 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
     updateLightUniformBuffersDirect(lightUBO2, 0.016f, scene);

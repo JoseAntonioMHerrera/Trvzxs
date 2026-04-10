@@ -218,9 +218,9 @@ void test_transform_survives_disable_enable(void)
     Camera3D         cam   = make_test_camera();
     TransformManager* tman = &scene->transformManager;
 
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){20.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[2].transformIdx], (vec3){30.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){10.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){20.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[2].transformIdx], (vec3){30.0f, 0.0f, 0.0f});
 
     // Frame 1: all alive
     resolveTransforms(tman);
@@ -266,8 +266,8 @@ void test_transform_survives_model_disable_enable(void)
     Camera3D         cam   = make_test_camera();
     TransformManager* tman = &scene->transformManager;
 
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){5.0f, 0.0f, 0.0f});
-    transformSetPosition(&tman->pTransforms[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){15.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){5.0f, 0.0f, 0.0f});
+    transformSetPosition(&tman->pTransformsCold[scene->modelsManager.pDenseModelInstances[1].transformIdx], (vec3){15.0f, 0.0f, 0.0f});
 
     // Frame 1
     resolveTransforms(tman);
@@ -309,7 +309,7 @@ void test_single_instance_model_lifecycle(void)
     GraphicSwapchain sc    = make_fake_swapchain();
     Camera3D         cam   = make_test_camera();
 
-    transformSetPosition(&scene->transformManager.pTransforms[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){7.0f, 0.0f, 0.0f});
+    transformSetPosition(&scene->transformManager.pTransformsCold[scene->modelsManager.pDenseModelInstances[0].transformIdx], (vec3){7.0f, 0.0f, 0.0f});
 
     // Alive
     resolveTransforms(&scene->transformManager);

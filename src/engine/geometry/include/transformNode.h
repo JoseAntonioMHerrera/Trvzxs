@@ -14,44 +14,64 @@
 // Per-frame pass flag
 #define TRANSFORM_PASS_DISABLED 1
 
-typedef struct TransformNode
+// Hot-path slice of a transform. Touched every frame by cull, resolve, and
+// UBO fill. Sized to keep the per-entity working set small (72 B).
+typedef struct TransformHot
 {
-    vec3     position;
-    float    _pad1;
-    versor   rotation; // quaternion
-    vec3     scale;
-    float    _pad2;
-    mat4     localMatrix;  // T * R * S, rebuilt each frame
-    mat4     worldMatrix;  // localMatrix * parent.worldMatrix (final result)
-    uint32_t parentIdx;    // index into TransformManager.pTransforms, or TRANSFORM_NO_PARENT
-    uint16_t lifecycle;    // TRANSFORM_ALIVE / DISABLED / DESTROYED
-    uint16_t passFlags;    // per-frame cascade-disable
-} TransformNode;
+    mat4     worldMatrix; // 64 B — produced by resolve, consumed by cull + UBO fill
+    uint32_t parentIdx;   //  4 B — preorder index of parent, or TRANSFORM_NO_PARENT
+    uint16_t lifecycle;   //  2 B — TRANSFORM_ALIVE / DISABLED / DESTROYED
+    uint16_t passFlags;   //  2 B — per-frame cascade / cull disable
+} TransformHot;
+
+// Cold-path slice. Read by resolve to rebuild local + world matrices, and by
+// the light UBO fill to sample uniform scale. Otherwise untouched per frame.
+typedef struct TransformCold
+{
+    vec3  position;    // 12 B + 4 pad
+    float _pad1;
+    versor rotation;   // 16 B (quaternion)
+    vec3  scale;       // 12 B + 4 pad
+    float _pad2;
+    mat4  localMatrix; // 64 B — T * R * S, rebuilt each frame by resolve
+} TransformCold;
 
 typedef struct TransformManager
 {
-    TransformNode* pTransforms; // single dense allocation
-    uint32_t       count;       // total allocated slots
-    uint32_t       liveCount;   // updated per frame by resolve pass
+    TransformHot*  pTransformsHot;  // [count] — hot working set
+    TransformCold* pTransformsCold; // [count] — cold TRS + local matrix
+    uint32_t       count;           // total allocated slots
+    uint32_t       liveCount;       // updated per frame by resolve pass
 } TransformManager;
 
-// --- Init / TRS setters (type-agnostic) ---
+// --- Init helpers ---
 
-void transformInit(TransformNode* node);
-void transformSetPosition(TransformNode* node, vec3 pos);
-void transformSetRotation(TransformNode* node, versor q);
-void transformSetRotationEuler(TransformNode* node, float pitchDeg, float yawDeg, float rollDeg);
-void transformSetScale(TransformNode* node, vec3 scale);
-void transformSetScaleUniform(TransformNode* node, float s);
+// Initialize a single cold slot: zero TRS, identity localMatrix.
+void transformInitCold(TransformCold* cold);
 
-// Incremental modification
-void transformTranslate(TransformNode* node, vec3 delta);
-void transformRotateAxis(TransformNode* node, float angleDeg, vec3 axis);
+// Initialize a single hot slot: identity worldMatrix, no parent, alive, no flags.
+void transformInitHot(TransformHot* hot);
+
+// Convenience: initialize both arrays at index `idx`. Caller must ensure
+// `idx < man->count` and that both arrays are allocated.
+void transformInit(TransformManager* man, uint32_t idx);
+
+// --- TRS setters (operate on cold) ---
+
+void transformSetPosition(TransformCold* cold, vec3 pos);
+void transformSetRotation(TransformCold* cold, versor q);
+void transformSetRotationEuler(TransformCold* cold, float pitchDeg, float yawDeg, float rollDeg);
+void transformSetScale(TransformCold* cold, vec3 scale);
+void transformSetScaleUniform(TransformCold* cold, float s);
+
+// Incremental modification (cold)
+void transformTranslate(TransformCold* cold, vec3 delta);
+void transformRotateAxis(TransformCold* cold, float angleDeg, vec3 axis);
 
 // Rebuild localMatrix from TRS (called by resolveTransforms, or manually)
-void transformBuildLocalMatrix(TransformNode* node);
+void transformBuildLocalMatrix(TransformCold* cold);
 
-// --- Hierarchy ---
+// --- Hierarchy (operates on the manager, touches hot) ---
 
 // Set parent-child relationship. Validates parent index < child index.
 void transformSetParent(TransformManager* man, uint32_t childIdx, uint32_t parentIdx);

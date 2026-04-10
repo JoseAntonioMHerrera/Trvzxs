@@ -192,16 +192,16 @@ void frustumCullScene(SCENE* scene, const FrustumPlanes* frustum)
             if (inst->lifecycle != INSTANCE_ALIVE)
                 continue;
 
-            TransformNode* tnode = &scene->transformManager.pTransforms[inst->transformIdx];
+            TransformHot* hot = &scene->transformManager.pTransformsHot[inst->transformIdx];
 
             // Already disabled by hierarchy cascade — don't override
-            if (tnode->passFlags == TRANSFORM_PASS_DISABLED)
+            if (hot->passFlags == TRANSFORM_PASS_DISABLED)
                 continue;
 
             totalTested++;
-            if (!frustumTestAABB(frustum, &model->localAABB, tnode->worldMatrix))
+            if (!frustumTestAABB(frustum, &model->localAABB, hot->worldMatrix))
             {
-                tnode->passFlags = TRANSFORM_PASS_DISABLED;
+                hot->passFlags = TRANSFORM_PASS_DISABLED;
                 totalCulled++;
             }
         }
@@ -231,14 +231,14 @@ void frustumCullScene(SCENE* scene, const FrustumPlanes* frustum)
             if (inst->lifecycle != LIGHT_INSTANCE_ALIVE)
                 continue;
 
-            TransformNode* tnode = &scene->transformManager.pTransforms[inst->transformIdx];
+            TransformHot* hot = &scene->transformManager.pTransformsHot[inst->transformIdx];
 
-            if (tnode->passFlags == TRANSFORM_PASS_DISABLED)
+            if (hot->passFlags == TRANSFORM_PASS_DISABLED)
                 continue;
 
-            if (!frustumTestAABB(frustum, &light->localAABB, tnode->worldMatrix))
+            if (!frustumTestAABB(frustum, &light->localAABB, hot->worldMatrix))
             {
-                tnode->passFlags = TRANSFORM_PASS_DISABLED;
+                hot->passFlags = TRANSFORM_PASS_DISABLED;
             }
         }
     }
