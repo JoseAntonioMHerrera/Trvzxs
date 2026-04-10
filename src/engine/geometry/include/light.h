@@ -33,7 +33,7 @@ typedef struct LightVolume
     LightProperties      properties;
     Model3D              model;
     LightVolumeInstance* pStagingInstances;        // temporary — NULLed after consolidation
-    TransformNode*       pStagingTransforms;       // temporary TRS staging — NULLed after consolidation
+    TransformCold*       pStagingTransforms;       // temporary TRS staging (cold-only) — NULLed after consolidation
     uint32_t             denseBaseOffset;           // index into LightManager.pDenseLightInstances
     uint32_t             lightVolumeInstanceCount; // total allocated (capacity)
     uint32_t             liveInstanceCount;        // computed per frame by UBO fill

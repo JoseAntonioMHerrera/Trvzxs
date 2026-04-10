@@ -447,7 +447,7 @@ int main()
                         SCENE *s = scene->getScene();
                         if (s->modelsManager.modelLen > 0)
                         {
-                            TransformNode *node = &s->transformManager.pTransforms[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            TransformCold *node = &s->transformManager.pTransformsCold[s->modelsManager.pDenseModelInstances[0].transformIdx];
                             vec3 delta = {0.0f, 0.0f, 1.0f};
                             transformTranslate(node, delta);
                         }
@@ -457,7 +457,7 @@ int main()
                         SCENE *s = scene->getScene();
                         if (s->modelsManager.modelLen > 0)
                         {
-                            TransformNode *node = &s->transformManager.pTransforms[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            TransformCold *node = &s->transformManager.pTransformsCold[s->modelsManager.pDenseModelInstances[0].transformIdx];
                             vec3 delta = {0.0f, 0.0f, -1.0f};
                             transformTranslate(node, delta);
                         }
@@ -467,7 +467,7 @@ int main()
                         SCENE *s = scene->getScene();
                         if (s->modelsManager.modelLen > 0)
                         {
-                            TransformNode *node = &s->transformManager.pTransforms[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            TransformCold *node = &s->transformManager.pTransformsCold[s->modelsManager.pDenseModelInstances[0].transformIdx];
                             vec3 delta = {-1.0f, 0.0f, 0.0f};
                             transformTranslate(node, delta);
                         }
@@ -477,7 +477,7 @@ int main()
                         SCENE *s = scene->getScene();
                         if (s->modelsManager.modelLen > 0)
                         {
-                            TransformNode *node = &s->transformManager.pTransforms[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            TransformCold *node = &s->transformManager.pTransformsCold[s->modelsManager.pDenseModelInstances[0].transformIdx];
                             vec3 delta = {1.0f, 0.0f, 0.0f};
                             transformTranslate(node, delta);
                         }

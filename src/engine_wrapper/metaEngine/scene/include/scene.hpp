@@ -285,7 +285,7 @@ public:
                                GEOM_VERTEX_COLOR_RGBA *colors, vec3 *positions, float *scales)
     {
         lightVolume->pStagingInstances  = (LightVolumeInstance *)calloc(instanceCount, sizeof(LightVolumeInstance));
-        lightVolume->pStagingTransforms = (TransformNode *)calloc(instanceCount, sizeof(TransformNode));
+        lightVolume->pStagingTransforms = (TransformCold *)calloc(instanceCount, sizeof(TransformCold));
 
         for (uint32_t instanceIndex = 0; instanceIndex < instanceCount; instanceIndex++)
         {
@@ -293,10 +293,10 @@ public:
             inst->color     = colors[instanceIndex];
             inst->lifecycle = LIGHT_INSTANCE_ALIVE;
 
-            TransformNode *node = &lightVolume->pStagingTransforms[instanceIndex];
-            transformInit(node);
-            transformSetPosition(node, positions[instanceIndex]);
-            transformSetScaleUniform(node, scales[instanceIndex]);
+            TransformCold *cold = &lightVolume->pStagingTransforms[instanceIndex];
+            transformInitCold(cold);
+            transformSetPosition(cold, positions[instanceIndex]);
+            transformSetScaleUniform(cold, scales[instanceIndex]);
         }
 
         lightVolume->lightVolumeInstanceCount = instanceCount;
@@ -372,7 +372,7 @@ public:
     void initInstanceDataModelDualPlane(Model3D *pModel, uint32_t instanceCount)
     {
         pModel->pStagingInstances  = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
-        pModel->pStagingTransforms = (TransformNode *)calloc(instanceCount, sizeof(TransformNode));
+        pModel->pStagingTransforms = (TransformCold *)calloc(instanceCount, sizeof(TransformCold));
 
         uint32_t half     = instanceCount / 2;
         uint32_t gridSide = (uint32_t)sqrtf((float)half);
@@ -387,8 +387,8 @@ public:
             inst->lifecycle = INSTANCE_ALIVE;
             inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
 
-            TransformNode *node = &pModel->pStagingTransforms[i];
-            transformInit(node);
+            TransformCold *cold = &pModel->pStagingTransforms[i];
+            transformInitCold(cold);
 
             bool     rightPlane = (i < half);
             uint32_t localIdx   = rightPlane ? i : (i - half);
@@ -400,7 +400,7 @@ public:
                 (col - gridSide / 2.0f) * gridSpacing,
                 (row - gridSide / 2.0f) * gridSpacing
             };
-            transformSetPosition(node, pos);
+            transformSetPosition(cold, pos);
         }
         pModel->instanceCount = instanceCount;
     }
@@ -408,7 +408,7 @@ public:
     void initInstanceDataModel(Model3D *pModel, uint32_t instanceCount)
     {
         pModel->pStagingInstances  = (Model3DInstance *)calloc(instanceCount, sizeof(Model3DInstance));
-        pModel->pStagingTransforms = (TransformNode *)calloc(instanceCount, sizeof(TransformNode));
+        pModel->pStagingTransforms = (TransformCold *)calloc(instanceCount, sizeof(TransformCold));
 
         // Spread instances in a 10-column grid matching the light layout
         const float gridSpacing = 8.0f;
@@ -420,8 +420,8 @@ public:
             inst->lifecycle = INSTANCE_ALIVE;
             inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
 
-            TransformNode *node = &pModel->pStagingTransforms[instanceIndex];
-            transformInit(node);
+            TransformCold *cold = &pModel->pStagingTransforms[instanceIndex];
+            transformInitCold(cold);
 
             int col = instanceIndex % gridCols;
             int row = instanceIndex / gridCols;
@@ -430,7 +430,7 @@ public:
                 (row - 2.0f) * gridSpacing,
                 0.0f
             };
-            transformSetPosition(node, pos);
+            transformSetPosition(cold, pos);
         }
         pModel->instanceCount = instanceCount;
     }

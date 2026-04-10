@@ -3,29 +3,41 @@
 #include "transformNode.h"
 #include "cglm.h"
 
-void transformInit(TransformNode* node)
+void transformInitCold(TransformCold* cold)
 {
-    glm_vec3_zero(node->position);
-    glm_quat_identity(node->rotation);
-    glm_vec3_one(node->scale);
-    glm_mat4_identity(node->localMatrix);
-    glm_mat4_identity(node->worldMatrix);
-    node->parentIdx = TRANSFORM_NO_PARENT;
-    node->lifecycle  = TRANSFORM_ALIVE;
-    node->passFlags  = 0;
+    glm_vec3_zero(cold->position);
+    glm_quat_identity(cold->rotation);
+    glm_vec3_one(cold->scale);
+    glm_mat4_identity(cold->localMatrix);
+    cold->_pad1 = 0.0f;
+    cold->_pad2 = 0.0f;
 }
 
-void transformSetPosition(TransformNode* node, vec3 pos)
+void transformInitHot(TransformHot* hot)
 {
-    glm_vec3_copy(pos, node->position);
+    glm_mat4_identity(hot->worldMatrix);
+    hot->parentIdx = TRANSFORM_NO_PARENT;
+    hot->lifecycle = TRANSFORM_ALIVE;
+    hot->passFlags = 0;
 }
 
-void transformSetRotation(TransformNode* node, versor q)
+void transformInit(TransformManager* man, uint32_t idx)
 {
-    glm_quat_copy(q, node->rotation);
+    transformInitHot(&man->pTransformsHot[idx]);
+    transformInitCold(&man->pTransformsCold[idx]);
 }
 
-void transformSetRotationEuler(TransformNode* node, float pitchDeg, float yawDeg, float rollDeg)
+void transformSetPosition(TransformCold* cold, vec3 pos)
+{
+    glm_vec3_copy(pos, cold->position);
+}
+
+void transformSetRotation(TransformCold* cold, versor q)
+{
+    glm_quat_copy(q, cold->rotation);
+}
+
+void transformSetRotationEuler(TransformCold* cold, float pitchDeg, float yawDeg, float rollDeg)
 {
     versor qPitch, qYaw, qRoll, temp;
     glm_quatv(qPitch, glm_rad(pitchDeg), (vec3){1.0f, 0.0f, 0.0f});
@@ -33,46 +45,46 @@ void transformSetRotationEuler(TransformNode* node, float pitchDeg, float yawDeg
     glm_quatv(qRoll,  glm_rad(rollDeg),   (vec3){0.0f, 0.0f, 1.0f});
 
     glm_quat_mul(qYaw, qPitch, temp);
-    glm_quat_mul(temp, qRoll, node->rotation);
+    glm_quat_mul(temp, qRoll, cold->rotation);
 }
 
-void transformSetScale(TransformNode* node, vec3 scale)
+void transformSetScale(TransformCold* cold, vec3 scale)
 {
-    glm_vec3_copy(scale, node->scale);
+    glm_vec3_copy(scale, cold->scale);
 }
 
-void transformSetScaleUniform(TransformNode* node, float s)
+void transformSetScaleUniform(TransformCold* cold, float s)
 {
-    node->scale[0] = s;
-    node->scale[1] = s;
-    node->scale[2] = s;
+    cold->scale[0] = s;
+    cold->scale[1] = s;
+    cold->scale[2] = s;
 }
 
-void transformTranslate(TransformNode* node, vec3 delta)
+void transformTranslate(TransformCold* cold, vec3 delta)
 {
-    glm_vec3_add(node->position, delta, node->position);
+    glm_vec3_add(cold->position, delta, cold->position);
 }
 
-void transformRotateAxis(TransformNode* node, float angleDeg, vec3 axis)
+void transformRotateAxis(TransformCold* cold, float angleDeg, vec3 axis)
 {
     versor deltaQ;
     glm_quatv(deltaQ, glm_rad(angleDeg), axis);
     versor result;
-    glm_quat_mul(deltaQ, node->rotation, result);
-    glm_quat_normalize_to(result, node->rotation);
+    glm_quat_mul(deltaQ, cold->rotation, result);
+    glm_quat_normalize_to(result, cold->rotation);
 }
 
-void transformBuildLocalMatrix(TransformNode* node)
+void transformBuildLocalMatrix(TransformCold* cold)
 {
     // localMatrix = T * R * S
     mat4 T, R, S, temp;
 
-    glm_translate_make(T, node->position);
-    glm_quat_mat4(node->rotation, R);
-    glm_scale_make(S, node->scale);
+    glm_translate_make(T, cold->position);
+    glm_quat_mat4(cold->rotation, R);
+    glm_scale_make(S, cold->scale);
 
     glm_mat4_mul(T, R, temp);
-    glm_mat4_mul(temp, S, node->localMatrix);
+    glm_mat4_mul(temp, S, cold->localMatrix);
 }
 
 void transformSetParent(TransformManager* man, uint32_t childIdx, uint32_t parentIdx)
@@ -98,7 +110,7 @@ void transformSetParent(TransformManager* man, uint32_t childIdx, uint32_t paren
         return;
     }
 
-    man->pTransforms[childIdx].parentIdx = parentIdx;
+    man->pTransformsHot[childIdx].parentIdx = parentIdx;
 }
 
 void transformClearParent(TransformManager* man, uint32_t idx)
@@ -110,7 +122,7 @@ void transformClearParent(TransformManager* man, uint32_t idx)
         return;
     }
 
-    man->pTransforms[idx].parentIdx = TRANSFORM_NO_PARENT;
+    man->pTransformsHot[idx].parentIdx = TRANSFORM_NO_PARENT;
 }
 
 void resolveTransforms(TransformManager* man)
@@ -119,46 +131,40 @@ void resolveTransforms(TransformManager* man)
 
     for (uint32_t i = 0; i < man->count; i++)
     {
-        TransformNode* node = &man->pTransforms[i];
+        TransformHot*  hot  = &man->pTransformsHot[i];
+        TransformCold* cold = &man->pTransformsCold[i];
 
         // Clear per-frame pass flags
-        node->passFlags = 0;
+        hot->passFlags = 0;
 
-        // Skip destroyed nodes
-        if (node->lifecycle == TRANSFORM_DESTROYED)
+        // Skip destroyed / disabled nodes (mirror lifecycle into passFlags)
+        if (hot->lifecycle == TRANSFORM_DESTROYED || hot->lifecycle == TRANSFORM_DISABLED)
         {
-            node->passFlags = TRANSFORM_PASS_DISABLED;
+            hot->passFlags = TRANSFORM_PASS_DISABLED;
             continue;
         }
 
-        // Skip disabled nodes
-        if (node->lifecycle == TRANSFORM_DISABLED)
-        {
-            node->passFlags = TRANSFORM_PASS_DISABLED;
-            continue;
-        }
+        // Rebuild local matrix from TRS (cold → cold)
+        transformBuildLocalMatrix(cold);
 
-        // Build local matrix from TRS
-        transformBuildLocalMatrix(node);
-
-        if (node->parentIdx != TRANSFORM_NO_PARENT)
+        if (hot->parentIdx != TRANSFORM_NO_PARENT)
         {
-            TransformNode* parent = &man->pTransforms[node->parentIdx];
+            TransformHot* parentHot = &man->pTransformsHot[hot->parentIdx];
 
             // Cascade-disable: if parent is not renderable this frame, child isn't either
-            if (parent->passFlags == TRANSFORM_PASS_DISABLED)
+            if (parentHot->passFlags == TRANSFORM_PASS_DISABLED)
             {
-                node->passFlags = TRANSFORM_PASS_DISABLED;
+                hot->passFlags = TRANSFORM_PASS_DISABLED;
                 continue;
             }
 
             // worldMatrix = parent.worldMatrix * localMatrix
-            glm_mat4_mul(parent->worldMatrix, node->localMatrix, node->worldMatrix);
+            glm_mat4_mul(parentHot->worldMatrix, cold->localMatrix, hot->worldMatrix);
         }
         else
         {
             // Root node: worldMatrix = localMatrix
-            glm_mat4_copy(node->localMatrix, node->worldMatrix);
+            glm_mat4_copy(cold->localMatrix, hot->worldMatrix);
         }
 
         live++;

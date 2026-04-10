@@ -4,7 +4,8 @@
 #include "transformations.h"
 #include "vertex.h"
 
-typedef struct TransformNode TransformNode;
+typedef struct TransformHot  TransformHot;
+typedef struct TransformCold TransformCold;
 typedef struct Model3D       Model3D;
 typedef struct Mesh3D
 {
@@ -63,7 +64,7 @@ typedef struct Model3D
     uint32_t         denseBaseOffset;       // starting index of this model's instances in pDenseModelInstances
     uint32_t         modelInstanceCount;
     Model3DInstance* pStagingInstances;    // temporary per-model allocation during init, NULLed after consolidation
-    TransformNode*   pStagingTransforms;   // temporary per-model TRS staging, NULLed after consolidation
+    TransformCold*   pStagingTransforms;   // temporary per-model TRS staging (cold-only), NULLed after consolidation
     AABB             localAABB;            // model-space bounding box, computed at load time
 } Model3D;
 

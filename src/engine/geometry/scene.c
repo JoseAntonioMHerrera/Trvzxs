@@ -222,9 +222,10 @@ void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen, uint32_t p
     (*scene) = (SCENE*) malloc(sizeof(SCENE));
 
     // TransformManager — allocated later once total instance counts are known
-    (*scene)->transformManager.pTransforms = NULL;
-    (*scene)->transformManager.count       = 0;
-    (*scene)->transformManager.liveCount   = 0;
+    (*scene)->transformManager.pTransformsHot  = NULL;
+    (*scene)->transformManager.pTransformsCold = NULL;
+    (*scene)->transformManager.count           = 0;
+    (*scene)->transformManager.liveCount       = 0;
 
     if (modelsLen <= 0)
     {
@@ -359,17 +360,21 @@ void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
     man->pDenseModelInstances = (Model3DInstance*) calloc(man->modelInstanceCapacity, sizeof(Model3DInstance));
 
     // Allocate transform nodes for model instances [0, modelInstanceCapacity)
-    // If transforms already allocated (e.g. lights ran first), realloc to grow.
+    // Two parallel arrays (hot + cold). If transforms already allocated
+    // (e.g. lights ran first), realloc to grow.
     uint32_t transformBase = tman->count;
     uint32_t newCount      = tman->count + man->modelInstanceCapacity;
-    if (tman->pTransforms == NULL)
+    if (tman->pTransformsHot == NULL)
     {
-        tman->pTransforms = (TransformNode*) calloc(newCount, sizeof(TransformNode));
+        tman->pTransformsHot  = (TransformHot*)  calloc(newCount, sizeof(TransformHot));
+        tman->pTransformsCold = (TransformCold*) calloc(newCount, sizeof(TransformCold));
     }
     else
     {
-        tman->pTransforms = (TransformNode*) realloc(tman->pTransforms, newCount * sizeof(TransformNode));
-        memset(&tman->pTransforms[tman->count], 0, man->modelInstanceCapacity * sizeof(TransformNode));
+        tman->pTransformsHot  = (TransformHot*)  realloc(tman->pTransformsHot,  newCount * sizeof(TransformHot));
+        tman->pTransformsCold = (TransformCold*) realloc(tman->pTransformsCold, newCount * sizeof(TransformCold));
+        memset(&tman->pTransformsHot[tman->count],  0, man->modelInstanceCapacity * sizeof(TransformHot));
+        memset(&tman->pTransformsCold[tman->count], 0, man->modelInstanceCapacity * sizeof(TransformCold));
     }
     tman->count = newCount;
 
@@ -392,13 +397,17 @@ void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
             Model3DInstance* inst = &man->pDenseModelInstances[base + i];
             inst->transformIdx    = tIdx;
 
+            // Hot slot: default-initialized (parentIdx=NO_PARENT, alive, no flags)
+            transformInitHot(&tman->pTransformsHot[tIdx]);
+
             if (model->pStagingTransforms)
             {
-                tman->pTransforms[tIdx] = model->pStagingTransforms[i];
+                // Cold slot: copy TRS + localMatrix from staging
+                tman->pTransformsCold[tIdx] = model->pStagingTransforms[i];
             }
             else
             {
-                transformInit(&tman->pTransforms[tIdx]);
+                transformInitCold(&tman->pTransformsCold[tIdx]);
             }
         }
 
@@ -493,16 +502,20 @@ void fillLightVolumeInstancesIndices(LightManager* lan, TransformManager* tman)
     lan->pDenseLightInstances = (LightVolumeInstance*) calloc(lan->lightInstanceCapacity, sizeof(LightVolumeInstance));
 
     // Allocate transform nodes for light instances (appended after model transforms)
+    // Two parallel arrays (hot + cold).
     uint32_t transformBase = tman->count;
     uint32_t newCount      = tman->count + lan->lightInstanceCapacity;
-    if (tman->pTransforms == NULL)
+    if (tman->pTransformsHot == NULL)
     {
-        tman->pTransforms = (TransformNode*) calloc(newCount, sizeof(TransformNode));
+        tman->pTransformsHot  = (TransformHot*)  calloc(newCount, sizeof(TransformHot));
+        tman->pTransformsCold = (TransformCold*) calloc(newCount, sizeof(TransformCold));
     }
     else
     {
-        tman->pTransforms = (TransformNode*) realloc(tman->pTransforms, newCount * sizeof(TransformNode));
-        memset(&tman->pTransforms[tman->count], 0, lan->lightInstanceCapacity * sizeof(TransformNode));
+        tman->pTransformsHot  = (TransformHot*)  realloc(tman->pTransformsHot,  newCount * sizeof(TransformHot));
+        tman->pTransformsCold = (TransformCold*) realloc(tman->pTransformsCold, newCount * sizeof(TransformCold));
+        memset(&tman->pTransformsHot[tman->count],  0, lan->lightInstanceCapacity * sizeof(TransformHot));
+        memset(&tman->pTransformsCold[tman->count], 0, lan->lightInstanceCapacity * sizeof(TransformCold));
     }
     tman->count = newCount;
 
@@ -525,13 +538,15 @@ void fillLightVolumeInstancesIndices(LightManager* lan, TransformManager* tman)
             LightVolumeInstance* inst = &lan->pDenseLightInstances[base + i];
             inst->transformIdx        = tIdx;
 
+            transformInitHot(&tman->pTransformsHot[tIdx]);
+
             if (light->pStagingTransforms)
             {
-                tman->pTransforms[tIdx] = light->pStagingTransforms[i];
+                tman->pTransformsCold[tIdx] = light->pStagingTransforms[i];
             }
             else
             {
-                transformInit(&tman->pTransforms[tIdx]);
+                transformInitCold(&tman->pTransformsCold[tIdx]);
             }
         }
 
