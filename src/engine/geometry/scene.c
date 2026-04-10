@@ -1,7 +1,9 @@
 #include "scene.h"
+#include "frustum.h"
 #include "light.h"
 #include "transformNode.h"
 #include "vertex.h"
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -408,6 +410,20 @@ void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
     }
 }
 
+// Load-time postcondition check: an AABB consumed by frustum culling must have
+// finite components and min <= max on every axis. Asserts compile out in
+// release; in debug a malformed asset trips here instead of silently breaking
+// per-frame cull.
+static inline void assertAABBValid(const AABB* aabb)
+{
+    assert(aabb != NULL);
+    assert(isfinite(aabb->min[0]) && isfinite(aabb->min[1]) && isfinite(aabb->min[2]));
+    assert(isfinite(aabb->max[0]) && isfinite(aabb->max[1]) && isfinite(aabb->max[2]));
+    assert(aabb->min[0] <= aabb->max[0]);
+    assert(aabb->min[1] <= aabb->max[1]);
+    assert(aabb->min[2] <= aabb->max[2]);
+}
+
 void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
 {
     uint32_t indexOffsetForModelIndices   = 0;
@@ -445,6 +461,16 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
 
     (scene)->modelsManager.packedModelIndex.itemsLen = getModelIndicesLenFromScene(scene);
     (scene)->modelsManager.packedModelIndex.items    = getModelIndicesFromScene((scene));
+
+    // Compute model-space AABBs from packed vertex data
+    for (int i = 0; i < modelLen; i++)
+    {
+        Model3D* model       = &scene->modelsManager.pModel[i];
+        uint32_t vertCount   = model->meshManager.totalMeshVerticesLen;
+        GEOM_VERTEX* pVerts  = &scene->modelsManager.pPackedModelVertex[model->vertexOffset];
+        computeAABBFromVertices(pVerts, vertCount, &model->localAABB);
+        assertAABBValid(&model->localAABB);
+    }
 
     fillModelInstancesIndices(&scene->modelsManager, &scene->transformManager);
 }
@@ -570,6 +596,16 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
 
     (scene)->lightManager.packedLightIndex.itemsLen = getVolumetricLightsIndicesLenFromScene(scene);
     (scene)->lightManager.packedLightIndex.items    = getVolumetricLightsIndicesFromScene((scene));
+    // Compute model-space AABBs for light volume geometry
+    for (int i = 0; i < volumetricLightsLen; i++)
+    {
+        LightVolume* light   = &scene->lightManager.pLight[i];
+        uint32_t     vertCount = light->model.meshManager.totalMeshVerticesLen;
+        GEOM_VERTEX* pVerts  = &scene->lightManager.pPackedLight[light->model.vertexOffset];
+        computeAABBFromVertices(pVerts, vertCount, &light->localAABB);
+        assertAABBValid(&light->localAABB);
+    }
+
     fillLightVolumeInstancesIndices(&scene->lightManager, &scene->transformManager);
 }
 

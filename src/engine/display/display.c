@@ -2,6 +2,7 @@
 #include "computePipeline.h"
 #include "deletionQueue.h"
 #include "displayManager.h"
+#include "frustum.h"
 #include "timelineSync.h"
 #include "particle.h"
 #include "renderGraph.h"
@@ -26,6 +27,7 @@ typedef struct FrameTiming
     double cmdRecord;
     double resolveTransforms;
     double uboGlobals;
+    double frustumCull;
     double uboModels;
     double uboLights;
     double submit;
@@ -50,6 +52,7 @@ static void accumulateTiming(FrameTiming* t)
     g_accumTiming.cmdRecord        += t->cmdRecord;
     g_accumTiming.resolveTransforms += t->resolveTransforms;
     g_accumTiming.uboGlobals       += t->uboGlobals;
+    g_accumTiming.frustumCull      += t->frustumCull;
     g_accumTiming.uboModels        += t->uboModels;
     g_accumTiming.uboLights        += t->uboLights;
     g_accumTiming.submit           += t->submit;
@@ -68,6 +71,7 @@ static void accumulateTiming(FrameTiming* t)
         printf("  cmd record       : %8.1f\n", g_accumTiming.cmdRecord / n);
         printf("  resolveTransforms: %8.1f\n", g_accumTiming.resolveTransforms / n);
         printf("  ubo globals      : %8.1f\n", g_accumTiming.uboGlobals / n);
+        printf("  frustum cull     : %8.1f\n", g_accumTiming.frustumCull / n);
         printf("  ubo models       : %8.1f\n", g_accumTiming.uboModels / n);
         printf("  ubo lights       : %8.1f\n", g_accumTiming.uboLights / n);
         printf("  submit           : %8.1f\n", g_accumTiming.submit / n);
@@ -243,6 +247,15 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     MARK_TIME(tAfterGlobals);
 #endif
 
+    // Frustum cull — marks TRANSFORM_PASS_DISABLED on instances outside the view frustum
+    FrustumPlanes frustum;
+    frustumExtractPlanes(globals.viewProj, &frustum);
+    frustumCullScene(dm->graphicPipeline[0].scene, &frustum);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterFrustum);
+#endif
+
     // Model UBO fill — writes ModelInstanceUBO (mat4 model only) directly to mapped memory
     updateModelUniformBuffersDirect(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
                                     dm->graphicPipeline[0].scene);
@@ -383,7 +396,8 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         .acquireImage     = timespecDiffUs(&tAfterSSBO, &tAfterAcquire),
         .resolveTransforms = timespecDiffUs(&tAfterAcquire, &tAfterResolve),
         .uboGlobals       = timespecDiffUs(&tAfterResolve, &tAfterGlobals),
-        .uboModels        = timespecDiffUs(&tAfterGlobals, &tAfterModels),
+        .frustumCull      = timespecDiffUs(&tAfterGlobals, &tAfterFrustum),
+        .uboModels        = timespecDiffUs(&tAfterFrustum, &tAfterModels),
         .uboLights        = timespecDiffUs(&tAfterModels, &tAfterLights),
         .cmdRecord        = timespecDiffUs(&tAfterLights, &tAfterCmdRecord),
         .submit           = timespecDiffUs(&tAfterCmdRecord, &tAfterSubmit),
