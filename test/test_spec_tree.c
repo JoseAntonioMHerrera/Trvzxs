@@ -4,6 +4,7 @@
 #include "model.h"
 #include "light.h"
 #include "transformNode.h"
+#include "frustum.h"
 #include "vertex.h"
 #include "cglm.h"
 #include <stdlib.h>
@@ -366,6 +367,105 @@ void test_balanced_tree_invariants(void)
 }
 
 // ---------------------------------------------------------------------------
+// 6. Frustum cull propagates to children when parent is culled.
+//    Build a tree: parent at (1000,0,0) [outside frustum], two model children
+//    at local (0,0,0) and (0.5,0,0). Run resolve, run cull. Parent should be
+//    culled and children's passFlags must be set via the O(skipCount)
+//    propagation loop without needing their own frustum tests.
+// ---------------------------------------------------------------------------
+
+static void make_test_view_proj(mat4 out)
+{
+    mat4 view, proj;
+    glm_lookat((vec3){0.0f, 0.0f, 5.0f}, (vec3){0.0f, 0.0f, 0.0f},
+               (vec3){0.0f, 1.0f, 0.0f}, view);
+    glm_perspective(glm_rad(45.0f), 1.0f, 0.1f, 100.0f, proj);
+    proj[1][1] *= -1.0f;
+    glm_mat4_mul(proj, view, out);
+}
+
+void test_cull_frustum_fail_propagates_to_subtree(void)
+{
+    SCENE* scene = make_empty_scene_with_types(1, 0);
+
+    SceneEntitySpec* root   = sceneSpecNewModel(0, (vec3){1000.0f, 0.0f, 0.0f}, white());
+    SceneEntitySpec* childA = sceneSpecNewModel(0, (vec3){0.0f,    0.0f, 0.0f}, white());
+    SceneEntitySpec* childB = sceneSpecNewModel(0, (vec3){0.5f,    0.0f, 0.0f}, white());
+    sceneSpecAddChild(root, childA);
+    sceneSpecAddChild(root, childB);
+
+    fillSceneFromSpecTree(scene, &root, 1);
+
+    // Compute world matrices
+    resolveTransforms(&scene->transformManager);
+
+    // Build frustum and cull
+    mat4 vp;
+    make_test_view_proj(vp);
+    FrustumPlanes frustum;
+    frustumExtractPlanes(vp, &frustum);
+
+    frustumCullScene(scene, &frustum);
+
+    // All three should be marked disabled: parent via frustum test, children
+    // via the propagation loop (no frustum test on them).
+    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
+
+    sceneSpecFree(root);
+    free_empty_scene(scene);
+}
+
+// ---------------------------------------------------------------------------
+// 7. Lifecycle-disable a subtree root, verify cull bulk-skips via the fast
+//    path (resolve has already propagated cascade-disable to children).
+//    This exercises the O(1) bulk-skip case, not the O(skipCount) propagation.
+// ---------------------------------------------------------------------------
+
+void test_cull_lifecycle_disable_cascades_through_resolve(void)
+{
+    SCENE* scene = make_empty_scene_with_types(1, 0);
+
+    SceneEntitySpec* root   = sceneSpecNewModel(0, (vec3){0.0f, 0.0f, 0.0f}, white());
+    SceneEntitySpec* childA = sceneSpecNewModel(0, (vec3){1.0f, 0.0f, 0.0f}, white());
+    SceneEntitySpec* childB = sceneSpecNewModel(0, (vec3){2.0f, 0.0f, 0.0f}, white());
+    sceneSpecAddChild(root, childA);
+    sceneSpecAddChild(root, childB);
+
+    fillSceneFromSpecTree(scene, &root, 1);
+
+    // Lifecycle-disable the root transform. Resolve will cascade to children.
+    scene->transformManager.pTransformsHot[0].lifecycle = TRANSFORM_DISABLED;
+
+    resolveTransforms(&scene->transformManager);
+
+    // After resolve, all three transforms should have passFlags=DISABLED
+    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
+
+    // Run cull. Root is inside the frustum; without bulk-skip, cull would
+    // test it and succeed. The test here is that the fast-path bulk-skip
+    // fires: cull sees passFlags=DISABLED on root and skips the entire
+    // subtree, leaving the DISABLED state intact.
+    mat4 vp;
+    make_test_view_proj(vp);
+    FrustumPlanes frustum;
+    frustumExtractPlanes(vp, &frustum);
+
+    frustumCullScene(scene, &frustum);
+
+    // Still all disabled — cull should not have cleared anything.
+    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
+
+    sceneSpecFree(root);
+    free_empty_scene(scene);
+}
+
+// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
@@ -378,6 +478,8 @@ int main(void)
     RUN_TEST(test_cross_type_model_under_light);
     RUN_TEST(test_three_level_mixed_tree);
     RUN_TEST(test_balanced_tree_invariants);
+    RUN_TEST(test_cull_frustum_fail_propagates_to_subtree);
+    RUN_TEST(test_cull_lifecycle_disable_cascades_through_resolve);
 
     TEST_SUMMARY();
 }
