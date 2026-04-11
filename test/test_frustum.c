@@ -404,8 +404,9 @@ void test_cull_skips_destroyed_and_already_disabled(void)
     ASSERT_EQ(tman->pTransformsHot[0].passFlags, 0);
     // Destroyed instance: cull continued before touching the transform, so passFlags stays 0
     ASSERT_EQ(tman->pTransformsHot[1].passFlags, 0);
-    // Lifecycle-disabled transform: resolve set DISABLED, cull leaves it alone
-    ASSERT_EQ(tman->pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
+    // Lifecycle-disabled transform: resolve set DISABLED, cull leaves it alone.
+    // DIRTY stays sticky on disabled nodes so re-enable recomputes them.
+    ASSERT_EQ(tman->pTransformsHot[2].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
 
     free_test_scene(scene);
 }

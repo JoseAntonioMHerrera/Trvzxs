@@ -13,8 +13,19 @@
 #define TRANSFORM_DISABLED  0
 #define TRANSFORM_DESTROYED 2
 
-// Per-frame pass flag
+// passFlags bits.
+//
+// DISABLED is per-frame: cleared at the start of each resolveTransforms
+// iteration and re-set by resolve (lifecycle/cascade), cull (frustum miss),
+// and instance-level lifecycle checks.
+//
+// DIRTY is sticky across frames: set by mutators and by transformInitHot,
+// propagated down the subtree by resolveTransforms during the preorder walk,
+// and cleared by a second sequential sweep at the end of resolve. A node
+// whose DIRTY bit is NOT set when resolve visits it keeps its cached
+// worldMatrix from the previous frame instead of recomputing.
 #define TRANSFORM_PASS_DISABLED 1
+#define TRANSFORM_PASS_DIRTY    2
 
 // Hot-path slice of a transform. Touched every frame by cull, resolve, and
 // UBO fill. sizeof = 80 B after mat4 alignment padding (fits skipCount for
@@ -86,6 +97,13 @@ void transformSetParent(TransformManager* man, uint32_t childIdx, uint32_t paren
 
 // Clear parent (make node a root).
 void transformClearParent(TransformManager* man, uint32_t idx);
+
+// Mark a transform's worldMatrix as stale. Next resolveTransforms will
+// rebuild its localMatrix and compose a fresh worldMatrix, then propagate
+// DIRTY to every descendant. Idempotent. Required after any direct mutation
+// to pTransformsCold[idx] that doesn't go through the instance-wrapper
+// helpers in transform.c.
+void transformMarkDirty(TransformManager* man, uint32_t idx);
 
 // --- Per-frame resolve ---
 

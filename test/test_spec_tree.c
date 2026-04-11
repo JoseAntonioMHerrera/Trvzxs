@@ -409,9 +409,9 @@ void test_cull_frustum_fail_propagates_to_subtree(void)
 
     // All three should be marked disabled: parent via frustum test, children
     // via the propagation loop (no frustum test on them).
-    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
 
     sceneSpecFree(root);
     free_empty_scene(scene);
@@ -441,9 +441,9 @@ void test_cull_lifecycle_disable_cascades_through_resolve(void)
     resolveTransforms(&scene->transformManager);
 
     // After resolve, all three transforms should have passFlags=DISABLED
-    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
 
     // Run cull. Root is inside the frustum; without bulk-skip, cull would
     // test it and succeed. The test here is that the fast-path bulk-skip
@@ -457,9 +457,9 @@ void test_cull_lifecycle_disable_cascades_through_resolve(void)
     frustumCullScene(scene, &frustum);
 
     // Still all disabled — cull should not have cleared anything.
-    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
 
     sceneSpecFree(root);
     free_empty_scene(scene);

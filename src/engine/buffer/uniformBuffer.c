@@ -37,7 +37,7 @@ void updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene)
             TransformHot* hot = &scene->transformManager.pTransformsHot[inst->transformIdx];
 
             // Skip if cascade-disabled by hierarchy resolve pass
-            if (hot->passFlags == TRANSFORM_PASS_DISABLED)
+            if (hot->passFlags & TRANSFORM_PASS_DISABLED)
             {
                 continue;
             }
@@ -112,7 +112,7 @@ void updateLightUniformBuffersDirect(void* mappedBuffer, float deltaTime, SCENE*
             TransformCold* cold = &scene->transformManager.pTransformsCold[inst->transformIdx];
 
             // Skip if cascade-disabled by hierarchy resolve pass
-            if (hot->passFlags == TRANSFORM_PASS_DISABLED)
+            if (hot->passFlags & TRANSFORM_PASS_DISABLED)
             {
                 continue;
             }

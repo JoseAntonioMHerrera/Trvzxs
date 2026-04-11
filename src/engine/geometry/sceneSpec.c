@@ -97,12 +97,13 @@ static uint32_t specEmit(EmitContext* ctx, SceneEntitySpec* spec, uint32_t paren
     uint32_t          myIdx = ctx->nextPreorderIdx++;
     TransformManager* tman  = &ctx->scene->transformManager;
 
-    // Hot slot
+    // Hot slot. Start DIRTY so the first resolve pass computes worldMatrix
+    // from the TRS we just wrote into the cold slot below.
     TransformHot* hot = &tman->pTransformsHot[myIdx];
     glm_mat4_identity(hot->worldMatrix);
     hot->parentIdx = parentPreorderIdx;
     hot->lifecycle = TRANSFORM_ALIVE;
-    hot->passFlags = 0;
+    hot->passFlags = TRANSFORM_PASS_DIRTY;
     hot->skipCount = 0; // back-patched after recursion
 
     // Cold slot
@@ -168,6 +169,33 @@ void fillSceneFromSpecTree(SCENE* scene, SceneEntitySpec** roots, uint32_t rootC
 
     uint32_t modelLen = scene->modelsManager.modelLen;
     uint32_t lightLen = scene->lightManager.lightLen;
+
+    // Free any pre-existing allocations. This lets callers run the legacy
+    // fillSceneWith*Data path first (which sets up per-type metadata and
+    // packed vertex/index buffers, and allocates dense instance arrays with
+    // a flat layout) and then call fillSceneFromSpecTree to replace the
+    // flat layout with a preorder hierarchy. Per-type metadata (vertex
+    // offsets, packed buffers, localAABB) is preserved — only per-instance
+    // dense arrays and transform arrays are reallocated.
+    TransformManager* tmanCleanup = &scene->transformManager;
+    free(tmanCleanup->pTransformsHot);    tmanCleanup->pTransformsHot    = NULL;
+    free(tmanCleanup->pTransformsCold);   tmanCleanup->pTransformsCold   = NULL;
+    free(tmanCleanup->pPreorderEntities); tmanCleanup->pPreorderEntities = NULL;
+    free(tmanCleanup->pLocalAABBs);       tmanCleanup->pLocalAABBs       = NULL;
+    tmanCleanup->count     = 0;
+    tmanCleanup->liveCount = 0;
+
+    free(scene->modelsManager.pDenseModelInstances);
+    scene->modelsManager.pDenseModelInstances = NULL;
+    free(scene->modelsManager.instanceOffset.items);
+    scene->modelsManager.instanceOffset.items    = NULL;
+    scene->modelsManager.instanceOffset.itemsLen = 0;
+
+    free(scene->lightManager.pDenseLightInstances);
+    scene->lightManager.pDenseLightInstances = NULL;
+    free(scene->lightManager.instanceOffset.items);
+    scene->lightManager.instanceOffset.items    = NULL;
+    scene->lightManager.instanceOffset.itemsLen = 0;
 
     // --- Pass 1: count ---
     uint32_t  total       = 0;
