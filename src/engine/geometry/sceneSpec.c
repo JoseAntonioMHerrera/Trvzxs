@@ -100,18 +100,19 @@ static uint32_t specEmit(EmitContext* ctx, SceneEntitySpec* spec, uint32_t paren
     // Hot slot. Start DIRTY so the first resolve pass computes worldMatrix
     // from the TRS we just wrote into the cold slot below.
     TransformHot* hot = &tman->pTransformsHot[myIdx];
-    glm_mat4_identity(hot->worldMatrix);
     hot->parentIdx = parentPreorderIdx;
     hot->lifecycle = TRANSFORM_ALIVE;
     hot->passFlags = TRANSFORM_PASS_DIRTY;
     hot->skipCount = 0; // back-patched after recursion
+
+    // World slot: identity until the first resolve overwrites it.
+    glm_mat4_identity(tman->pTransformsWorld[myIdx].worldMatrix);
 
     // Cold slot
     TransformCold* cold = &tman->pTransformsCold[myIdx];
     glm_vec3_copy(spec->position, cold->position);
     glm_quat_copy(spec->rotation, cold->rotation);
     glm_vec3_copy(spec->scale, cold->scale);
-    glm_mat4_identity(cold->localMatrix);
     cold->_pad1 = 0.0f;
     cold->_pad2 = 0.0f;
 
@@ -179,6 +180,7 @@ void fillSceneFromSpecTree(SCENE* scene, SceneEntitySpec** roots, uint32_t rootC
     // dense arrays and transform arrays are reallocated.
     TransformManager* tmanCleanup = &scene->transformManager;
     free(tmanCleanup->pTransformsHot);    tmanCleanup->pTransformsHot    = NULL;
+    free(tmanCleanup->pTransformsWorld);  tmanCleanup->pTransformsWorld  = NULL;
     free(tmanCleanup->pTransformsCold);   tmanCleanup->pTransformsCold   = NULL;
     free(tmanCleanup->pPreorderEntities); tmanCleanup->pPreorderEntities = NULL;
     free(tmanCleanup->pLocalAABBs);       tmanCleanup->pLocalAABBs       = NULL;
@@ -251,10 +253,12 @@ void fillSceneFromSpecTree(SCENE* scene, SceneEntitySpec** roots, uint32_t rootC
 
     // Transform arrays sized to total entities
     TransformManager* tman = &scene->transformManager;
-    tman->pTransformsHot    = (TransformHot*)   calloc(total > 0 ? total : 1, sizeof(TransformHot));
-    tman->pTransformsCold   = (TransformCold*)  calloc(total > 0 ? total : 1, sizeof(TransformCold));
-    tman->pPreorderEntities = (PreorderEntity*) calloc(total > 0 ? total : 1, sizeof(PreorderEntity));
-    tman->pLocalAABBs       = (AABB*)           calloc(total > 0 ? total : 1, sizeof(AABB));
+    uint32_t allocTotal = total > 0 ? total : 1;
+    tman->pTransformsHot    = (TransformHot*)   calloc(allocTotal, sizeof(TransformHot));
+    tman->pTransformsWorld  = (TransformWorld*) calloc(allocTotal, sizeof(TransformWorld));
+    tman->pTransformsCold   = (TransformCold*)  calloc(allocTotal, sizeof(TransformCold));
+    tman->pPreorderEntities = (PreorderEntity*) calloc(allocTotal, sizeof(PreorderEntity));
+    tman->pLocalAABBs       = (AABB*)           calloc(allocTotal, sizeof(AABB));
     tman->count             = total;
     tman->liveCount         = total;
 

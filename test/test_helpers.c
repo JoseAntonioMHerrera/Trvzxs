@@ -13,6 +13,7 @@ TransformManager make_test_transform_manager(uint32_t count)
     tman.count             = count;
     tman.liveCount         = count;
     tman.pTransformsHot    = (TransformHot*)   calloc(count, sizeof(TransformHot));
+    tman.pTransformsWorld  = (TransformWorld*) calloc(count, sizeof(TransformWorld));
     tman.pTransformsCold   = (TransformCold*)  calloc(count, sizeof(TransformCold));
     tman.pPreorderEntities = (PreorderEntity*) calloc(count, sizeof(PreorderEntity));
     tman.pLocalAABBs       = (AABB*)           calloc(count, sizeof(AABB));
@@ -26,10 +27,12 @@ void free_test_transform_manager(TransformManager* tman)
     if (!tman)
         return;
     free(tman->pTransformsHot);
+    free(tman->pTransformsWorld);
     free(tman->pTransformsCold);
     free(tman->pPreorderEntities);
     free(tman->pLocalAABBs);
     tman->pTransformsHot    = NULL;
+    tman->pTransformsWorld  = NULL;
     tman->pTransformsCold   = NULL;
     tman->pPreorderEntities = NULL;
     tman->pLocalAABBs       = NULL;

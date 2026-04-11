@@ -8,14 +8,12 @@ void transformInitCold(TransformCold* cold)
     glm_vec3_zero(cold->position);
     glm_quat_identity(cold->rotation);
     glm_vec3_one(cold->scale);
-    glm_mat4_identity(cold->localMatrix);
     cold->_pad1 = 0.0f;
     cold->_pad2 = 0.0f;
 }
 
 void transformInitHot(TransformHot* hot)
 {
-    glm_mat4_identity(hot->worldMatrix);
     hot->parentIdx = TRANSFORM_NO_PARENT;
     hot->lifecycle = TRANSFORM_ALIVE;
     // Every newly-initialized slot starts dirty so the first resolve pass
@@ -24,9 +22,15 @@ void transformInitHot(TransformHot* hot)
     hot->skipCount = 0;
 }
 
+void transformInitWorld(TransformWorld* world)
+{
+    glm_mat4_identity(world->worldMatrix);
+}
+
 void transformInit(TransformManager* man, uint32_t idx)
 {
     transformInitHot(&man->pTransformsHot[idx]);
+    transformInitWorld(&man->pTransformsWorld[idx]);
     transformInitCold(&man->pTransformsCold[idx]);
 }
 
@@ -77,17 +81,16 @@ void transformRotateAxis(TransformCold* cold, float angleDeg, vec3 axis)
     glm_quat_normalize_to(result, cold->rotation);
 }
 
-void transformBuildLocalMatrix(TransformCold* cold)
+void transformBuildLocalMatrix(const TransformCold* cold, mat4 outLocal)
 {
-    // localMatrix = T * R * S
     mat4 T, R, S, temp;
 
-    glm_translate_make(T, cold->position);
-    glm_quat_mat4(cold->rotation, R);
-    glm_scale_make(S, cold->scale);
+    glm_translate_make(T, (float*)cold->position);
+    glm_quat_mat4((float*)cold->rotation, R);
+    glm_scale_make(S, (float*)cold->scale);
 
     glm_mat4_mul(T, R, temp);
-    glm_mat4_mul(temp, S, cold->localMatrix);
+    glm_mat4_mul(temp, S, outLocal);
 }
 
 void transformSetParent(TransformManager* man, uint32_t childIdx, uint32_t parentIdx)
@@ -145,14 +148,18 @@ void transformMarkDirty(TransformManager* man, uint32_t idx)
 
 void resolveTransforms(TransformManager* man)
 {
-    uint32_t live = 0;
+    TransformHot*   pHot   = man->pTransformsHot;
+    TransformWorld* pWorld = man->pTransformsWorld;
+    TransformCold*  pCold  = man->pTransformsCold;
+    uint32_t        count  = man->count;
+    uint32_t        live   = 0;
 
-    // Pass 1: preorder walk. Propagate DIRTY through the parent chain, recompute
-    // only dirty nodes, leave clean nodes untouched (their worldMatrix from the
-    // previous frame is still valid).
-    for (uint32_t i = 0; i < man->count; i++)
+    // Pass 1: SoA preorder walk. Touches only the 12-byte pHot entries for
+    // clean nodes (241 KB at 20K entries — L2-resident). pWorld is loaded
+    // only when a node is dirty, i.e. when we actually recompute.
+    for (uint32_t i = 0; i < count; i++)
     {
-        TransformHot* hot = &man->pTransformsHot[i];
+        TransformHot* hot = &pHot[i];
 
         // Clear DISABLED but keep DIRTY — DIRTY is sticky until pass 2.
         hot->passFlags &= ~TRANSFORM_PASS_DISABLED;
@@ -167,9 +174,10 @@ void resolveTransforms(TransformManager* man)
         // Cascade disable + parent-dirty lookup
         int           parentDirty = 0;
         TransformHot* parentHot   = NULL;
-        if (hot->parentIdx != TRANSFORM_NO_PARENT)
+        uint32_t      parentIdx   = hot->parentIdx;
+        if (parentIdx != TRANSFORM_NO_PARENT)
         {
-            parentHot = &man->pTransformsHot[hot->parentIdx];
+            parentHot = &pHot[parentIdx];
             if (parentHot->passFlags & TRANSFORM_PASS_DISABLED)
             {
                 hot->passFlags |= TRANSFORM_PASS_DISABLED;
@@ -182,22 +190,25 @@ void resolveTransforms(TransformManager* man)
         if (!selfDirty && !parentDirty)
         {
             // Clean: cached worldMatrix from previous frame is still valid.
+            // pWorld is NOT loaded for this node — that's the point of SoA.
             live++;
             continue;
         }
 
-        // Dirty: rebuild localMatrix from TRS, compose worldMatrix, and mark
-        // this node DIRTY so its children (later in preorder) also recompute.
-        TransformCold* cold = &man->pTransformsCold[i];
-        transformBuildLocalMatrix(cold);
+        // Dirty branch: compose local matrix into a stack temp (no writeback
+        // to cold — it's scratch), then compose worldMatrix. Mark this node
+        // DIRTY so its children (later in preorder) also recompute.
+        TransformCold* cold = &pCold[i];
+        mat4 localMatrix;
+        transformBuildLocalMatrix(cold, localMatrix);
 
         if (parentHot != NULL)
         {
-            glm_mat4_mul(parentHot->worldMatrix, cold->localMatrix, hot->worldMatrix);
+            glm_mat4_mul(pWorld[parentIdx].worldMatrix, localMatrix, pWorld[i].worldMatrix);
         }
         else
         {
-            glm_mat4_copy(cold->localMatrix, hot->worldMatrix);
+            glm_mat4_copy(localMatrix, pWorld[i].worldMatrix);
         }
 
         hot->passFlags |= TRANSFORM_PASS_DIRTY;
@@ -208,12 +219,12 @@ void resolveTransforms(TransformManager* man)
     // this frame. Disabled nodes (lifecycle or cascade) keep their DIRTY bit
     // sticky so the first resolve after they come back alive recomputes them
     // from fresh TRS instead of skipping them with a stale cached matrix.
-    // Streaming write of 2 B per node; the array is already hot in cache
-    // from pass 1.
-    for (uint32_t i = 0; i < man->count; i++)
+    // Streaming write of 4 B per entry (12-byte hot struct); the array is
+    // already hot in cache from pass 1.
+    for (uint32_t i = 0; i < count; i++)
     {
-        if (!(man->pTransformsHot[i].passFlags & TRANSFORM_PASS_DISABLED))
-            man->pTransformsHot[i].passFlags &= ~TRANSFORM_PASS_DIRTY;
+        if (!(pHot[i].passFlags & TRANSFORM_PASS_DISABLED))
+            pHot[i].passFlags &= ~TRANSFORM_PASS_DIRTY;
     }
 
     man->liveCount = live;

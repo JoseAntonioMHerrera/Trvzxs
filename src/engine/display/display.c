@@ -10,9 +10,11 @@
 #include "transformations.h"
 #include "mat4.h"
 #include "affine.h"
+#include "graphicConfiguration.h"
 #include <assert.h>
 #include <time.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 // ── Frame timing instrumentation ──────────────────────────────────────────────
 #ifdef DEBUG
@@ -38,13 +40,111 @@ typedef struct FrameTiming
 static FrameTiming g_accumTiming  = {0};
 static uint32_t    g_timingFrames = 0;
 
+// Per-scenario sample buffers for min/median/p95 stats. Capacity is
+// MAX_FRAME_COUNT which bounds the longest scenario. Entries written in
+// arrival order; flushed + reset at scenario boundaries via
+// displayBenchBeginScenario / displayBenchEndScenario.
+static const char* g_benchScenarioName           = NULL;
+static uint32_t    g_benchSampleCount            = 0;
+static double      g_benchResolveSamples[MAX_FRAME_COUNT];
+static double      g_benchCullSamples[MAX_FRAME_COUNT];
+static double      g_benchTotalCpuSamples[MAX_FRAME_COUNT];
+
 static inline double timespecDiffUs(struct timespec* start, struct timespec* end)
 {
     return (double)(end->tv_sec - start->tv_sec) * 1e6 + (double)(end->tv_nsec - start->tv_nsec) / 1e3;
 }
 
+static int benchSampleCompare(const void* a, const void* b)
+{
+    double da = *(const double*)a;
+    double db = *(const double*)b;
+    return (da > db) - (da < db);
+}
+
+// Compute min/mean/median/p95/max over a sample buffer and print one line.
+// Sorts a scratch copy so samples[] is untouched. Warmup transients are
+// skipped by dropping the first 3 frames before stat computation — they
+// correspond to the camera-change GPU pipeline re-warm, not steady state.
+static void benchPrintStatsLine(const char* label, const double* samples, uint32_t count)
+{
+    const uint32_t warmupSkip = 3;
+    if (count <= warmupSkip)
+    {
+        printf("  %-18s (n=%u too small)\n", label, count);
+        return;
+    }
+
+    uint32_t n = count - warmupSkip;
+    double*  scratch = (double*) malloc(n * sizeof(double));
+    if (!scratch) return;
+    for (uint32_t i = 0; i < n; i++) scratch[i] = samples[warmupSkip + i];
+
+    qsort(scratch, n, sizeof(double), benchSampleCompare);
+
+    double sum = 0.0;
+    for (uint32_t i = 0; i < n; i++) sum += scratch[i];
+    double mean   = sum / (double) n;
+    double minV   = scratch[0];
+    double maxV   = scratch[n - 1];
+    double median = (n & 1u) ? scratch[n / 2] : 0.5 * (scratch[n / 2 - 1] + scratch[n / 2]);
+    // p95 by nearest-rank — index = ceil(0.95 * n) - 1
+    uint32_t p95idx = (uint32_t)((0.95 * (double) n) + 0.9999);
+    if (p95idx >= n) p95idx = n - 1;
+    else if (p95idx > 0) p95idx -= 1;
+    double p95 = scratch[p95idx];
+
+    printf("  %-18s min=%8.1f median=%8.1f mean=%8.1f p95=%8.1f max=%8.1f  (n=%u)\n",
+           label, minV, median, mean, p95, maxV, n);
+
+    free(scratch);
+}
+
+void displayBenchBeginScenario(const char* name)
+{
+    // Flush previous scenario's stats first, if any.
+    if (g_benchScenarioName != NULL && g_benchSampleCount > 0)
+    {
+        printf("\n── Bench stats: '%s' (µs, warmup dropped) ──\n", g_benchScenarioName);
+        benchPrintStatsLine("resolveTransforms", g_benchResolveSamples,  g_benchSampleCount);
+        benchPrintStatsLine("frustumCull",       g_benchCullSamples,     g_benchSampleCount);
+        benchPrintStatsLine("totalCpu",          g_benchTotalCpuSamples, g_benchSampleCount);
+        printf("──────────────────────────────────────────\n\n");
+        fflush(stdout);
+    }
+    g_benchScenarioName = name;
+    g_benchSampleCount  = 0;
+}
+
+void displayBenchEndScenario(void)
+{
+    if (g_benchScenarioName != NULL && g_benchSampleCount > 0)
+    {
+        printf("\n── Bench stats: '%s' (µs, warmup dropped) ──\n", g_benchScenarioName);
+        benchPrintStatsLine("resolveTransforms", g_benchResolveSamples,  g_benchSampleCount);
+        benchPrintStatsLine("frustumCull",       g_benchCullSamples,     g_benchSampleCount);
+        benchPrintStatsLine("totalCpu",          g_benchTotalCpuSamples, g_benchSampleCount);
+        printf("──────────────────────────────────────────\n\n");
+        fflush(stdout);
+    }
+    g_benchScenarioName = NULL;
+    g_benchSampleCount  = 0;
+}
+
 static void accumulateTiming(FrameTiming* t)
 {
+    // Record raw per-frame samples into the active scenario buffer. Bounded
+    // by MAX_FRAME_COUNT; extra samples past capacity are silently dropped
+    // (scenario frame budgets sum to MAX_FRAME_COUNT so this only trips if
+    // a caller forgets to call displayBenchBeginScenario).
+    if (g_benchScenarioName != NULL && g_benchSampleCount < MAX_FRAME_COUNT)
+    {
+        g_benchResolveSamples[g_benchSampleCount]  = t->resolveTransforms;
+        g_benchCullSamples[g_benchSampleCount]     = t->frustumCull;
+        g_benchTotalCpuSamples[g_benchSampleCount] = t->totalCpu;
+        g_benchSampleCount++;
+    }
+
     g_accumTiming.semaphoreWait    += t->semaphoreWait;
     g_accumTiming.deletionQueue    += t->deletionQueue;
     g_accumTiming.ssboDescriptor   += t->ssboDescriptor;
@@ -88,6 +188,9 @@ static void accumulateTiming(FrameTiming* t)
 }
 
 #define MARK_TIME(name) struct timespec name; clock_gettime(CLOCK_MONOTONIC, &name)
+#else // !DEBUG — provide no-op bench stubs so main.cpp can call them unconditionally.
+void displayBenchBeginScenario(const char* name) { (void) name; }
+void displayBenchEndScenario(void) {}
 #endif // DEBUG
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp)
 {

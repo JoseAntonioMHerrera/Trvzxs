@@ -134,40 +134,43 @@ uint32_t max(uint32_t a, uint32_t b)
 struct BenchmarkScenario
 {
     const char *name;
-    vec3        eye;
-    vec3        center;
-    vec3        up;
-    uint32_t    frameCount;
+    vec3 eye;
+    vec3 center;
+    vec3 up;
+    uint32_t frameCount;
 };
 
-// 5 × 40 = 200 frames, matches MAX_FRAME_COUNT.
+// 40 + 40 + 80 + 80 + 80 = 320 frames, matches MAX_FRAME_COUNT. Scenarios
+// 3/4/5 get double weight because they're in the CPU-visible regime where the
+// per-frame variance dominates; scenarios 1/2 are already fence-blocked on the
+// GPU wall so 40 is plenty.
 static const BenchmarkScenario g_benchmarkScenarios[] = {
     // 1. Top-down overview: camera high above the 10×10 grid (spans ±90 on X/Y).
     //    Most groups visible. Exercises the "many tests, few bulk skips" path.
-    { "top-down overview",         {   0.0f,   0.0f, 260.0f }, {   0.0f,   0.0f,   0.0f }, { 0.0f, 1.0f, 0.0f }, 40 },
+    {"top-down overview", {0.0f, 0.0f, 260.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, 40},
 
     // 2. Low edge grazing: camera at Y=-180 looking toward the grid along +Y.
     //    About half the groups in view; distant ones get bulk-skipped.
-    { "low edge grazing",          {   0.0f, -180.0f,  20.0f }, {   0.0f,  20.0f,   0.0f }, { 0.0f, 0.0f, 1.0f }, 40 },
+    {"low edge grazing", {0.0f, -180.0f, 20.0f}, {0.0f, 20.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, 40},
 
     // 3. Close-up on one corner group: camera near (-90,-90) looking at that
     //    single group. 99% of the scene outside the frustum → ideal bulk-skip.
-    { "corner close-up",           { -95.0f, -95.0f,  15.0f }, { -85.0f, -85.0f,   5.0f }, { 0.0f, 0.0f, 1.0f }, 40 },
+    {"corner close-up", {-95.0f, -95.0f, 15.0f}, {-85.0f, -85.0f, 5.0f}, {0.0f, 0.0f, 1.0f}, 80},
 
     // 4. Facing away from the grid: camera at origin looking -Z. Zero groups
     //    in frustum → 100 light roots tested, all culled, 20000 models
     //    bulk-skipped. The "cheapest cull" case.
-    { "facing away (full cull)",   {   0.0f,   0.0f,   5.0f }, {   0.0f,   0.0f, -95.0f }, { 0.0f, 1.0f, 0.0f }, 40 },
+    {"facing away (full cull)", {0.0f, 0.0f, 5.0f}, {0.0f, 0.0f, -95.0f}, {0.0f, 1.0f, 0.0f}, 80},
 
     // 5. Inside the grid looking along +X: a strip of groups visible across
     //    the middle of the frustum, others outside.
-    { "inside grid, +X view",      {   0.0f,   0.0f,  10.0f }, {  60.0f,   0.0f,  10.0f }, { 0.0f, 0.0f, 1.0f }, 40 },
+    {"inside grid, +X view", {0.0f, 0.0f, 10.0f}, {60.0f, 0.0f, 10.0f}, {0.0f, 0.0f, 1.0f}, 80},
 };
 static const uint32_t g_benchmarkScenarioCount =
     sizeof(g_benchmarkScenarios) / sizeof(g_benchmarkScenarios[0]);
 
 // Fraction of model instances to dirty per frame.
-static const float BENCH_DIRTY_FRACTION = 0.00f;
+static const float BENCH_DIRTY_FRACTION = 0.20f;
 
 // Small LCG. Deterministic across runs for reproducible benchmarks.
 static uint32_t benchRng_nextU32(uint32_t *state)
@@ -192,15 +195,17 @@ static void benchApplyCamera(uint32_t frameIdx, Camera3D *camera)
         if (frameIdx < next)
         {
             // Set camera every frame of the scenario so nothing drifts it.
-            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].eye),    camera->eye);
+            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].eye), camera->eye);
             glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].center), camera->center);
-            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].up),     camera->up);
+            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].up), camera->up);
 
             if (frameIdx == cumulative)
             {
                 std::cout << "\n[bench] frame " << frameIdx << " → scenario '"
                           << g_benchmarkScenarios[s].name << "' (" << g_benchmarkScenarios[s].frameCount
                           << " frames)" << std::endl;
+                // Flush previous scenario's stats and start a new sample window.
+                displayBenchBeginScenario(g_benchmarkScenarios[s].name);
             }
             return;
         }
@@ -215,7 +220,7 @@ static void benchApplyRandomDirty(SCENE *scene)
 {
     static uint32_t rngState = 0xDEADBEEFu;
 
-    Models3DManager  *mm   = &scene->modelsManager;
+    Models3DManager *mm = &scene->modelsManager;
     TransformManager *tman = &scene->transformManager;
 
     uint32_t total = mm->modelInstanceCapacity;
@@ -225,7 +230,7 @@ static void benchApplyRandomDirty(SCENE *scene)
     uint32_t toUpdate = (uint32_t)((float)total * BENCH_DIRTY_FRACTION);
     for (uint32_t k = 0; k < toUpdate; k++)
     {
-        uint32_t idx  = benchRng_nextU32(&rngState) % total;
+        uint32_t idx = benchRng_nextU32(&rngState) % total;
         uint32_t tIdx = mm->pDenseModelInstances[idx].transformIdx;
 
         vec3 delta = {
@@ -347,12 +352,12 @@ int main()
         // angles most groups fall entirely outside the frustum and their
         // subtrees are bulk-skipped by frustumCullScene in O(1).
         scene->buildAndApplyGroupedSpecTree(
-            /*groupsPerSide*/   10,
+            /*groupsPerSide*/ 10,
             /*modelsPerGroupX*/ 10,
             /*modelsPerGroupY*/ 20,
-            /*groupSpacing*/    20.0f,
-            /*modelSpacing*/    0.3f,
-            /*lightScale*/      1.0f);
+            /*groupSpacing*/ 20.0f,
+            /*modelSpacing*/ 0.3f,
+            /*lightScale*/ 1.0f);
 
         std::cout << "QUE??????\n";
         engine->bulkInitVulkanWithScene(window, scene.get());
@@ -707,6 +712,9 @@ int main()
             // Aquí puedes añadir tus comandos de dibujo
             //        SDL_RenderPresent(renderer);
         }
+
+        // Flush stats for the final scenario before teardown.
+        displayBenchEndScenario();
 
         engine->metaCleanup();
 #ifndef RENDERDOC_ENABLED

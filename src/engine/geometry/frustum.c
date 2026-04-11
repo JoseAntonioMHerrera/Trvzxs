@@ -265,7 +265,7 @@ void frustumCullScene(SCENE* scene, const FrustumPlanes* frustum)
 
         // Actual frustum test against the per-entity local AABB.
         totalTested++;
-        if (!frustumTestAABB(frustum, &tman->pLocalAABBs[i], hot->worldMatrix))
+        if (!frustumTestAABB(frustum, &tman->pLocalAABBs[i], tman->pTransformsWorld[i].worldMatrix))
         {
             hot->passFlags |= TRANSFORM_PASS_DISABLED;
             totalCulled++;

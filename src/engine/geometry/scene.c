@@ -223,6 +223,7 @@ void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen, uint32_t p
 
     // TransformManager — allocated later once total instance counts are known
     (*scene)->transformManager.pTransformsHot    = NULL;
+    (*scene)->transformManager.pTransformsWorld  = NULL;
     (*scene)->transformManager.pTransformsCold   = NULL;
     (*scene)->transformManager.pPreorderEntities = NULL;
     (*scene)->transformManager.pLocalAABBs       = NULL;
@@ -370,6 +371,7 @@ void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
     if (tman->pTransformsHot == NULL)
     {
         tman->pTransformsHot    = (TransformHot*)   calloc(newCount, sizeof(TransformHot));
+        tman->pTransformsWorld  = (TransformWorld*) calloc(newCount, sizeof(TransformWorld));
         tman->pTransformsCold   = (TransformCold*)  calloc(newCount, sizeof(TransformCold));
         tman->pPreorderEntities = (PreorderEntity*) calloc(newCount, sizeof(PreorderEntity));
         tman->pLocalAABBs       = (AABB*)           calloc(newCount, sizeof(AABB));
@@ -377,10 +379,12 @@ void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
     else
     {
         tman->pTransformsHot    = (TransformHot*)   realloc(tman->pTransformsHot,    newCount * sizeof(TransformHot));
+        tman->pTransformsWorld  = (TransformWorld*) realloc(tman->pTransformsWorld,  newCount * sizeof(TransformWorld));
         tman->pTransformsCold   = (TransformCold*)  realloc(tman->pTransformsCold,   newCount * sizeof(TransformCold));
         tman->pPreorderEntities = (PreorderEntity*) realloc(tman->pPreorderEntities, newCount * sizeof(PreorderEntity));
         tman->pLocalAABBs       = (AABB*)           realloc(tman->pLocalAABBs,       newCount * sizeof(AABB));
         memset(&tman->pTransformsHot[tman->count],    0, man->modelInstanceCapacity * sizeof(TransformHot));
+        memset(&tman->pTransformsWorld[tman->count],  0, man->modelInstanceCapacity * sizeof(TransformWorld));
         memset(&tman->pTransformsCold[tman->count],   0, man->modelInstanceCapacity * sizeof(TransformCold));
         memset(&tman->pPreorderEntities[tman->count], 0, man->modelInstanceCapacity * sizeof(PreorderEntity));
         memset(&tman->pLocalAABBs[tman->count],       0, man->modelInstanceCapacity * sizeof(AABB));
@@ -527,6 +531,7 @@ void fillLightVolumeInstancesIndices(LightManager* lan, TransformManager* tman)
     if (tman->pTransformsHot == NULL)
     {
         tman->pTransformsHot    = (TransformHot*)   calloc(newCount, sizeof(TransformHot));
+        tman->pTransformsWorld  = (TransformWorld*) calloc(newCount, sizeof(TransformWorld));
         tman->pTransformsCold   = (TransformCold*)  calloc(newCount, sizeof(TransformCold));
         tman->pPreorderEntities = (PreorderEntity*) calloc(newCount, sizeof(PreorderEntity));
         tman->pLocalAABBs       = (AABB*)           calloc(newCount, sizeof(AABB));
@@ -534,10 +539,12 @@ void fillLightVolumeInstancesIndices(LightManager* lan, TransformManager* tman)
     else
     {
         tman->pTransformsHot    = (TransformHot*)   realloc(tman->pTransformsHot,    newCount * sizeof(TransformHot));
+        tman->pTransformsWorld  = (TransformWorld*) realloc(tman->pTransformsWorld,  newCount * sizeof(TransformWorld));
         tman->pTransformsCold   = (TransformCold*)  realloc(tman->pTransformsCold,   newCount * sizeof(TransformCold));
         tman->pPreorderEntities = (PreorderEntity*) realloc(tman->pPreorderEntities, newCount * sizeof(PreorderEntity));
         tman->pLocalAABBs       = (AABB*)           realloc(tman->pLocalAABBs,       newCount * sizeof(AABB));
         memset(&tman->pTransformsHot[tman->count],    0, lan->lightInstanceCapacity * sizeof(TransformHot));
+        memset(&tman->pTransformsWorld[tman->count],  0, lan->lightInstanceCapacity * sizeof(TransformWorld));
         memset(&tman->pTransformsCold[tman->count],   0, lan->lightInstanceCapacity * sizeof(TransformCold));
         memset(&tman->pPreorderEntities[tman->count], 0, lan->lightInstanceCapacity * sizeof(PreorderEntity));
         memset(&tman->pLocalAABBs[tman->count],       0, lan->lightInstanceCapacity * sizeof(AABB));

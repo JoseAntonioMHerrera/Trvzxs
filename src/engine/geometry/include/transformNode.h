@@ -27,35 +27,47 @@
 #define TRANSFORM_PASS_DISABLED 1
 #define TRANSFORM_PASS_DIRTY    2
 
-// Hot-path slice of a transform. Touched every frame by cull, resolve, and
-// UBO fill. sizeof = 80 B after mat4 alignment padding (fits skipCount for
-// free within the existing pad).
+// Per-frame loop state for a transform. Walked every frame by resolve, cull,
+// and UBO fill for lifecycle/cascade/dirty decisions. Kept deliberately small
+// (12 B) and separated from worldMatrix so a sequential walk of the whole
+// array fits in L2 at 20K+ entries instead of bleeding into L3/DRAM.
 typedef struct TransformHot
 {
-    mat4     worldMatrix; // 64 B — produced by resolve, consumed by cull + UBO fill
     uint32_t parentIdx;   //  4 B — preorder index of parent, or TRANSFORM_NO_PARENT
     uint16_t lifecycle;   //  2 B — TRANSFORM_ALIVE / DISABLED / DESTROYED
-    uint16_t passFlags;   //  2 B — per-frame cascade / cull disable
+    uint16_t passFlags;   //  2 B — per-frame cascade/cull disable + sticky DIRTY
     uint32_t skipCount;   //  4 B — size of this node's subtree (0 = leaf), populated
                           //         by the load-time DFS emit. Consumed by
-                          //         resolve/cull in Phase 3.
+                          //         resolve/cull for bulk-skip.
 } TransformHot;
 
-// Cold-path slice. Read by resolve to rebuild local + world matrices, and by
-// the light UBO fill to sample uniform scale. Otherwise untouched per frame.
+// World matrix, held in a parallel array and only touched when actually
+// recomputed (resolve dirty branch) or consumed (cull frustum test, UBO fill).
+// 64 B = exactly one cache line, so a cull miss reads one line, a UBO fill
+// read reads one line, no fragmentation.
+typedef struct TransformWorld
+{
+    mat4 worldMatrix;     // 64 B — produced by resolve, consumed by cull + UBO fill
+} TransformWorld;
+
+// Cold-path slice. Read by resolve's dirty branch to rebuild the world matrix
+// from TRS, and by the light UBO fill to sample uniform scale. Kept to 48 B
+// (TRS only): the local matrix used to live here too but was pure scratch —
+// resolve is the sole consumer and now computes it into a stack temporary,
+// which halves the dirty-branch cache footprint from 112 B → 48 B per entry.
 typedef struct TransformCold
 {
     vec3  position;    // 12 B + 4 pad
     float _pad1;
-    versor rotation;   // 16 B (quaternion)
+    versor rotation;   // 16 B (quaternion), 16 B aligned for SSE
     vec3  scale;       // 12 B + 4 pad
     float _pad2;
-    mat4  localMatrix; // 64 B — T * R * S, rebuilt each frame by resolve
 } TransformCold;
 
 typedef struct TransformManager
 {
-    TransformHot*   pTransformsHot;    // [count] — hot working set
+    TransformHot*   pTransformsHot;    // [count] — 12 B loop state, walked every frame
+    TransformWorld* pTransformsWorld;  // [count] — 64 B world matrix, lazy (resolve writes, cull/UBO fill read)
     TransformCold*  pTransformsCold;   // [count] — cold TRS + local matrix
     PreorderEntity* pPreorderEntities; // [count] — reverse index: preorder pos → backing instance
     AABB*           pLocalAABBs;       // [count] — per-entity local-space AABB (copied from type at load)
@@ -65,14 +77,20 @@ typedef struct TransformManager
 
 // --- Init helpers ---
 
-// Initialize a single cold slot: zero TRS, identity localMatrix.
+// Initialize a single cold slot: zero position, identity rotation, unit scale.
 void transformInitCold(TransformCold* cold);
 
-// Initialize a single hot slot: identity worldMatrix, no parent, alive, no flags.
+// Initialize a single hot slot: no parent, alive, DIRTY bit set (so the first
+// resolve computes the worldMatrix from fresh TRS).
 void transformInitHot(TransformHot* hot);
 
-// Convenience: initialize both arrays at index `idx`. Caller must ensure
-// `idx < man->count` and that both arrays are allocated.
+// Initialize a single world slot to identity. Only needed for pre-resolve
+// reads from tests — resolve overwrites it anyway on the first pass because
+// the hot slot starts with DIRTY set.
+void transformInitWorld(TransformWorld* world);
+
+// Convenience: initialize hot + world + cold at index `idx`. Caller must
+// ensure `idx < man->count` and that all three arrays are allocated.
 void transformInit(TransformManager* man, uint32_t idx);
 
 // --- TRS setters (operate on cold) ---
@@ -87,8 +105,9 @@ void transformSetScaleUniform(TransformCold* cold, float s);
 void transformTranslate(TransformCold* cold, vec3 delta);
 void transformRotateAxis(TransformCold* cold, float angleDeg, vec3 axis);
 
-// Rebuild localMatrix from TRS (called by resolveTransforms, or manually)
-void transformBuildLocalMatrix(TransformCold* cold);
+// Compose local matrix = T * R * S into the caller-provided mat4. No state
+// lives in TransformCold for this — resolveTransforms passes a stack temp.
+void transformBuildLocalMatrix(const TransformCold* cold, mat4 outLocal);
 
 // --- Hierarchy (operates on the manager, touches hot) ---
 
@@ -99,8 +118,7 @@ void transformSetParent(TransformManager* man, uint32_t childIdx, uint32_t paren
 void transformClearParent(TransformManager* man, uint32_t idx);
 
 // Mark a transform's worldMatrix as stale. Next resolveTransforms will
-// rebuild its localMatrix and compose a fresh worldMatrix, then propagate
-// DIRTY to every descendant. Idempotent. Required after any direct mutation
+// recompose a fresh worldMatrix from TRS and propagate DIRTY to every descendant. Idempotent. Required after any direct mutation
 // to pTransformsCold[idx] that doesn't go through the instance-wrapper
 // helpers in transform.c.
 void transformMarkDirty(TransformManager* man, uint32_t idx);
