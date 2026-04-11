@@ -51,13 +51,13 @@ void test_parent_child_position(void)
     updateModelUniformBuffersDirect(result, scene);
 
     // Parent world = its own local: (10, 0, 0)
-    TransformHot* pNode = &tman->pTransformsHot[parent->transformIdx];
+    TransformWorld* pNode = &tman->pTransformsWorld[parent->transformIdx];
     ASSERT_FLOAT_EQ(pNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(pNode->worldMatrix[3][1], 0.0f);
     ASSERT_FLOAT_EQ(pNode->worldMatrix[3][2], 0.0f);
 
     // Child world = parent + local: (10, 5, 0)
-    TransformHot* cNode = &tman->pTransformsHot[child->transformIdx];
+    TransformWorld* cNode = &tman->pTransformsWorld[child->transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 0.0f);
@@ -93,17 +93,17 @@ void test_three_level_chain(void)
     updateModelUniformBuffersDirect(result, scene);
 
     // Grandparent: (10, 0, 0)
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[gp->transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[gp->transformIdx].worldMatrix[3][1], 0.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[gp->transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[gp->transformIdx].worldMatrix[3][1], 0.0f);
 
     // Parent: gp + local = (10, 20, 0)
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[mid->transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[mid->transformIdx].worldMatrix[3][1], 20.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[mid->transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[mid->transformIdx].worldMatrix[3][1], 20.0f);
 
     // Child: (10, 20, 30)
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[child->transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[child->transformIdx].worldMatrix[3][1], 20.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[child->transformIdx].worldMatrix[3][2], 30.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[child->transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[child->transformIdx].worldMatrix[3][1], 20.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[child->transformIdx].worldMatrix[3][2], 30.0f);
 
     free(result);
     free_test_scene(scene);
@@ -133,7 +133,7 @@ void test_cross_model_parenting(void)
     updateModelUniformBuffersDirect(result, scene);
 
     // Child world = parent(5,5,5) + local(1,1,1) = (6,6,6)
-    TransformHot* cNode = &tman->pTransformsHot[child->transformIdx];
+    TransformWorld* cNode = &tman->pTransformsWorld[child->transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 6.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 6.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 6.0f);
@@ -168,7 +168,7 @@ void test_parent_scale_affects_child(void)
     updateModelUniformBuffersDirect(result, scene);
 
     // Parent at origin, scale 2x. Child local (5,0,0) -> world (10,0,0)
-    TransformHot* cNode = &tman->pTransformsHot[child->transformIdx];
+    TransformWorld* cNode = &tman->pTransformsWorld[child->transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 0.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 0.0f);
@@ -204,10 +204,10 @@ void test_multiple_children_same_parent(void)
     ModelInstanceUBO* result = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
     updateModelUniformBuffersDirect(result, scene);
 
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[0].transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx].worldMatrix[3][0], 11.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[2].transformIdx].worldMatrix[3][0], 12.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[3].transformIdx].worldMatrix[3][0], 13.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[scene->modelsManager.pDenseModelInstances[0].transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[scene->modelsManager.pDenseModelInstances[1].transformIdx].worldMatrix[3][0], 11.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[scene->modelsManager.pDenseModelInstances[2].transformIdx].worldMatrix[3][0], 12.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[scene->modelsManager.pDenseModelInstances[3].transformIdx].worldMatrix[3][0], 13.0f);
 
     free(result);
     free_test_scene(scene);
@@ -290,7 +290,7 @@ void test_reenable_parent_restores_children(void)
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 2);
 
     // Child world position correct: (10, 5, 0)
-    TransformHot* cNode = &tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx];
+    TransformWorld* cNode = &tman->pTransformsWorld[scene->modelsManager.pDenseModelInstances[1].transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][2], 0.0f);
@@ -320,7 +320,7 @@ void test_clear_parent_makes_root(void)
     resolveTransforms(tman);
     ModelInstanceUBO* r1 = (ModelInstanceUBO*) malloc(sizeof(ModelInstanceUBO) * scene->modelsManager.modelInstanceCapacity);
     updateModelUniformBuffersDirect(r1, scene);
-    TransformHot* cNode = &tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx];
+    TransformWorld* cNode = &tman->pTransformsWorld[scene->modelsManager.pDenseModelInstances[1].transformIdx];
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(cNode->worldMatrix[3][1], 5.0f);
     free(r1);
@@ -413,7 +413,7 @@ void test_cross_type_light_parented_to_model(void)
     resolveTransforms(tman);
 
     // Light world = parent(10,0,0) + local(0,5,0) = (10, 5, 0)
-    TransformHot* lNode = &tman->pTransformsHot[lightInst->transformIdx];
+    TransformWorld* lNode = &tman->pTransformsWorld[lightInst->transformIdx];
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][2], 0.0f);
@@ -474,7 +474,7 @@ void test_cross_type_parent_scale_affects_light(void)
     resolveTransforms(tman);
 
     // Light world = 3 * (2, 0, 0) = (6, 0, 0)
-    TransformHot* lNode = &tman->pTransformsHot[lightInst->transformIdx];
+    TransformWorld* lNode = &tman->pTransformsWorld[lightInst->transformIdx];
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][0], 6.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][1], 0.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][2], 0.0f);
@@ -510,7 +510,7 @@ void test_cross_type_reenable_restores_light(void)
     ASSERT_EQ(tman->pTransformsHot[lightInst->transformIdx].passFlags, 0);
 
     // Light world position restored: (10, 5, 0)
-    TransformHot* lNode = &tman->pTransformsHot[lightInst->transformIdx];
+    TransformWorld* lNode = &tman->pTransformsWorld[lightInst->transformIdx];
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][0], 10.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][1], 5.0f);
     ASSERT_FLOAT_EQ(lNode->worldMatrix[3][2], 0.0f);
@@ -537,17 +537,17 @@ void test_cross_type_clear_parent(void)
 
     // Frame 1: parented → light at (10, 5, 0)
     resolveTransforms(tman);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][0], 10.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][1], 5.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[lightInst->transformIdx].worldMatrix[3][0], 10.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[lightInst->transformIdx].worldMatrix[3][1], 5.0f);
 
     // Clear parent
     transformClearParent(tman, lightInst->transformIdx);
 
     // Frame 2: unparented → light at (0, 5, 0)
     resolveTransforms(tman);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][0], 0.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][1], 5.0f);
-    ASSERT_FLOAT_EQ(tman->pTransformsHot[lightInst->transformIdx].worldMatrix[3][2], 0.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[lightInst->transformIdx].worldMatrix[3][0], 0.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[lightInst->transformIdx].worldMatrix[3][1], 5.0f);
+    ASSERT_FLOAT_EQ(tman->pTransformsWorld[lightInst->transformIdx].worldMatrix[3][2], 0.0f);
 
     free_test_scene_mixed(scene);
 }

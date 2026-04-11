@@ -13,3 +13,12 @@ GraphicPipelineToSurface *particleGraphics, GraphicPipelineToSurface* lightGraph
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp);
 
 void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* window);
+
+// --- Benchmark per-scenario stats (DEBUG builds only) ---
+// Begin a new scenario window: flushes the previous scenario's collected
+// samples as a min/median/mean/p95/max stats block, then resets the buffer.
+// End: forces a final flush at the end of the run. Both are no-ops in
+// non-DEBUG builds. Samples are per-frame resolveTransforms, frustumCull
+// and totalCpu timings, captured automatically from the frame loop.
+void displayBenchBeginScenario(const char* name);
+void displayBenchEndScenario(void);

@@ -59,6 +59,7 @@ static void free_empty_scene(SCENE* scene)
     free(scene->lightManager.pDenseLightInstances);
     free(scene->lightManager.instanceOffset.items);
     free(scene->transformManager.pTransformsHot);
+    free(scene->transformManager.pTransformsWorld);
     free(scene->transformManager.pTransformsCold);
     free(scene->transformManager.pPreorderEntities);
     free(scene->transformManager.pLocalAABBs);

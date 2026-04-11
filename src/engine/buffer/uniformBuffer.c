@@ -34,7 +34,8 @@ void updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene)
             }
 
             // Read resolved world matrix from transform hierarchy (resolved before UBO fill)
-            TransformHot* hot = &scene->transformManager.pTransformsHot[inst->transformIdx];
+            TransformHot*   hot   = &scene->transformManager.pTransformsHot[inst->transformIdx];
+            TransformWorld* world = &scene->transformManager.pTransformsWorld[inst->transformIdx];
 
             // Skip if cascade-disabled by hierarchy resolve pass
             if (hot->passFlags & TRANSFORM_PASS_DISABLED)
@@ -42,7 +43,7 @@ void updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene)
                 continue;
             }
 
-            glm_mat4_copy(hot->worldMatrix, pInstances[transformationsIdx].model);
+            glm_mat4_copy(world->worldMatrix, pInstances[transformationsIdx].model);
 
             transformationsIdx++;
         }
@@ -108,8 +109,9 @@ void updateLightUniformBuffersDirect(void* mappedBuffer, float deltaTime, SCENE*
             }
 
             // Read resolved world matrix + scale from transform hierarchy
-            TransformHot*  hot  = &scene->transformManager.pTransformsHot[inst->transformIdx];
-            TransformCold* cold = &scene->transformManager.pTransformsCold[inst->transformIdx];
+            TransformHot*   hot   = &scene->transformManager.pTransformsHot[inst->transformIdx];
+            TransformWorld* world = &scene->transformManager.pTransformsWorld[inst->transformIdx];
+            TransformCold*  cold  = &scene->transformManager.pTransformsCold[inst->transformIdx];
 
             // Skip if cascade-disabled by hierarchy resolve pass
             if (hot->passFlags & TRANSFORM_PASS_DISABLED)
@@ -118,11 +120,11 @@ void updateLightUniformBuffersDirect(void* mappedBuffer, float deltaTime, SCENE*
             }
 
             // Model matrix from resolved transform
-            glm_mat4_copy(hot->worldMatrix, pInstances[transformationsCount].model);
+            glm_mat4_copy(world->worldMatrix, pInstances[transformationsCount].model);
 
             // Extract position from world matrix column 3 (translation)
             vec3 worldPos;
-            glm_vec3_copy(hot->worldMatrix[3], worldPos);
+            glm_vec3_copy(world->worldMatrix[3], worldPos);
 
             vec3 result;
             getRotatingPositionAroundLight(worldPos, result, deltaTime, 3);
