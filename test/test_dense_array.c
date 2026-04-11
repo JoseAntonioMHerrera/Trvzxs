@@ -400,6 +400,8 @@ void test_staging_consolidation(void)
     free(man.instanceOffset.items);
     free(tman.pTransformsHot);
     free(tman.pTransformsCold);
+    free(tman.pPreorderEntities);
+    free(tman.pLocalAABBs);
 }
 
 // ---------------------------------------------------------------------------
@@ -442,6 +444,8 @@ void test_staging_consolidation_null_staging(void)
     free(man.instanceOffset.items);
     free(tman.pTransformsHot);
     free(tman.pTransformsCold);
+    free(tman.pPreorderEntities);
+    free(tman.pLocalAABBs);
 }
 
 // ---------------------------------------------------------------------------

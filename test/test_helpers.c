@@ -10,10 +10,12 @@ TransformManager make_test_transform_manager(uint32_t count)
 {
     TransformManager tman;
     memset(&tman, 0, sizeof(tman));
-    tman.count           = count;
-    tman.liveCount       = count;
-    tman.pTransformsHot  = (TransformHot*)  calloc(count, sizeof(TransformHot));
-    tman.pTransformsCold = (TransformCold*) calloc(count, sizeof(TransformCold));
+    tman.count             = count;
+    tman.liveCount         = count;
+    tman.pTransformsHot    = (TransformHot*)   calloc(count, sizeof(TransformHot));
+    tman.pTransformsCold   = (TransformCold*)  calloc(count, sizeof(TransformCold));
+    tman.pPreorderEntities = (PreorderEntity*) calloc(count, sizeof(PreorderEntity));
+    tman.pLocalAABBs       = (AABB*)           calloc(count, sizeof(AABB));
     for (uint32_t i = 0; i < count; i++)
         transformInit(&tman, i);
     return tman;
@@ -25,10 +27,14 @@ void free_test_transform_manager(TransformManager* tman)
         return;
     free(tman->pTransformsHot);
     free(tman->pTransformsCold);
-    tman->pTransformsHot  = NULL;
-    tman->pTransformsCold = NULL;
-    tman->count           = 0;
-    tman->liveCount       = 0;
+    free(tman->pPreorderEntities);
+    free(tman->pLocalAABBs);
+    tman->pTransformsHot    = NULL;
+    tman->pTransformsCold   = NULL;
+    tman->pPreorderEntities = NULL;
+    tman->pLocalAABBs       = NULL;
+    tman->count             = 0;
+    tman->liveCount         = 0;
 }
 
 // Internal: sets up model manager with transforms starting at transformBase
