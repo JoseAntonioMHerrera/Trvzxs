@@ -197,7 +197,7 @@ static inline void markSubtreeDisabled(TransformHot* hot, uint32_t rootIdx)
     uint32_t skip = hot[rootIdx].skipCount;
     for (uint32_t j = rootIdx + 1; j < rootIdx + 1 + skip; j++)
     {
-        hot[j].passFlags = TRANSFORM_PASS_DISABLED;
+        hot[j].passFlags |= TRANSFORM_PASS_DISABLED;
     }
 }
 
@@ -214,7 +214,7 @@ void frustumCullScene(SCENE* scene, const FrustumPlanes* frustum)
 
         // Fast path: already disabled by resolve (lifecycle or cascade).
         // Descendants are already correctly flagged — bulk-skip in O(1).
-        if (hot->passFlags == TRANSFORM_PASS_DISABLED)
+        if (hot->passFlags & TRANSFORM_PASS_DISABLED)
         {
             i += 1 + hot->skipCount;
             continue;
@@ -257,7 +257,7 @@ void frustumCullScene(SCENE* scene, const FrustumPlanes* frustum)
         if (!alive)
         {
             // Instance-level disable: mark this node + propagate to subtree.
-            hot->passFlags = TRANSFORM_PASS_DISABLED;
+            hot->passFlags |= TRANSFORM_PASS_DISABLED;
             markSubtreeDisabled(tman->pTransformsHot, i);
             i += 1 + hot->skipCount;
             continue;
@@ -267,7 +267,7 @@ void frustumCullScene(SCENE* scene, const FrustumPlanes* frustum)
         totalTested++;
         if (!frustumTestAABB(frustum, &tman->pLocalAABBs[i], hot->worldMatrix))
         {
-            hot->passFlags = TRANSFORM_PASS_DISABLED;
+            hot->passFlags |= TRANSFORM_PASS_DISABLED;
             totalCulled++;
             markSubtreeDisabled(tman->pTransformsHot, i);
             i += 1 + hot->skipCount;

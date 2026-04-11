@@ -7,6 +7,7 @@ extern "C"
 #include "scene.h"
 #include "transform.h"
 #include "transformNode.h"
+#include "sceneSpec.h"
 }
 
 void sceneDeletor(SCENE *scene) {
@@ -461,5 +462,183 @@ public:
         scene->sceneInstancesLen = scene->modelsManager.modelInstanceLen + scene->lightManager.lightInstanceCount;
 
         this->scene_ = &(*scene);
+    }
+
+    // Rebuild the scene's transform + dense instance arrays using a spec tree
+    // that parents every model instance under one of 2 light roots (one per
+    // plane). Must be called AFTER init() so per-type metadata (packed vertex
+    // buffers, localAABBs) is already populated. Replaces the flat layout
+    // created by init() with a preorder hierarchy layout.
+    //
+    // World-space positions match the original dual-plane layout. Because the
+    // light roots have scale = cubeScale > 1, each model child's local TRS is
+    // compensated so its world scale stays at 1.
+    void buildAndApplyDualPlaneSpecTree(uint32_t modelInstanceCount, float planeGap, float cubeScale)
+    {
+        uint32_t perSide = modelInstanceCount / 2;
+
+        uint32_t gridSide = (uint32_t) sqrtf((float) perSide);
+        if (gridSide * gridSide < perSide) gridSide++;
+        const float gridSpacing = 1.0f;
+
+        SceneEntitySpec *roots[2] = {nullptr, nullptr};
+
+        for (int side = 0; side < 2; side++)
+        {
+            float                  planeX = side == 0 ? planeGap : -planeGap;
+            GEOM_VERTEX_COLOR_RGBA lightColor;
+            if (side == 0)
+            {
+                lightColor.r = 0.0f; lightColor.g = 1.0f; lightColor.b = 0.0f; lightColor.a = 1.0f;
+            }
+            else
+            {
+                lightColor.r = 1.0f; lightColor.g = 0.0f; lightColor.b = 0.0f; lightColor.a = 1.0f;
+            }
+
+            // Light root at (planeX, 0, 0) with scale = cubeScale.
+            vec3             rootPos   = {planeX, 0.0f, 0.0f};
+            SceneEntitySpec *lightRoot = sceneSpecNewLight(0 /*type idx*/, rootPos, cubeScale, lightColor);
+
+            // Model children. Each child's LOCAL TRS must compensate for the
+            // parent's scale so its world transform matches the original
+            // flat-layout intent: world position = (planeX, gridY, gridZ),
+            // world scale = 1.
+            //
+            //   childWorldScale = parentScale * childLocalScale
+            //   1              = cubeScale    * childLocalScale
+            //   => childLocalScale = 1 / cubeScale
+            //
+            //   childWorldPos = parentPos + parentScale * childLocalPos
+            //   (planeX, gY, gZ) = (planeX, 0, 0) + cubeScale * childLocalPos
+            //   => childLocalPos = (0, gY / cubeScale, gZ / cubeScale)
+            float invCube = 1.0f / cubeScale;
+
+            GEOM_VERTEX_COLOR_RGBA white;
+            white.r = 1.0f; white.g = 1.0f; white.b = 1.0f; white.a = 1.0f;
+
+            for (uint32_t i = 0; i < perSide; i++)
+            {
+                uint32_t col = i % gridSide;
+                uint32_t row = i / gridSide;
+                float    gY  = (col - gridSide / 2.0f) * gridSpacing;
+                float    gZ  = (row - gridSide / 2.0f) * gridSpacing;
+
+                vec3             localPos = {0.0f, gY * invCube, gZ * invCube};
+                SceneEntitySpec *child    = sceneSpecNewModel(0 /*type idx*/, localPos, white);
+                child->scale[0]           = invCube;
+                child->scale[1]           = invCube;
+                child->scale[2]           = invCube;
+
+                sceneSpecAddChild(lightRoot, child);
+            }
+
+            roots[side] = lightRoot;
+        }
+
+        fillSceneFromSpecTree(this->scene_, roots, 2);
+
+        this->scene_->sceneInstancesLen =
+            this->scene_->modelsManager.modelInstanceLen + this->scene_->lightManager.lightInstanceCount;
+
+        sceneSpecFree(roots[0]);
+        sceneSpecFree(roots[1]);
+    }
+
+    // Build a scene organized as a grid of groups, where each group is a
+    // light root parenting its models. Designed to give hierarchical frustum
+    // culling something real to skip: each group's light volume is sized to
+    // tightly bound its children, so when the camera flies around, most
+    // groups fall entirely outside the frustum and their subtrees are
+    // bulk-skipped via the skipCount fast path.
+    //
+    // Layout:
+    //   - groupsPerSide × groupsPerSide groups arranged on the XY plane
+    //     at Z=0, centered at the origin with `groupSpacing` between
+    //     group centers.
+    //   - Each group has one light root at the group center with uniform
+    //     scale `lightScale`. The light mesh is the standard 10-unit cube,
+    //     so at lightScale=1 the world AABB is 10×10×10 per group.
+    //   - Each group contains modelsPerGroupX × modelsPerGroupY model
+    //     children arranged on the group's local XY plane at `modelSpacing`
+    //     apart. Child local TRS is compensated so child world scale = 1
+    //     regardless of lightScale.
+    //
+    // Must be called AFTER init() so per-type metadata is populated.
+    // Replaces any existing dense-array layout with a preorder hierarchy.
+    void buildAndApplyGroupedSpecTree(uint32_t groupsPerSide,
+                                      uint32_t modelsPerGroupX,
+                                      uint32_t modelsPerGroupY,
+                                      float    groupSpacing,
+                                      float    modelSpacing,
+                                      float    lightScale)
+    {
+        uint32_t totalGroups    = groupsPerSide * groupsPerSide;
+        uint32_t modelsPerGroup = modelsPerGroupX * modelsPerGroupY;
+
+        SceneEntitySpec **roots = (SceneEntitySpec **)malloc(totalGroups * sizeof(SceneEntitySpec *));
+
+        // Inverse of parent scale — used to compute compensated child TRS so
+        // that childWorldScale = parentScale * childLocalScale = 1.
+        float invLight = 1.0f / lightScale;
+
+        GEOM_VERTEX_COLOR_RGBA white;
+        white.r = 1.0f; white.g = 1.0f; white.b = 1.0f; white.a = 1.0f;
+
+        for (uint32_t gi = 0; gi < totalGroups; gi++)
+        {
+            uint32_t col = gi % groupsPerSide;
+            uint32_t row = gi / groupsPerSide;
+
+            float groupX = (col - (groupsPerSide - 1) / 2.0f) * groupSpacing;
+            float groupY = (row - (groupsPerSide - 1) / 2.0f) * groupSpacing;
+            float groupZ = 0.0f;
+
+            // Checkerboard color so visually distinct groups are easy to spot
+            GEOM_VERTEX_COLOR_RGBA lightColor;
+            if ((col + row) % 2 == 0)
+            {
+                lightColor.r = 0.2f; lightColor.g = 1.0f; lightColor.b = 0.3f; lightColor.a = 1.0f;
+            }
+            else
+            {
+                lightColor.r = 1.0f; lightColor.g = 0.3f; lightColor.b = 0.2f; lightColor.a = 1.0f;
+            }
+
+            vec3             rootPos   = {groupX, groupY, groupZ};
+            SceneEntitySpec *lightRoot = sceneSpecNewLight(0 /*light type*/, rootPos, lightScale, lightColor);
+
+            // Models arranged on the group's local XY plane.
+            for (uint32_t mx = 0; mx < modelsPerGroupX; mx++)
+            {
+                for (uint32_t my = 0; my < modelsPerGroupY; my++)
+                {
+                    float worldOffsetX = (mx - (modelsPerGroupX - 1) / 2.0f) * modelSpacing;
+                    float worldOffsetY = (my - (modelsPerGroupY - 1) / 2.0f) * modelSpacing;
+
+                    // Compensate local position for the parent's scale cascade.
+                    vec3             localPos = {worldOffsetX * invLight, worldOffsetY * invLight, 0.0f};
+                    SceneEntitySpec *child    = sceneSpecNewModel(0 /*model type*/, localPos, white);
+                    child->scale[0]           = invLight;
+                    child->scale[1]           = invLight;
+                    child->scale[2]           = invLight;
+
+                    sceneSpecAddChild(lightRoot, child);
+                }
+            }
+
+            roots[gi] = lightRoot;
+        }
+
+        fillSceneFromSpecTree(this->scene_, roots, totalGroups);
+
+        this->scene_->sceneInstancesLen =
+            this->scene_->modelsManager.modelInstanceLen + this->scene_->lightManager.lightInstanceCount;
+
+        for (uint32_t i = 0; i < totalGroups; i++)
+            sceneSpecFree(roots[i]);
+        free(roots);
+
+        (void) modelsPerGroup; // silence unused-variable warning; kept for future asserts
     }
 };

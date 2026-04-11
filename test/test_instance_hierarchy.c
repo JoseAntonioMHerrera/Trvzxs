@@ -245,9 +245,9 @@ void test_cascade_disable_skips_chain(void)
     ASSERT_EQ(scene->modelsManager.pModel[0].liveInstanceCount, 0);
     ASSERT_EQ(scene->modelsManager.modelInstanceLen, 0);
 
-    // Children transforms should have PASS_DISABLED set
-    ASSERT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[2].transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
+    // Children transforms should have PASS_DISABLED set (DIRTY sticks on disabled nodes)
+    ASSERT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[1].transformIdx].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[scene->modelsManager.pDenseModelInstances[2].transformIdx].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
 
     free(result);
     free_test_scene(scene);
@@ -443,9 +443,9 @@ void test_cross_type_cascade_disable(void)
 
     resolveTransforms(tman);
 
-    // Model parent is disabled → light child cascade-disabled
-    ASSERT_EQ(tman->pTransformsHot[modelInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(tman->pTransformsHot[lightInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
+    // Model parent is disabled → light child cascade-disabled (DIRTY sticks on disabled nodes)
+    ASSERT_EQ(tman->pTransformsHot[modelInst->transformIdx].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[lightInst->transformIdx].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
 
     free_test_scene_mixed(scene);
 }
@@ -502,7 +502,7 @@ void test_cross_type_reenable_restores_light(void)
     // Frame 1: disable parent
     tman->pTransformsHot[modelInst->transformIdx].lifecycle = TRANSFORM_DISABLED;
     resolveTransforms(tman);
-    ASSERT_EQ(tman->pTransformsHot[lightInst->transformIdx].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[lightInst->transformIdx].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
 
     // Frame 2: re-enable parent
     tman->pTransformsHot[modelInst->transformIdx].lifecycle = TRANSFORM_ALIVE;
@@ -662,6 +662,7 @@ void test_cross_type_ubo_parent_move_updates_light(void)
 
     // Frame 2: move model to (20, 0, 0) — light should follow
     transformSetPosition(&tman->pTransformsCold[modelInst->transformIdx], (vec3){20.0f, 0.0f, 0.0f});
+    transformMarkDirty(tman, modelInst->transformIdx);
     resolveTransforms(tman);
     LightInstanceUBO* lightUBO2 = (LightInstanceUBO*) malloc(sizeof(LightInstanceUBO) * scene->lightManager.lightInstanceCapacity);
     updateLightUniformBuffersDirect(lightUBO2, 0.016f, scene);

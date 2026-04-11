@@ -112,6 +112,133 @@ uint32_t max(uint32_t a, uint32_t b)
 {
     return a > b ? a : b;
 }
+
+// ---------------------------------------------------------------------------
+// Benchmark harness
+// ---------------------------------------------------------------------------
+//
+// Runs MAX_FRAME_COUNT frames split across a sequence of fixed camera
+// scenarios, then exits. Each scenario sets camera eye/center/up on entry
+// and holds for its frameCount frames, so profile output from display.c
+// (resolve/cull/UBO fill timings) is labelled by scenario in the run log.
+//
+// On top of the camera sequence, every frame dirties a fixed fraction of
+// model instances (BENCH_DIRTY_FRACTION) via small random translations and
+// transformMarkDirty. This gives the dirty-flag resolve skip a nontrivial
+// load — neither "static scene" (best case) nor "everything moves" (worst
+// case).
+//
+// RNG is a deterministic LCG seeded at startup so successive runs process
+// the same instance set in the same order.
+
+struct BenchmarkScenario
+{
+    const char *name;
+    vec3        eye;
+    vec3        center;
+    vec3        up;
+    uint32_t    frameCount;
+};
+
+// 5 × 40 = 200 frames, matches MAX_FRAME_COUNT.
+static const BenchmarkScenario g_benchmarkScenarios[] = {
+    // 1. Top-down overview: camera high above the 10×10 grid (spans ±90 on X/Y).
+    //    Most groups visible. Exercises the "many tests, few bulk skips" path.
+    { "top-down overview",         {   0.0f,   0.0f, 260.0f }, {   0.0f,   0.0f,   0.0f }, { 0.0f, 1.0f, 0.0f }, 40 },
+
+    // 2. Low edge grazing: camera at Y=-180 looking toward the grid along +Y.
+    //    About half the groups in view; distant ones get bulk-skipped.
+    { "low edge grazing",          {   0.0f, -180.0f,  20.0f }, {   0.0f,  20.0f,   0.0f }, { 0.0f, 0.0f, 1.0f }, 40 },
+
+    // 3. Close-up on one corner group: camera near (-90,-90) looking at that
+    //    single group. 99% of the scene outside the frustum → ideal bulk-skip.
+    { "corner close-up",           { -95.0f, -95.0f,  15.0f }, { -85.0f, -85.0f,   5.0f }, { 0.0f, 0.0f, 1.0f }, 40 },
+
+    // 4. Facing away from the grid: camera at origin looking -Z. Zero groups
+    //    in frustum → 100 light roots tested, all culled, 20000 models
+    //    bulk-skipped. The "cheapest cull" case.
+    { "facing away (full cull)",   {   0.0f,   0.0f,   5.0f }, {   0.0f,   0.0f, -95.0f }, { 0.0f, 1.0f, 0.0f }, 40 },
+
+    // 5. Inside the grid looking along +X: a strip of groups visible across
+    //    the middle of the frustum, others outside.
+    { "inside grid, +X view",      {   0.0f,   0.0f,  10.0f }, {  60.0f,   0.0f,  10.0f }, { 0.0f, 0.0f, 1.0f }, 40 },
+};
+static const uint32_t g_benchmarkScenarioCount =
+    sizeof(g_benchmarkScenarios) / sizeof(g_benchmarkScenarios[0]);
+
+// Fraction of model instances to dirty per frame.
+static const float BENCH_DIRTY_FRACTION = 0.00f;
+
+// Small LCG. Deterministic across runs for reproducible benchmarks.
+static uint32_t benchRng_nextU32(uint32_t *state)
+{
+    *state = (*state) * 1664525u + 1013904223u;
+    return *state;
+}
+
+static float benchRng_signedUnit(uint32_t *state)
+{
+    // Range approximately [-1, 1]
+    return ((float)(benchRng_nextU32(state) & 0xFFFF) / 32768.0f) - 1.0f;
+}
+
+// Apply the scenario for the given frame index. Logs on scenario entry.
+static void benchApplyCamera(uint32_t frameIdx, Camera3D *camera)
+{
+    uint32_t cumulative = 0;
+    for (uint32_t s = 0; s < g_benchmarkScenarioCount; s++)
+    {
+        uint32_t next = cumulative + g_benchmarkScenarios[s].frameCount;
+        if (frameIdx < next)
+        {
+            // Set camera every frame of the scenario so nothing drifts it.
+            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].eye),    camera->eye);
+            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].center), camera->center);
+            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].up),     camera->up);
+
+            if (frameIdx == cumulative)
+            {
+                std::cout << "\n[bench] frame " << frameIdx << " → scenario '"
+                          << g_benchmarkScenarios[s].name << "' (" << g_benchmarkScenarios[s].frameCount
+                          << " frames)" << std::endl;
+            }
+            return;
+        }
+        cumulative = next;
+    }
+}
+
+// Dirty BENCH_DIRTY_FRACTION of model instances by translating them a
+// small random amount and marking them dirty. Exercises the dirty-flag
+// skip under realistic partial-mutation load.
+static void benchApplyRandomDirty(SCENE *scene)
+{
+    static uint32_t rngState = 0xDEADBEEFu;
+
+    Models3DManager  *mm   = &scene->modelsManager;
+    TransformManager *tman = &scene->transformManager;
+
+    uint32_t total = mm->modelInstanceCapacity;
+    if (total == 0)
+        return;
+
+    uint32_t toUpdate = (uint32_t)((float)total * BENCH_DIRTY_FRACTION);
+    for (uint32_t k = 0; k < toUpdate; k++)
+    {
+        uint32_t idx  = benchRng_nextU32(&rngState) % total;
+        uint32_t tIdx = mm->pDenseModelInstances[idx].transformIdx;
+
+        vec3 delta = {
+            benchRng_signedUnit(&rngState) * 0.01f,
+            benchRng_signedUnit(&rngState) * 0.01f,
+            benchRng_signedUnit(&rngState) * 0.01f,
+        };
+
+        transformTranslate(&tman->pTransformsCold[tIdx], delta);
+        transformMarkDirty(tman, tIdx);
+    }
+}
+
 int main()
 {
 
@@ -205,6 +332,28 @@ int main()
         scene->initInstanceDataModelDualPlane(&scene->getModel(0), MODEL_INSTANCE_COUNT);
 
         scene->init();
+
+        // Replace the flat layout from init() with a preorder hierarchy of
+        // 100 groups arranged as a 10x10 grid on the XY plane. Each group
+        // is a light root (scale=1, 10x10x10 world AABB) parenting 200
+        // model children (10x20 grid at 0.3 spacing → ~3x6 unit local
+        // extent, safely inside the light's bounding volume).
+        //
+        //   Total: 100 groups × 200 models = 20000 model instances
+        //          + 100 light instances
+        //          = 20100 entities in the preorder transform array
+        //
+        // The group grid spans ±90 units on X and Y, so at typical camera
+        // angles most groups fall entirely outside the frustum and their
+        // subtrees are bulk-skipped by frustumCullScene in O(1).
+        scene->buildAndApplyGroupedSpecTree(
+            /*groupsPerSide*/   10,
+            /*modelsPerGroupX*/ 10,
+            /*modelsPerGroupY*/ 20,
+            /*groupSpacing*/    20.0f,
+            /*modelSpacing*/    0.3f,
+            /*lightScale*/      1.0f);
+
         std::cout << "QUE??????\n";
         engine->bulkInitVulkanWithScene(window, scene.get());
         // Add these variables at the beginning of your main function or in your game class
@@ -427,6 +576,7 @@ int main()
                             uint32_t modelTIdx = s->modelsManager.pDenseModelInstances[0].transformIdx;
                             uint32_t lightTIdx = s->lightManager.pDenseLightInstances[0].transformIdx;
                             transformSetParent(&s->transformManager, lightTIdx, modelTIdx);
+                            transformMarkDirty(&s->transformManager, lightTIdx);
                             std::cout << "[demo] Light 0 inst 0 parented to Model 0 inst 0" << std::endl;
                         }
                     }
@@ -438,6 +588,7 @@ int main()
                         {
                             uint32_t lightTIdx = s->lightManager.pDenseLightInstances[0].transformIdx;
                             transformClearParent(&s->transformManager, lightTIdx);
+                            transformMarkDirty(&s->transformManager, lightTIdx);
                             std::cout << "[demo] Light 0 inst 0 unparented (root)" << std::endl;
                         }
                     }
@@ -447,9 +598,11 @@ int main()
                         SCENE *s = scene->getScene();
                         if (s->modelsManager.modelLen > 0)
                         {
-                            TransformCold *node = &s->transformManager.pTransformsCold[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            uint32_t tIdx = s->modelsManager.pDenseModelInstances[0].transformIdx;
+                            TransformCold *node = &s->transformManager.pTransformsCold[tIdx];
                             vec3 delta = {0.0f, 0.0f, 1.0f};
                             transformTranslate(node, delta);
+                            transformMarkDirty(&s->transformManager, tIdx);
                         }
                     }
                     if (event.key.keysym.scancode == SDL_SCANCODE_DOWN)
@@ -457,9 +610,11 @@ int main()
                         SCENE *s = scene->getScene();
                         if (s->modelsManager.modelLen > 0)
                         {
-                            TransformCold *node = &s->transformManager.pTransformsCold[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            uint32_t tIdx = s->modelsManager.pDenseModelInstances[0].transformIdx;
+                            TransformCold *node = &s->transformManager.pTransformsCold[tIdx];
                             vec3 delta = {0.0f, 0.0f, -1.0f};
                             transformTranslate(node, delta);
+                            transformMarkDirty(&s->transformManager, tIdx);
                         }
                     }
                     if (event.key.keysym.scancode == SDL_SCANCODE_LEFT)
@@ -467,9 +622,11 @@ int main()
                         SCENE *s = scene->getScene();
                         if (s->modelsManager.modelLen > 0)
                         {
-                            TransformCold *node = &s->transformManager.pTransformsCold[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            uint32_t tIdx = s->modelsManager.pDenseModelInstances[0].transformIdx;
+                            TransformCold *node = &s->transformManager.pTransformsCold[tIdx];
                             vec3 delta = {-1.0f, 0.0f, 0.0f};
                             transformTranslate(node, delta);
+                            transformMarkDirty(&s->transformManager, tIdx);
                         }
                     }
                     if (event.key.keysym.scancode == SDL_SCANCODE_RIGHT)
@@ -477,9 +634,11 @@ int main()
                         SCENE *s = scene->getScene();
                         if (s->modelsManager.modelLen > 0)
                         {
-                            TransformCold *node = &s->transformManager.pTransformsCold[s->modelsManager.pDenseModelInstances[0].transformIdx];
+                            uint32_t tIdx = s->modelsManager.pDenseModelInstances[0].transformIdx;
+                            TransformCold *node = &s->transformManager.pTransformsCold[tIdx];
                             vec3 delta = {1.0f, 0.0f, 0.0f};
                             transformTranslate(node, delta);
+                            transformMarkDirty(&s->transformManager, tIdx);
                         }
                     }
                     break;
@@ -520,7 +679,12 @@ int main()
             // Llamada a la función drawFrame
             if (deltaTime >= FRAME_TIME)
             {
-                updateCamera(scene->getCamera3D(), deltaTime);
+                // Benchmark: fixed camera sequence + partial random dirty load.
+                // Overrides interactive WASD/mouse-look so the profile output
+                // corresponds to a reproducible scenario schedule.
+                benchApplyCamera((uint32_t)frameCount, scene->getCamera3D());
+                benchApplyRandomDirty(scene->getScene());
+
                 // Render and present frame
                 if (!resizing)
                     engine->metaDrawFrame(window, (float)deltaTime);
