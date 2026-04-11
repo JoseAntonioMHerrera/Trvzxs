@@ -99,6 +99,15 @@ target_include_directories(test_frustum PRIVATE
     $<TARGET_PROPERTY:engine_mod,INCLUDE_DIRECTORIES>
 )
 
+add_executable(test_spec_tree
+    test_spec_tree.c
+)
+target_link_libraries(test_spec_tree PRIVATE engine_mod Vulkan::Headers)
+target_include_directories(test_spec_tree PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    $<TARGET_PROPERTY:engine_mod,INCLUDE_DIRECTORIES>
+)
+
 # Run all test suites sequentially
 add_custom_target(run_all_tests
     COMMAND test_scene_lifecycle
@@ -110,7 +119,8 @@ add_custom_target(run_all_tests
     COMMAND test_light_ubo_compaction
     COMMAND test_instance_hierarchy
     COMMAND test_frustum
+    COMMAND test_spec_tree
     COMMAND test_render_graph
-    DEPENDS test_scene_lifecycle test_ubo_compaction test_light_lifecycle test_dense_array test_frame_safety test_light_frame_safety test_light_ubo_compaction test_instance_hierarchy test_frustum test_render_graph
+    DEPENDS test_scene_lifecycle test_ubo_compaction test_light_lifecycle test_dense_array test_frame_safety test_light_frame_safety test_light_ubo_compaction test_instance_hierarchy test_frustum test_spec_tree test_render_graph
     COMMENT "Running all test suites..."
 )
