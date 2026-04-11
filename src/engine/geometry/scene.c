@@ -222,10 +222,12 @@ void initScene(SCENE** scene, uint32_t modelsLen, uint32_t lightsLen, uint32_t p
     (*scene) = (SCENE*) malloc(sizeof(SCENE));
 
     // TransformManager — allocated later once total instance counts are known
-    (*scene)->transformManager.pTransformsHot  = NULL;
-    (*scene)->transformManager.pTransformsCold = NULL;
-    (*scene)->transformManager.count           = 0;
-    (*scene)->transformManager.liveCount       = 0;
+    (*scene)->transformManager.pTransformsHot    = NULL;
+    (*scene)->transformManager.pTransformsCold   = NULL;
+    (*scene)->transformManager.pPreorderEntities = NULL;
+    (*scene)->transformManager.pLocalAABBs       = NULL;
+    (*scene)->transformManager.count             = 0;
+    (*scene)->transformManager.liveCount         = 0;
 
     if (modelsLen <= 0)
     {
@@ -359,22 +361,29 @@ void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
     // Allocate single dense array and consolidate per-model temporary allocations
     man->pDenseModelInstances = (Model3DInstance*) calloc(man->modelInstanceCapacity, sizeof(Model3DInstance));
 
-    // Allocate transform nodes for model instances [0, modelInstanceCapacity)
-    // Two parallel arrays (hot + cold). If transforms already allocated
-    // (e.g. lights ran first), realloc to grow.
+    // Allocate transform nodes for model instances [0, modelInstanceCapacity).
+    // Four parallel arrays indexed in lock-step: hot, cold, preorder-entity
+    // reverse index, and per-entity local AABB. If transforms already
+    // allocated (e.g. lights ran first), realloc to grow.
     uint32_t transformBase = tman->count;
     uint32_t newCount      = tman->count + man->modelInstanceCapacity;
     if (tman->pTransformsHot == NULL)
     {
-        tman->pTransformsHot  = (TransformHot*)  calloc(newCount, sizeof(TransformHot));
-        tman->pTransformsCold = (TransformCold*) calloc(newCount, sizeof(TransformCold));
+        tman->pTransformsHot    = (TransformHot*)   calloc(newCount, sizeof(TransformHot));
+        tman->pTransformsCold   = (TransformCold*)  calloc(newCount, sizeof(TransformCold));
+        tman->pPreorderEntities = (PreorderEntity*) calloc(newCount, sizeof(PreorderEntity));
+        tman->pLocalAABBs       = (AABB*)           calloc(newCount, sizeof(AABB));
     }
     else
     {
-        tman->pTransformsHot  = (TransformHot*)  realloc(tman->pTransformsHot,  newCount * sizeof(TransformHot));
-        tman->pTransformsCold = (TransformCold*) realloc(tman->pTransformsCold, newCount * sizeof(TransformCold));
-        memset(&tman->pTransformsHot[tman->count],  0, man->modelInstanceCapacity * sizeof(TransformHot));
-        memset(&tman->pTransformsCold[tman->count], 0, man->modelInstanceCapacity * sizeof(TransformCold));
+        tman->pTransformsHot    = (TransformHot*)   realloc(tman->pTransformsHot,    newCount * sizeof(TransformHot));
+        tman->pTransformsCold   = (TransformCold*)  realloc(tman->pTransformsCold,   newCount * sizeof(TransformCold));
+        tman->pPreorderEntities = (PreorderEntity*) realloc(tman->pPreorderEntities, newCount * sizeof(PreorderEntity));
+        tman->pLocalAABBs       = (AABB*)           realloc(tman->pLocalAABBs,       newCount * sizeof(AABB));
+        memset(&tman->pTransformsHot[tman->count],    0, man->modelInstanceCapacity * sizeof(TransformHot));
+        memset(&tman->pTransformsCold[tman->count],   0, man->modelInstanceCapacity * sizeof(TransformCold));
+        memset(&tman->pPreorderEntities[tman->count], 0, man->modelInstanceCapacity * sizeof(PreorderEntity));
+        memset(&tman->pLocalAABBs[tman->count],       0, man->modelInstanceCapacity * sizeof(AABB));
     }
     tman->count = newCount;
 
@@ -397,7 +406,7 @@ void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
             Model3DInstance* inst = &man->pDenseModelInstances[base + i];
             inst->transformIdx    = tIdx;
 
-            // Hot slot: default-initialized (parentIdx=NO_PARENT, alive, no flags)
+            // Hot slot: default-initialized (parentIdx=NO_PARENT, alive, no flags, skipCount=0)
             transformInitHot(&tman->pTransformsHot[tIdx]);
 
             if (model->pStagingTransforms)
@@ -409,6 +418,16 @@ void fillModelInstancesIndices(Models3DManager* man, TransformManager* tman)
             {
                 transformInitCold(&tman->pTransformsCold[tIdx]);
             }
+
+            // Preorder entity reverse index: this transform position backs a
+            // model instance of type `m` at dense position `base + i`.
+            tman->pPreorderEntities[tIdx].kind     = (uint16_t) SCENE_ENTITY_MODEL;
+            tman->pPreorderEntities[tIdx].typeIdx  = (uint16_t) m;
+            tman->pPreorderEntities[tIdx].denseIdx = base + i;
+
+            // Per-entity local AABB: copy from the type. Load order guarantees
+            // localAABB is already computed by this point (see fillSceneWithModelData).
+            tman->pLocalAABBs[tIdx] = model->localAABB;
         }
 
         if (model->pStagingTransforms)
@@ -501,21 +520,27 @@ void fillLightVolumeInstancesIndices(LightManager* lan, TransformManager* tman)
     // Allocate single dense array and consolidate per-light staging allocations
     lan->pDenseLightInstances = (LightVolumeInstance*) calloc(lan->lightInstanceCapacity, sizeof(LightVolumeInstance));
 
-    // Allocate transform nodes for light instances (appended after model transforms)
-    // Two parallel arrays (hot + cold).
+    // Allocate transform nodes for light instances (appended after model transforms).
+    // Four parallel arrays, grown together.
     uint32_t transformBase = tman->count;
     uint32_t newCount      = tman->count + lan->lightInstanceCapacity;
     if (tman->pTransformsHot == NULL)
     {
-        tman->pTransformsHot  = (TransformHot*)  calloc(newCount, sizeof(TransformHot));
-        tman->pTransformsCold = (TransformCold*) calloc(newCount, sizeof(TransformCold));
+        tman->pTransformsHot    = (TransformHot*)   calloc(newCount, sizeof(TransformHot));
+        tman->pTransformsCold   = (TransformCold*)  calloc(newCount, sizeof(TransformCold));
+        tman->pPreorderEntities = (PreorderEntity*) calloc(newCount, sizeof(PreorderEntity));
+        tman->pLocalAABBs       = (AABB*)           calloc(newCount, sizeof(AABB));
     }
     else
     {
-        tman->pTransformsHot  = (TransformHot*)  realloc(tman->pTransformsHot,  newCount * sizeof(TransformHot));
-        tman->pTransformsCold = (TransformCold*) realloc(tman->pTransformsCold, newCount * sizeof(TransformCold));
-        memset(&tman->pTransformsHot[tman->count],  0, lan->lightInstanceCapacity * sizeof(TransformHot));
-        memset(&tman->pTransformsCold[tman->count], 0, lan->lightInstanceCapacity * sizeof(TransformCold));
+        tman->pTransformsHot    = (TransformHot*)   realloc(tman->pTransformsHot,    newCount * sizeof(TransformHot));
+        tman->pTransformsCold   = (TransformCold*)  realloc(tman->pTransformsCold,   newCount * sizeof(TransformCold));
+        tman->pPreorderEntities = (PreorderEntity*) realloc(tman->pPreorderEntities, newCount * sizeof(PreorderEntity));
+        tman->pLocalAABBs       = (AABB*)           realloc(tman->pLocalAABBs,       newCount * sizeof(AABB));
+        memset(&tman->pTransformsHot[tman->count],    0, lan->lightInstanceCapacity * sizeof(TransformHot));
+        memset(&tman->pTransformsCold[tman->count],   0, lan->lightInstanceCapacity * sizeof(TransformCold));
+        memset(&tman->pPreorderEntities[tman->count], 0, lan->lightInstanceCapacity * sizeof(PreorderEntity));
+        memset(&tman->pLocalAABBs[tman->count],       0, lan->lightInstanceCapacity * sizeof(AABB));
     }
     tman->count = newCount;
 
@@ -548,6 +573,12 @@ void fillLightVolumeInstancesIndices(LightManager* lan, TransformManager* tman)
             {
                 transformInitCold(&tman->pTransformsCold[tIdx]);
             }
+
+            tman->pPreorderEntities[tIdx].kind     = (uint16_t) SCENE_ENTITY_LIGHT;
+            tman->pPreorderEntities[tIdx].typeIdx  = (uint16_t) l;
+            tman->pPreorderEntities[tIdx].denseIdx = base + i;
+
+            tman->pLocalAABBs[tIdx] = light->localAABB;
         }
 
         if (light->pStagingTransforms)

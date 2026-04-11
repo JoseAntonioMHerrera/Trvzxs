@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 #include "cglm.h"
+#include "frustum.h"
+#include "sceneEntity.h"
 
 // Sentinel: no parent in the transform hierarchy
 #define TRANSFORM_NO_PARENT UINT32_MAX
@@ -15,13 +17,17 @@
 #define TRANSFORM_PASS_DISABLED 1
 
 // Hot-path slice of a transform. Touched every frame by cull, resolve, and
-// UBO fill. Sized to keep the per-entity working set small (72 B).
+// UBO fill. sizeof = 80 B after mat4 alignment padding (fits skipCount for
+// free within the existing pad).
 typedef struct TransformHot
 {
     mat4     worldMatrix; // 64 B — produced by resolve, consumed by cull + UBO fill
     uint32_t parentIdx;   //  4 B — preorder index of parent, or TRANSFORM_NO_PARENT
     uint16_t lifecycle;   //  2 B — TRANSFORM_ALIVE / DISABLED / DESTROYED
     uint16_t passFlags;   //  2 B — per-frame cascade / cull disable
+    uint32_t skipCount;   //  4 B — size of this node's subtree (0 = leaf), populated
+                          //         by the load-time DFS emit. Consumed by
+                          //         resolve/cull in Phase 3.
 } TransformHot;
 
 // Cold-path slice. Read by resolve to rebuild local + world matrices, and by
@@ -38,10 +44,12 @@ typedef struct TransformCold
 
 typedef struct TransformManager
 {
-    TransformHot*  pTransformsHot;  // [count] — hot working set
-    TransformCold* pTransformsCold; // [count] — cold TRS + local matrix
-    uint32_t       count;           // total allocated slots
-    uint32_t       liveCount;       // updated per frame by resolve pass
+    TransformHot*   pTransformsHot;    // [count] — hot working set
+    TransformCold*  pTransformsCold;   // [count] — cold TRS + local matrix
+    PreorderEntity* pPreorderEntities; // [count] — reverse index: preorder pos → backing instance
+    AABB*           pLocalAABBs;       // [count] — per-entity local-space AABB (copied from type at load)
+    uint32_t        count;             // total allocated slots
+    uint32_t        liveCount;         // updated per frame by resolve pass
 } TransformManager;
 
 // --- Init helpers ---
