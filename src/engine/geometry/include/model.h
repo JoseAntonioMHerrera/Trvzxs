@@ -35,6 +35,20 @@ typedef struct Mesh3DManager
 // Per-frame pass flags
 #define PASS_DISABLED 1
 
+// Discrete LOD levels per model. lod[0] is full detail, lod[MODEL_LOD_COUNT-1]
+// is coarsest. Selection per-instance by projected pixel footprint: pick the
+// smallest index whose minPixelSize threshold is exceeded. See plan_lod.md.
+#define MODEL_LOD_COUNT 3
+
+typedef struct ModelLOD
+{
+    uint32_t vertexOffset;  // into Models3DManager.pPackedModelVertexLean — shared across LODs in Phase 1
+    uint32_t vertexCount;   // vertices referenced by this LOD (upper bound; unused entries tolerated)
+    uint32_t indexOffset;   // into Models3DManager.packedModelIndex — unique per LOD
+    uint32_t indexCount;    // triangle count × 3 for this LOD
+    float    minPixelSize;  // pick this LOD when projected pixel size >= this threshold
+} ModelLOD;
+
 typedef struct Model3DInstance
 {
     GEOM_VERTEX_COLOR_RGBA color;
@@ -66,6 +80,14 @@ typedef struct Model3D
     Model3DInstance* pStagingInstances;    // temporary per-model allocation during init, NULLed after consolidation
     TransformCold*   pStagingTransforms;   // temporary per-model TRS staging (cold-only), NULLed after consolidation
     AABB             localAABB;            // model-space bounding box, computed at load time
+    float            localAABBRadius;      // half-diagonal of localAABB — bounding-sphere radius for LOD selection
+
+    // LOD data — lod[0] mirrors indiceOffset/vertexOffset (full detail).
+    // lod[1..N-1] live in appended regions of packedModelIndex, generated at load
+    // time via meshopt_simplify. lodLiveInstanceCount[] is populated per frame
+    // by the UBO fill loop and consumed by the draw loops.
+    ModelLOD lod[MODEL_LOD_COUNT];
+    uint32_t lodLiveInstanceCount[MODEL_LOD_COUNT];
 } Model3D;
 
 typedef struct Models3DManager

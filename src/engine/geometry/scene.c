@@ -3,6 +3,7 @@
 #include "light.h"
 #include "transformNode.h"
 #include "vertex.h"
+#include "meshoptimizer/meshoptimizer.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -502,6 +503,160 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
         GEOM_VERTEX* pVerts  = &scene->modelsManager.pPackedModelVertex[model->vertexOffset];
         computeAABBFromVertices(pVerts, vertCount, &model->localAABB);
         assertAABBValid(&model->localAABB);
+
+        // Bounding-sphere radius for LOD screen-space selection: half the
+        // AABB diagonal. Conservative — never smaller than the true radius.
+        float dx = model->localAABB.max[0] - model->localAABB.min[0];
+        float dy = model->localAABB.max[1] - model->localAABB.min[1];
+        float dz = model->localAABB.max[2] - model->localAABB.min[2];
+        model->localAABBRadius = 0.5f * sqrtf(dx * dx + dy * dy + dz * dz);
+    }
+
+    // ---- LOD generation (runs once at scene load) ----
+    //
+    // For each model:
+    //   1. meshopt_optimizeVertexCache on LOD 0 (the full mesh, in place) to
+    //      improve vertex reuse in the existing draw path.
+    //   2. meshopt_simplify twice to produce LOD 1 (~30% of full indices) and
+    //      LOD 2 (~10%). Results appended to packedModelIndex after all LOD 0
+    //      ranges. Each LOD shares lod[0]'s vertex buffer in Phase 1 — the
+    //      index buffer is authoritative for which vertices each LOD uses.
+    //
+    // Position stream for simplify: MODEL_VERTEX's point is at offset 0, so
+    // &pPackedModelVertexLean[vertexOffset].point is a stride-32 float[3] stream.
+    {
+        Models3DManager* mm = &scene->modelsManager;
+
+        // meshopt_simplify can return up to index_count when the mesh can't be
+        // simplified to the target (e.g. no shared vertices). Reserve worst-case:
+        // one full copy of LOD 0 indices per extra LOD level (MODEL_LOD_COUNT - 1).
+        uint32_t extraCapacity = 0;
+        for (int i = 0; i < modelLen; i++)
+        {
+            extraCapacity += mm->pModel[i].indices.itemsLen * (MODEL_LOD_COUNT - 1);
+        }
+
+        uint32_t baseLen    = mm->packedModelIndex.itemsLen;
+        uint32_t reservedLen = baseLen + extraCapacity;
+        uint32_t* grown = (uint32_t*) realloc(mm->packedModelIndex.items,
+                                              sizeof(uint32_t) * reservedLen);
+        assert(grown != NULL);
+        mm->packedModelIndex.items = grown;
+
+        // Per-model scratch buffers (sized to largest model).
+        uint32_t maxLod0 = 0;
+        uint32_t maxVert = 0;
+        for (int i = 0; i < modelLen; i++)
+        {
+            uint32_t ni = mm->pModel[i].indices.itemsLen;
+            uint32_t nv = mm->pModel[i].meshManager.totalMeshVerticesLen;
+            if (ni > maxLod0) maxLod0 = ni;
+            if (nv > maxVert) maxVert = nv;
+        }
+        uint32_t* remap           = (uint32_t*) malloc(sizeof(uint32_t) * maxVert);
+        uint32_t* reverseRemap    = (uint32_t*) malloc(sizeof(uint32_t) * maxVert);
+        uint32_t* remappedIdx     = (uint32_t*) malloc(sizeof(uint32_t) * maxLod0);
+        uint32_t* simplifyScratch = (uint32_t*) malloc(sizeof(uint32_t) * maxLod0);
+        MODEL_VERTEX* compactVerts = (MODEL_VERTEX*) malloc(sizeof(MODEL_VERTEX) * maxVert);
+        assert(remap && reverseRemap && remappedIdx && simplifyScratch && compactVerts);
+
+        uint32_t appendCursor = baseLen;
+        for (int i = 0; i < modelLen; i++)
+        {
+            Model3D* model = &mm->pModel[i];
+
+            uint32_t lod0IndexOffset = model->indiceOffset;
+            uint32_t lod0IndexCount  = model->indices.itemsLen;
+            uint32_t vertCount       = model->meshManager.totalMeshVerticesLen;
+
+            uint32_t* lod0Indices = &mm->packedModelIndex.items[lod0IndexOffset];
+            MODEL_VERTEX* leanVerts = &mm->pPackedModelVertexLean[model->vertexOffset];
+
+            // --- Vertex welding ---
+            // The OBJ loader unrolls every face corner into a unique vertex
+            // (identity indices) to handle split texcoords. meshopt_simplify
+            // needs shared-edge topology, so we generate a remap that merges
+            // vertices with identical (pos+normal+texcoord) attributes.
+            size_t uniqueCount = meshopt_generateVertexRemap(
+                remap, lod0Indices, lod0IndexCount,
+                leanVerts, vertCount, sizeof(MODEL_VERTEX));
+
+            // Build reverse map: for each compact ID, store one original ID.
+            for (uint32_t v = 0; v < vertCount; v++)
+                reverseRemap[remap[v]] = v;
+
+            // Remap LOD 0 indices to compact vertex IDs.
+            meshopt_remapIndexBuffer(remappedIdx, lod0Indices, lod0IndexCount, remap);
+
+            // Build compact vertex buffer so positions[compactID] is correct.
+            meshopt_remapVertexBuffer(compactVerts, leanVerts, vertCount,
+                                      sizeof(MODEL_VERTEX), remap);
+            const float* positions = (const float*) &compactVerts[0].point;
+
+            // 1. Optimize LOD 0 (remapped) for vertex cache, then write back
+            //    to the packed buffer as original vertex IDs.
+            meshopt_optimizeVertexCache(remappedIdx, remappedIdx, lod0IndexCount, uniqueCount);
+            for (uint32_t k = 0; k < lod0IndexCount; k++)
+                lod0Indices[k] = reverseRemap[remappedIdx[k]];
+
+            // LOD 0 bookkeeping
+            model->lod[0].vertexOffset = model->vertexOffset;
+            model->lod[0].vertexCount  = vertCount;
+            model->lod[0].indexOffset  = lod0IndexOffset;
+            model->lod[0].indexCount   = lod0IndexCount;
+            model->lod[0].minPixelSize = 50.0f;
+
+            // 2. Generate LOD 1 (~30% of full) in compact space, then unremap.
+            uint32_t target1 = (uint32_t)((size_t) lod0IndexCount * 3 / 10);
+            if (target1 % 3) target1 += 3 - (target1 % 3);
+            size_t lod1Count = meshopt_simplify(simplifyScratch, remappedIdx, lod0IndexCount,
+                                                positions, uniqueCount, sizeof(MODEL_VERTEX),
+                                                target1, /*target_error*/ 0.01f,
+                                                /*options*/ 0, /*error_out*/ NULL);
+            meshopt_optimizeVertexCache(simplifyScratch, simplifyScratch, lod1Count, uniqueCount);
+            for (size_t k = 0; k < lod1Count; k++)
+                mm->packedModelIndex.items[appendCursor + k] = reverseRemap[simplifyScratch[k]];
+
+            model->lod[1].vertexOffset = model->vertexOffset;
+            model->lod[1].vertexCount  = vertCount;
+            model->lod[1].indexOffset  = appendCursor;
+            model->lod[1].indexCount   = (uint32_t) lod1Count;
+            model->lod[1].minPixelSize = 15.0f;
+            appendCursor += (uint32_t) lod1Count;
+
+            // 3. Generate LOD 2 (~10% of full) — same pattern.
+            uint32_t target2 = (uint32_t)((size_t) lod0IndexCount * 1 / 10);
+            if (target2 % 3) target2 += 3 - (target2 % 3);
+            size_t lod2Count = meshopt_simplify(simplifyScratch, remappedIdx, lod0IndexCount,
+                                                positions, uniqueCount, sizeof(MODEL_VERTEX),
+                                                target2, /*target_error*/ 0.05f,
+                                                /*options*/ 0, /*error_out*/ NULL);
+            meshopt_optimizeVertexCache(simplifyScratch, simplifyScratch, lod2Count, uniqueCount);
+            for (size_t k = 0; k < lod2Count; k++)
+                mm->packedModelIndex.items[appendCursor + k] = reverseRemap[simplifyScratch[k]];
+
+            model->lod[2].vertexOffset = model->vertexOffset;
+            model->lod[2].vertexCount  = vertCount;
+            model->lod[2].indexOffset  = appendCursor;
+            model->lod[2].indexCount   = (uint32_t) lod2Count;
+            model->lod[2].minPixelSize = 0.0f;  // coarsest — always matches
+            appendCursor += (uint32_t) lod2Count;
+
+            // Zero the per-frame LOD live counts
+            for (int k = 0; k < MODEL_LOD_COUNT; k++) model->lodLiveInstanceCount[k] = 0;
+
+            printf("[lod] type %d: lod0=%u idx, lod1=%zu idx, lod2=%zu idx "
+                   "(unique=%zu/%u, radius=%.2f)\n",
+                   i, lod0IndexCount, lod1Count, lod2Count,
+                   uniqueCount, vertCount, model->localAABBRadius);
+        }
+
+        free(compactVerts);
+        free(simplifyScratch);
+        free(remappedIdx);
+        free(reverseRemap);
+        free(remap);
+        mm->packedModelIndex.itemsLen = appendCursor;
     }
 
     fillModelInstancesIndices(&scene->modelsManager, &scene->transformManager);
