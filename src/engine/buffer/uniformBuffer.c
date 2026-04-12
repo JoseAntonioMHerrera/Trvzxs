@@ -3,56 +3,131 @@
 #include "camera.h"
 #include "transform.h"
 #include "transformNode.h"
+#include <math.h>
+#include <stdlib.h>
+#include <assert.h>
+
+// Per-instance LOD scratch — stores the LOD index (0..MODEL_LOD_COUNT-1) for
+// each dense instance slot, or 255 for dead/disabled. Allocated once at scene
+// init size (modelInstanceCapacity), reused every frame.
+static uint8_t* g_lodScratch    = NULL;
+static uint32_t g_lodScratchCap = 0;
 
 void updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene)
 {
-    ModelInstanceUBO* pInstances       = (ModelInstanceUBO*) mappedBuffer;
+    ModelInstanceUBO* pInstances        = (ModelInstanceUBO*) mappedBuffer;
     uint32_t          transformationsIdx = 0;
+
+    // Lazy-init the LOD scratch buffer (once, on first frame)
+    if (g_lodScratch == NULL || g_lodScratchCap < scene->modelsManager.modelInstanceCapacity)
+    {
+        free(g_lodScratch);
+        g_lodScratchCap = scene->modelsManager.modelInstanceCapacity;
+        g_lodScratch    = (uint8_t*) malloc(g_lodScratchCap);
+        assert(g_lodScratch != NULL);
+    }
+
+    // LOD selection constants — hardcoded 45° vertical FOV, matches updateFrameGlobals
+    const float fovY      = glm_rad(45.0f);
+    const float halfH     = scene->camera.screenSize[1] * 0.5f;
+    const float pixelScale = halfH / tanf(fovY * 0.5f);
+    vec3 camEye;
+    glm_vec3_copy(scene->camera.eye, camEye);
 
     for (uint32_t modelIdx = 0; modelIdx < scene->modelsManager.modelLen; modelIdx++)
     {
         Model3D* model = &scene->modelsManager.pModel[modelIdx];
 
-        // Offset for this model = how many live transforms written so far
         scene->modelsManager.instanceOffset.items[modelIdx] = transformationsIdx;
-        uint32_t modelStartIdx                              = transformationsIdx;
 
-        // Skip entire model if disabled or destroyed — no instance iteration needed
         if (model->alive != 1)
         {
             model->liveInstanceCount = 0;
+            for (int k = 0; k < MODEL_LOD_COUNT; k++) model->lodLiveInstanceCount[k] = 0;
             continue;
         }
 
+        uint32_t lodCount[MODEL_LOD_COUNT] = {0};
+        float    modelRadius               = model->localAABBRadius;
+
+        // --- Pass 1: classify each instance into a LOD bucket ---
         for (uint32_t instanceIdx = 0; instanceIdx < model->instanceCount; instanceIdx++)
         {
-            Model3DInstance* inst = &scene->modelsManager.pDenseModelInstances[model->denseBaseOffset + instanceIdx];
+            uint32_t         denseIdx = model->denseBaseOffset + instanceIdx;
+            Model3DInstance* inst     = &scene->modelsManager.pDenseModelInstances[denseIdx];
 
             if (inst->lifecycle != INSTANCE_ALIVE)
             {
+                g_lodScratch[denseIdx] = 255;
                 continue;
             }
 
-            // Read resolved world matrix from transform hierarchy (resolved before UBO fill)
             TransformHot*   hot   = &scene->transformManager.pTransformsHot[inst->transformIdx];
             TransformWorld* world = &scene->transformManager.pTransformsWorld[inst->transformIdx];
 
-            // Skip if cascade-disabled by hierarchy resolve pass
             if (hot->passFlags & TRANSFORM_PASS_DISABLED)
             {
+                g_lodScratch[denseIdx] = 255;
                 continue;
             }
 
-            glm_mat4_copy(world->worldMatrix, pInstances[transformationsIdx].model);
+            // Projected pixel size from world-space distance
+            float wx = world->worldMatrix[3][0] - camEye[0];
+            float wy = world->worldMatrix[3][1] - camEye[1];
+            float wz = world->worldMatrix[3][2] - camEye[2];
+            float dist = sqrtf(wx * wx + wy * wy + wz * wz);
+            float pixelSize = (dist > 1e-6f) ? (modelRadius * pixelScale / dist) : 1e6f;
 
-            transformationsIdx++;
+            // Pick finest LOD whose threshold is satisfied (lod[0].minPixelSize
+            // is highest, lod[MODEL_LOD_COUNT-1].minPixelSize is 0).
+            uint8_t lodIdx = MODEL_LOD_COUNT - 1;
+            for (int k = 0; k < MODEL_LOD_COUNT - 1; k++)
+            {
+                if (pixelSize >= model->lod[k].minPixelSize)
+                {
+                    lodIdx = (uint8_t) k;
+                    break;
+                }
+            }
+
+            g_lodScratch[denseIdx] = lodIdx;
+            lodCount[lodIdx]++;
         }
 
-        // Per-model live count — read by the draw loop
-        model->liveInstanceCount = transformationsIdx - modelStartIdx;
+        // Prefix-sum to get the base offset within this model's SSBO range
+        // for each LOD bucket. Instances are written LOD 0 first, then LOD 1, etc.
+        uint32_t lodBase[MODEL_LOD_COUNT];
+        uint32_t lodCursor[MODEL_LOD_COUNT];
+        lodBase[0] = 0;
+        for (int k = 1; k < MODEL_LOD_COUNT; k++)
+            lodBase[k] = lodBase[k - 1] + lodCount[k - 1];
+        for (int k = 0; k < MODEL_LOD_COUNT; k++)
+            lodCursor[k] = lodBase[k];
+
+        // --- Pass 2: write world matrices into SSBO, sorted by LOD ---
+        for (uint32_t instanceIdx = 0; instanceIdx < model->instanceCount; instanceIdx++)
+        {
+            uint32_t denseIdx = model->denseBaseOffset + instanceIdx;
+            uint8_t  lod      = g_lodScratch[denseIdx];
+            if (lod == 255) continue;
+
+            TransformWorld* world = &scene->transformManager.pTransformsWorld
+                [scene->modelsManager.pDenseModelInstances[denseIdx].transformIdx];
+
+            uint32_t ssboIdx = transformationsIdx + lodCursor[lod]++;
+            glm_mat4_copy(world->worldMatrix, pInstances[ssboIdx].model);
+        }
+
+        uint32_t totalLive = 0;
+        for (int k = 0; k < MODEL_LOD_COUNT; k++)
+        {
+            model->lodLiveInstanceCount[k] = lodCount[k];
+            totalLive += lodCount[k];
+        }
+        model->liveInstanceCount = totalLive;
+        transformationsIdx += totalLive;
     }
 
-    // Update modelInstanceLen to the actual live count
     scene->modelsManager.modelInstanceLen = transformationsIdx;
 }
 
