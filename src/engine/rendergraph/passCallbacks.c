@@ -46,16 +46,29 @@ void executeDepthPrepass(VkCommandBuffer cmd, const RGPass* pass, void* userData
     vkCmdBindVertexBuffers(cmd, 0, 1, localBuffer, offsets);
     vkCmdBindIndexBuffer(cmd, *modelGdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    // Draw the same geometry as the model pass — identical draw calls
+    // LOD draw loop — both depth prepass and model pass MUST issue identical
+    // draws in the same order so depth prepass and main pass operate on the
+    // same geometry. If you change one loop, change the matching one in
+    // executeModelPass.
     const SCENE* scene = modelGdp->scene;
     for (int i = 0; i < scene->modelsManager.modelLen; i++)
     {
-        if (scene->modelsManager.pModel[i].liveInstanceCount > 0)
-            vkCmdDrawIndexed(cmd, scene->modelsManager.pModel[i].indices.itemsLen,
-                             scene->modelsManager.pModel[i].liveInstanceCount,
-                             scene->modelsManager.pModel[i].indiceOffset,
-                             scene->modelsManager.pModel[i].vertexOffset,
-                             scene->modelsManager.instanceOffset.items[i]);
+        Model3D* model = &scene->modelsManager.pModel[i];
+        if (model->alive != 1) continue;
+        uint32_t typeBase  = scene->modelsManager.instanceOffset.items[i];
+        uint32_t lodOffset = 0;
+        for (int k = 0; k < MODEL_LOD_COUNT; k++)
+        {
+            uint32_t count = model->lodLiveInstanceCount[k];
+            if (count == 0) continue;
+            vkCmdDrawIndexed(cmd,
+                             model->lod[k].indexCount,
+                             count,
+                             model->lod[k].indexOffset,
+                             model->lod[k].vertexOffset,
+                             typeBase + lodOffset);
+            lodOffset += count;
+        }
     }
 }
 
@@ -95,15 +108,27 @@ void executeModelPass(VkCommandBuffer cmd, const RGPass* pass, void* userData)
     vkCmdBindVertexBuffers(cmd, 0, 1, localBuffer, offsets);
     vkCmdBindIndexBuffer(cmd, *gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
+    // LOD draw loop — must mirror executeDepthPrepass exactly.
+    // See comment there for the coupling invariant.
     const SCENE* scene = gdp->scene;
     for (int i = 0; i < scene->modelsManager.modelLen; i++)
     {
-        if (scene->modelsManager.pModel[i].liveInstanceCount > 0)
-            vkCmdDrawIndexed(cmd, scene->modelsManager.pModel[i].indices.itemsLen,
-                             scene->modelsManager.pModel[i].liveInstanceCount,
-                             scene->modelsManager.pModel[i].indiceOffset,
-                             scene->modelsManager.pModel[i].vertexOffset,
-                             scene->modelsManager.instanceOffset.items[i]);
+        Model3D* model = &scene->modelsManager.pModel[i];
+        if (model->alive != 1) continue;
+        uint32_t typeBase  = scene->modelsManager.instanceOffset.items[i];
+        uint32_t lodOffset = 0;
+        for (int k = 0; k < MODEL_LOD_COUNT; k++)
+        {
+            uint32_t count = model->lodLiveInstanceCount[k];
+            if (count == 0) continue;
+            vkCmdDrawIndexed(cmd,
+                             model->lod[k].indexCount,
+                             count,
+                             model->lod[k].indexOffset,
+                             model->lod[k].vertexOffset,
+                             typeBase + lodOffset);
+            lodOffset += count;
+        }
     }
 }
 
