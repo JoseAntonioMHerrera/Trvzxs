@@ -58,6 +58,15 @@ file(GLOB_RECURSE ENGINE_SOURCES
     "${CMAKE_SOURCE_DIR}/src/*.c" #TODO move entryfiles to the library to engine folder tree
 )
 
+# Vendored meshoptimizer — used for runtime LOD generation at scene load time.
+# Public C API is declared in include/meshoptimizer/meshoptimizer.h and
+# implemented by these .cpp files (compile as C++, expose extern "C" symbols).
+list(APPEND ENGINE_SOURCES
+    "${CMAKE_SOURCE_DIR}/include/meshoptimizer/simplifier.cpp"
+    "${CMAKE_SOURCE_DIR}/include/meshoptimizer/vcacheoptimizer.cpp"
+    "${CMAKE_SOURCE_DIR}/include/meshoptimizer/vfetchoptimizer.cpp"
+)
+
 # Gather all header files
 file(GLOB_RECURSE ENGINE_HEADERS
     "../../include/cglm/cglm.h"
