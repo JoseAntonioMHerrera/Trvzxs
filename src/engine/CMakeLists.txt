@@ -65,6 +65,7 @@ list(APPEND ENGINE_SOURCES
     "${CMAKE_SOURCE_DIR}/include/meshoptimizer/simplifier.cpp"
     "${CMAKE_SOURCE_DIR}/include/meshoptimizer/vcacheoptimizer.cpp"
     "${CMAKE_SOURCE_DIR}/include/meshoptimizer/vfetchoptimizer.cpp"
+    "${CMAKE_SOURCE_DIR}/include/meshoptimizer/indexgenerator.cpp"
 )
 
 # Gather all header files
