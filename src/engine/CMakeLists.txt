@@ -20,6 +20,7 @@ target_include_directories(engine_mod PUBLIC
     pipelines/include
     pipelines/descriptors/include
     pipelines/constants/include
+    pipelines/bindless/include
     geometry/include
     commands/include # HOWTO_NEW_FILE: Remember to add the folder here
     "../../include/cglm"
@@ -73,6 +74,7 @@ file(GLOB_RECURSE ENGINE_HEADERS
     "../../include/cglm/cglm.h"
     "../../include/stb_image.h" # TODO sacar adicion de dependencias externas del engine a otro cmkaelist
     "pipelines/descriptors/include/*.h"
+    "pipelines/bindless/include/*.h"
     "device/include/*.h"
     "buffer/include/*.h"
     "familyQueues/include/*.h"

@@ -1,20 +1,25 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : require
 
-// Per-frame globals (binding 9) — view/proj computed once per frame
-layout(binding = 9) uniform FrameGlobals {
+layout(set = 1, binding = 0) uniform FrameGlobals {
     mat4 view;
     mat4 proj;
     mat4 viewProj;
     mat4 invViewProj;
 } globals;
 
-// Per-instance model matrices (binding 0) — one mat4 per live instance
-layout(std430, binding = 0) buffer InstanceModels {
-    mat4 model[];
-} instances;
+layout(set = 0, binding = 1) readonly buffer ModelTransforms {
+    mat4 data[];
+} transforms[];
+
+layout(push_constant) uniform PC {
+    uint textureIdx;   // unused here; kept for layout parity with model pass
+    uint transformIdx;
+} pc;
 
 layout(location = 0) in vec3 inPosition;
 
 void main() {
-    gl_Position = globals.proj * globals.view * instances.model[gl_InstanceIndex] * vec4(inPosition, 1.0);
+    mat4 model = transforms[nonuniformEXT(pc.transformIdx)].data[gl_InstanceIndex];
+    gl_Position = globals.proj * globals.view * model * vec4(inPosition, 1.0);
 }

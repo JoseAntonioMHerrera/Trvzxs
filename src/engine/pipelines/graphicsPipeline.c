@@ -1,6 +1,7 @@
 #include "graphicsPipeline.h"
 #include "light.h"
 #include "particle.h"
+#include "bindlessPushConstants.h"
 
 #define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
@@ -388,11 +389,25 @@ void createModelsGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* 
                     .pNext             = VK_NULL_HANDLE,
     };
 
+    // A11 — bindless 2-set layout: set0 = global table, set1 = per-pass
+    // (frame globals UBO). Push constants carry per-draw texture + transform
+    // indices.
+    VkDescriptorSetLayout setLayouts[2] = {
+        gdp->bindlessGlobalLayout,
+        gdp->bindlessPerPassLayout,
+    };
+    VkPushConstantRange pushRange = {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset     = 0,
+        .size       = sizeof(BindlessPushConstants),
+    };
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-        .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = gdp->maxFrames, // Optional
-        .pSetLayouts    = (VkDescriptorSetLayout[]) {gdp->dsl, gdp->dsl, gdp->dsl},
-        .pNext          = VK_NULL_HANDLE,
+        .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount         = 2,
+        .pSetLayouts            = setLayouts,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges    = &pushRange,
+        .pNext                  = VK_NULL_HANDLE,
     };
 
     gdp->pipelineLayout = malloc(sizeof(*gdp->pipelineLayout));
@@ -945,14 +960,25 @@ void createDepthPrepassGraphicsPipeline(GraphicPipelineToSurface* depthGdp, Disp
                                                          .pAttachments    = NULL,
                                                          .pNext           = VK_NULL_HANDLE};
 
-    // Create pipeline layout (reuse your existing descriptor set layout)
+    // A11 — bindless 2-set layout, matching the model pipeline's layout so
+    // the shared transform SSBO + frame globals UBO can be reused across
+    // both passes. Push constants are declared on the vertex stage only; the
+    // depth prepass has no fragment stage.
+    VkDescriptorSetLayout depthSetLayouts[2] = {
+        depthGdp->bindlessGlobalLayout,
+        depthGdp->bindlessPerPassLayout,
+    };
+    VkPushConstantRange depthPushRange = {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .offset     = 0,
+        .size       = sizeof(BindlessPushConstants),
+    };
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-        .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = depthGdp->maxFrames,
-        .pSetLayouts =
-            (VkDescriptorSetLayout[]) {depthGdp->dsl, depthGdp->dsl, depthGdp->dsl}, // Same pattern as your code
-        .pushConstantRangeCount = 0,
-        .pPushConstantRanges    = NULL,
+        .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount         = 2,
+        .pSetLayouts            = depthSetLayouts,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges    = &depthPushRange,
         .pNext                  = VK_NULL_HANDLE};
 
     depthGdp->pipelineLayout = malloc(sizeof(*depthGdp->pipelineLayout));

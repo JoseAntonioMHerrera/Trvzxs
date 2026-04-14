@@ -1,6 +1,8 @@
 #include "metaEngine.hpp"
 
 #include "initContext.hpp"
+#include "initBindless.hpp"
+#include "initBindlessRegistration.hpp"
 #include "initDescriptors.hpp"
 #include "initDeviceFeatures.hpp"
 #include "initDisplay.hpp"
@@ -40,12 +42,14 @@ void MetaEngine::bulkInitVulkanWithScene(SDL_Window *window, Scene *scene)
     this->scene.setScene(scene->getScene());
 
     metaInitSwapchainResources(_initCtx, window);
+    metaInitBindless(_initCtx); // A11 — needs ctx.ld/ctx.pd populated by swapchain init
 
     metaInitTextures(_initCtx);
     metaInitUniformBuffers(_initCtx);
     metaInitStorageBuffers(_initCtx);
     metaInitGeometryBuffers(_initCtx);
     metaInitDescriptors(_initCtx);
+    metaInitBindlessRegistration(_initCtx); // A11 — register texture+SSBOs, alloc per-pass sets
 
     metaInitRenderGraph(_initCtx,
                         &this->renderGraph,

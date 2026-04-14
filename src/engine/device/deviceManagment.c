@@ -59,9 +59,22 @@ void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
         .independentBlend  = VK_TRUE,
     };
 
+    // A11 Phase 1 — descriptor indexing (bindless) features.
+    // All of these are core in Vulkan 1.2 and supported on every Vulkan 1.3 GPU
+    // the engine targets (Radeon 780M and up, GTX 1030+, Intel Xe+). No runtime
+    // fallback: absence of these features is a hard device-select failure.
     VkPhysicalDeviceVulkan12Features features12 = {
-        .sType             = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .timelineSemaphore = VK_TRUE,
+        .sType                                           = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .timelineSemaphore                               = VK_TRUE,
+        .descriptorIndexing                              = VK_TRUE,
+        .runtimeDescriptorArray                          = VK_TRUE,
+        .descriptorBindingPartiallyBound                 = VK_TRUE,
+        .descriptorBindingVariableDescriptorCount        = VK_TRUE,
+        .descriptorBindingSampledImageUpdateAfterBind    = VK_TRUE,
+        .descriptorBindingStorageBufferUpdateAfterBind   = VK_TRUE,
+        .descriptorBindingUpdateUnusedWhilePending       = VK_TRUE,
+        .shaderSampledImageArrayNonUniformIndexing       = VK_TRUE,
+        .shaderStorageBufferArrayNonUniformIndexing      = VK_TRUE,
     };
 
     // TODO: moverlo a una funcion o fichero para configuracion de dispositivo y dispositivo logico

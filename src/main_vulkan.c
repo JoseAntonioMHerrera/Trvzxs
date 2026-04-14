@@ -21,6 +21,8 @@
 #include "swapchainManager.h"
 #include "uniformBuffer.h"
 #include "descriptor.h"
+#include "bindless.h"
+#include "perPassLayouts.h"
 #include "textureManager.h"
 #include "primitives.h"
 #include "scene.h"
@@ -206,6 +208,12 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
 
     // Print VMA suballocation statistics before teardown.
     printVmaStats(ld);
+
+    // A11 — bindless descriptor pool/layout + per-pass layouts. No VMA
+    // allocations inside, so ordering vs destroyVmaAllocator is flexible;
+    // destroyed first for symmetry with init.
+    perPassLayoutsDestroy(&ld->perPassLayouts);
+    bindlessDestroy(&ld->bindless);
 
     // VMA allocator must be destroyed after all VMA-managed resources are freed
     // but before vkDestroyDevice — VMA holds internal references to the VkDevice.
