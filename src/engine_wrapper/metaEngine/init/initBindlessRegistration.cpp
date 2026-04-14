@@ -8,6 +8,8 @@ extern "C"
 #include "bindless.h"
 #include "perPassLayouts.h"
 #include "transformations.h"
+#include "particle.h"
+#include "bufferTypes.h"
 }
 
 static void allocPerPassPoolAndSets(VkDevice device,
@@ -166,10 +168,11 @@ static void allocLightPerPassPoolAndSets(VkDevice device,
 
 void metaInitBindlessRegistration(MetaInitContext &ctx)
 {
-    LogicalDevice            *ld        = ctx.ld;
-    GraphicPipelineToSurface *gdp       = ctx.gdp;
-    GraphicPipelineToSurface *depthGdp  = ctx.depthPrepassPipeline;
-    GraphicPipelineToSurface *lightGdp  = ctx.lightPipeline;
+    LogicalDevice            *ld           = ctx.ld;
+    GraphicPipelineToSurface *gdp          = ctx.gdp;
+    GraphicPipelineToSurface *depthGdp     = ctx.depthPrepassPipeline;
+    GraphicPipelineToSurface *lightGdp     = ctx.lightPipeline;
+    GraphicPipelineToSurface *particleGdp  = ctx.particlePipeline;
 
     BindlessSystem *bs = &ld->bindless;
     PerPassLayouts *pp = &ld->perPassLayouts;
@@ -248,4 +251,73 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
     lightGdp->perPassSets               = lightSets;
     lightGdp->bindlessTextureHandle     = BINDLESS_INVALID;   // unused; frag reads per-pass textures
     lightGdp->bindlessTransformHandles  = lightTransformHandles;
+
+    // --- Particle pipelines (compute + render) -----------------------------
+    // Particle SSBOs are per-frame-in-flight (one buffer each). Each is
+    // registered as its own bindless slot so compute can pick prev/current
+    // via push constants and the render pass can read current.
+    SSBOBufferManager *particleSsbos = particleGdp->computeP->deviceBuffer->ssbos;
+    BindlessHandle    *particleSSBOHandles =
+        (BindlessHandle *)malloc(sizeof(BindlessHandle) * maxFrames);
+    const VkDeviceSize particleBufSize =
+        sizeof(ParticleInstance) *
+        particleGdp->scene->particleManager.packedParticleInstanceLen;
+    for (uint32_t i = 0; i < maxFrames; ++i)
+    {
+        particleSSBOHandles[i] =
+            bindlessRegisterBuffer(bs, particleSsbos->buffers[i], particleBufSize);
+    }
+
+    // Render pass per-pass set: binding 0 = FrameGlobals UBO. Reuse modelPass
+    // layout (identical shape).
+    VkDescriptorPool particleRenderPool = VK_NULL_HANDLE;
+    VkDescriptorSet *particleRenderSets = nullptr;
+    allocPerPassPoolAndSets(ld->device, pp->modelPass, maxFrames,
+                            &particleRenderPool, &particleRenderSets);
+    writeFrameGlobalsUBO(ld->device, maxFrames, particleRenderSets, gdp->pGlobalsUbo);
+
+    // Compute pass per-pass set: binding 0 = deltaTime UBO. A single-frame
+    // buffer lives on computeP->deviceBuffer->pUbo->uniformBuffers[0].
+    VkDescriptorPool particleComputePool = VK_NULL_HANDLE;
+    VkDescriptorSet *particleComputeSets = nullptr;
+    allocPerPassPoolAndSets(ld->device, pp->particleComputePass, maxFrames,
+                            &particleComputePool, &particleComputeSets);
+    {
+        UniformBufferManager *deltaUbo = particleGdp->computeP->deviceBuffer->pUbo;
+        for (uint32_t i = 0; i < maxFrames; ++i)
+        {
+            const VkDescriptorBufferInfo buf = {
+                .buffer = deltaUbo->uniformBuffers[0], // single buffer shared across frames
+                .offset = 0,
+                .range  = sizeof(float),
+            };
+            const VkWriteDescriptorSet write = {
+                .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet          = particleComputeSets[i],
+                .dstBinding      = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .pBufferInfo     = &buf,
+            };
+            vkUpdateDescriptorSets(ld->device, 1, &write, 0, nullptr);
+        }
+    }
+
+    // Plant on particle graphics pipeline (render path)
+    particleGdp->bindlessGlobalLayout      = bs->globalLayout;
+    particleGdp->bindlessGlobalSet         = bs->globalSet;
+    particleGdp->bindlessPerPassLayout     = pp->modelPass;
+    particleGdp->perPassPool               = particleRenderPool;
+    particleGdp->perPassSets               = particleRenderSets;
+    particleGdp->bindlessTextureHandle     = BINDLESS_INVALID;
+    particleGdp->bindlessTransformHandles  = particleSSBOHandles;
+
+    // Plant on compute pipeline (shared SSBO handle array via graphics gdp)
+    ComputePipeline *cp = particleGdp->computeP;
+    cp->bindlessGlobalLayout  = bs->globalLayout;
+    cp->bindlessGlobalSet     = bs->globalSet;
+    cp->bindlessPerPassLayout = pp->particleComputePass;
+    cp->perPassPool           = particleComputePool;
+    cp->perPassSets           = particleComputeSets;
 }
