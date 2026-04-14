@@ -364,7 +364,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     MARK_TIME(tAfterDeletion);
 #endif
 
-    updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames);
+    // updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames); // DORMANT A11 — bindless compute uses push-constant slot indices
 
 #ifdef DEBUG
     MARK_TIME(tAfterSSBO);

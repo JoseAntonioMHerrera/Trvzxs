@@ -192,3 +192,45 @@ void bindlessBindGlobal(BindlessSystem* bs, VkCommandBuffer cmd,
     vkCmdBindDescriptorSets(cmd, bindPoint, layout,
                             BINDLESS_SET_INDEX, 1, &bs->globalSet, 0, NULL);
 }
+
+void bindlessWriteLightPassGBufferSamplers(VkDevice device, uint32_t maxFrames,
+                                           VkDescriptorSet* lightPerPassSets,
+                                           VkImageView gBufferView,
+                                           VkImageView normalsView,
+                                           VkSampler sampler)
+{
+    for (uint32_t i = 0; i < maxFrames; ++i)
+    {
+        const VkDescriptorImageInfo gImg = {
+            .sampler     = sampler,
+            .imageView   = gBufferView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+        const VkDescriptorImageInfo nImg = {
+            .sampler     = sampler,
+            .imageView   = normalsView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+        const VkWriteDescriptorSet writes[2] = {
+            {
+                .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet          = lightPerPassSets[i],
+                .dstBinding      = 1,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo      = &gImg,
+            },
+            {
+                .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet          = lightPerPassSets[i],
+                .dstBinding      = 2,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo      = &nImg,
+            },
+        };
+        vkUpdateDescriptorSets(device, 2, writes, 0, NULL);
+    }
+}
