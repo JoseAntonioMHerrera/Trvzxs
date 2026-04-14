@@ -5,6 +5,7 @@
 #include "textureManagerTypes.h"
 #include "scene.h"
 #include "computePipeline.h"
+#include "bindlessTypes.h"
 
 typedef struct DeviceBufferManager DeviceBufferManager;
 typedef struct CommandPools        CommandPools;
@@ -71,5 +72,17 @@ typedef struct GraphicPipelineToSurface
 
     // Per-frame globals UBO (binding 9): view, proj, viewProj, invViewProj, camera
     UniformBufferManager* pGlobalsUbo;
+
+    // A11 — Bindless wiring (populated by initBindlessRegistration, consumed by
+    // pipeline creation + draw recording). Layouts are non-owning references
+    // into LogicalDevice::bindless / perPassLayouts; this pipeline owns only
+    // its perPass pool + sets and its transform-handle array.
+    VkDescriptorSetLayout bindlessGlobalLayout;   // set 0 layout handle
+    VkDescriptorSet       bindlessGlobalSet;      // set 0 descriptor set (shared from BindlessSystem)
+    VkDescriptorSetLayout bindlessPerPassLayout;  // set 1 layout handle (pass-specific)
+    VkDescriptorPool      perPassPool;
+    VkDescriptorSet*      perPassSets;            // maxFrames
+    BindlessHandle        bindlessTextureHandle;
+    BindlessHandle*       bindlessTransformHandles; // maxFrames
 
 } GraphicPipelineToSurface;

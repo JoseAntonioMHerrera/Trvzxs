@@ -8,6 +8,8 @@
 #include "vma_bridge.h"
 #include "deletionQueue.h"
 #include "timelineSync.h"
+#include "bindlessTypes.h"
+#include "perPassLayouts.h"
 
 typedef struct DisplayManager
 {
@@ -26,6 +28,8 @@ typedef struct LogicalDevice
     VmaAllocator    allocator;      // VMA suballocator — one per logical device, manages all GPU memory
     DeletionQueue   deletionQueue;  // Per-frame deferred destruction ring buffer
     FrameSync       frameSync;      // Timeline semaphores for multi-queue scheduling
+    BindlessSystem  bindless;       // A11 — global descriptor table (textures + storage buffers)
+    PerPassLayouts  perPassLayouts; // A11 — per-pass set-1 descriptor set layouts
 } LogicalDevice;
 
 typedef struct DeviceManager

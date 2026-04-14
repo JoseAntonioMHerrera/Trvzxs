@@ -4,6 +4,8 @@
 #include "deviceManagmentTypes.h"
 #include "computePipeline.h"
 #include "particle.h"
+#include "bindless.h"
+#include "bindlessPushConstants.h"
 #include <math.h>
 
 // ---------------------------------------------------------------------------
@@ -36,9 +38,10 @@ void executeDepthPrepass(VkCommandBuffer cmd, const RGPass* pass, void* userData
     };
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    // Reuse the model pipeline's descriptor sets (same SSBO binding 0 + UBO binding 9)
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *depthGdp->pipelineLayout, 0, 1,
-                            &modelGdp->descriptorSet[frame], 0, VK_NULL_HANDLE);
+    // A11 — bind bindless global set (0) + depth prepass per-pass set (1).
+    VkDescriptorSet depthSets[2] = {depthGdp->bindlessGlobalSet, depthGdp->perPassSets[frame]};
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *depthGdp->pipelineLayout,
+                            0, 2, depthSets, 0, VK_NULL_HANDLE);
 
     // Bind the same vertex + index buffers as the model pass
     VkDeviceSize   offsets[]     = {0};
@@ -61,6 +64,12 @@ void executeDepthPrepass(VkCommandBuffer cmd, const RGPass* pass, void* userData
         {
             uint32_t count = model->lodLiveInstanceCount[k];
             if (count == 0) continue;
+            BindlessPushConstants pc = {
+                .textureIdx   = depthGdp->bindlessTextureHandle,
+                .transformIdx = depthGdp->bindlessTransformHandles[frame],
+            };
+            vkCmdPushConstants(cmd, *depthGdp->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                               0, sizeof(pc), &pc);
             vkCmdDrawIndexed(cmd,
                              model->lod[k].indexCount,
                              count,
@@ -103,8 +112,10 @@ void executeModelPass(VkCommandBuffer cmd, const RGPass* pass, void* userData)
     };
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout, 0, 1,
-                            &gdp->descriptorSet[frame], 0, VK_NULL_HANDLE);
+    // A11 — bind bindless global set (0) + model per-pass set (1).
+    VkDescriptorSet modelSets[2] = {gdp->bindlessGlobalSet, gdp->perPassSets[frame]};
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *gdp->pipelineLayout, 0, 2,
+                            modelSets, 0, VK_NULL_HANDLE);
     vkCmdBindVertexBuffers(cmd, 0, 1, localBuffer, offsets);
     vkCmdBindIndexBuffer(cmd, *gdp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -121,6 +132,13 @@ void executeModelPass(VkCommandBuffer cmd, const RGPass* pass, void* userData)
         {
             uint32_t count = model->lodLiveInstanceCount[k];
             if (count == 0) continue;
+            BindlessPushConstants pc = {
+                .textureIdx   = gdp->bindlessTextureHandle,
+                .transformIdx = gdp->bindlessTransformHandles[frame],
+            };
+            vkCmdPushConstants(cmd, *gdp->pipelineLayout,
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                               0, sizeof(pc), &pc);
             vkCmdDrawIndexed(cmd,
                              model->lod[k].indexCount,
                              count,
