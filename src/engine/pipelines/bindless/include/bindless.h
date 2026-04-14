@@ -27,3 +27,14 @@ void           bindlessUnregisterBuffer(BindlessSystem* bs, BindlessHandle h);
 void bindlessBindGlobal(BindlessSystem* bs, VkCommandBuffer cmd,
                         VkPipelineLayout layout,
                         VkPipelineBindPoint bindPoint);
+
+// Re-writes bindings 1 (G-buffer) and 2 (normals) of every per-frame
+// descriptor set used by the light pass. Call on swapchain recreate after
+// the G-buffer / normals images have been rebuilt; the existing writes
+// point at now-destroyed image views.
+void bindlessWriteLightPassGBufferSamplers(VkDevice device,
+                                           uint32_t maxFrames,
+                                           VkDescriptorSet* lightPerPassSets,
+                                           VkImageView gBufferView,
+                                           VkImageView normalsView,
+                                           VkSampler sampler);

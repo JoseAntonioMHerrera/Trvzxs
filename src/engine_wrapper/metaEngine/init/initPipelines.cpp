@@ -24,8 +24,8 @@ void metaInitPipelines(MetaInitContext &ctx, RenderGraph *renderGraph)
 
     // Depth prepass pipeline — uses the render graph's depth-only render pass
     depthPrepassGraphicPipeline->renderPass = &renderGraph->passes[ctx.pDepthPrepass].renderPass;
-    depthPrepassGraphicPipeline->dsl = gdp->dsl;
-    depthPrepassGraphicPipeline->descriptorSet = gdp->descriptorSet;
+    // depthPrepassGraphicPipeline->dsl = gdp->dsl;               // DORMANT A11
+    // depthPrepassGraphicPipeline->descriptorSet = gdp->descriptorSet; // DORMANT A11
     createDepthPrepassGraphicsPipeline(depthPrepassGraphicPipeline, dispM, &ld->device);
 
     gdp->renderPass = &renderGraph->passes[ctx.pModels].renderPass;

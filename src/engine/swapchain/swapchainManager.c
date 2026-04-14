@@ -4,6 +4,7 @@
 #include "descriptor.h"
 #include "renderGraph.h"
 #include "graphicConfiguration.h"
+#include "bindless.h"
 // TODO: maybe move this function  def/decl to image.h
 VkImageView createImageView(GraphicSwapchain* dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels,
                             VkImageAspectFlags aspectMask)
@@ -595,7 +596,17 @@ void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window
 
     // Re-write G-buffer/normals descriptors (bindings 5/6) with new image views
     GraphicPipelineToSurface* gdp = ld->displayManager->graphicPipeline;
-    updateGBufferDescriptors(gdp->maxFrames, ld->device, gdp);
+    // updateGBufferDescriptors(gdp->maxFrames, ld->device, gdp); // DORMANT A11 — light pass uses bindless per-pass set
+
+    // A11 — bindless light per-pass set holds the G-buffer + normals samplers
+    // at bindings 1,2. After swapchain recreate the image views are fresh;
+    // rewrite both bindings across all in-flight frame sets.
+    GraphicPipelineToSurface* lightGdp = &ld->displayManager->graphicPipeline[2];
+    bindlessWriteLightPassGBufferSamplers(ld->device, lightGdp->maxFrames,
+                                          lightGdp->perPassSets,
+                                          sc->gBuffer->imageView,
+                                          sc->nBuffer->imageView,
+                                          sc->gBufferSampler);
 
     // Update render graph external resource handles to point at the new images
     if (rg)

@@ -197,7 +197,7 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->transferCommandPool, NULL);
     vkDestroyPipeline(ld->device, *gdp->pipeline, NULL);
-    vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL);
+    // vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL); // DORMANT A11 — gdp->dsl no longer created (metaInitDescriptors is dormant)
     vkDestroyPipelineLayout(ld->device, *gdp->pipelineLayout, NULL);
     cleanupSyncObjects(ld->device, gdp);
     destroyFrameSync(&ld->frameSync, ld->device);
@@ -209,9 +209,47 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     // Print VMA suballocation statistics before teardown.
     printVmaStats(ld);
 
-    // A11 — bindless descriptor pool/layout + per-pass layouts. No VMA
-    // allocations inside, so ordering vs destroyVmaAllocator is flexible;
-    // destroyed first for symmetry with init.
+    // A11 — per-pipeline bindless resources (allocated in
+    // initBindlessRegistration). Destroy pools first (frees their sets),
+    // then free the owning malloc'd arrays. Must happen before
+    // perPassLayoutsDestroy because pools were allocated against those
+    // layouts.
+    //
+    // Transform-handle arrays: depth prepass shares model's array (same
+    // pointer); free model's once and null both refs.
+    GraphicPipelineToSurface* modelGdp    = &dispM->graphicPipeline[0];
+    GraphicPipelineToSurface* particleGdp = &dispM->graphicPipeline[1];
+    GraphicPipelineToSurface* lightGdp    = &dispM->graphicPipeline[2];
+    GraphicPipelineToSurface* depthGdp    = &dispM->graphicPipeline[3];
+
+    GraphicPipelineToSurface* bindlessGdps[] = {modelGdp, particleGdp, lightGdp, depthGdp};
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        GraphicPipelineToSurface* p = bindlessGdps[i];
+        if (p->perPassPool) vkDestroyDescriptorPool(ld->device, p->perPassPool, NULL);
+        free(p->perPassSets);
+    }
+    // depth and model share the transform handle array; free once via model.
+    free(modelGdp->bindlessTransformHandles);
+    depthGdp->bindlessTransformHandles = NULL;
+    modelGdp->bindlessTransformHandles = NULL;
+    free(lightGdp->bindlessTransformHandles);
+    free(particleGdp->bindlessTransformHandles);
+
+    // Compute pipeline: its own per-pass pool + dedicated pipeline layout.
+    for (uint32_t c = 0; c < particleGdp->computePipelineCount; ++c)
+    {
+        ComputePipeline* cp = &particleGdp->computeP[c];
+        if (cp->perPassPool) vkDestroyDescriptorPool(ld->device, cp->perPassPool, NULL);
+        free(cp->perPassSets);
+        if (cp->pipelineLayout)
+        {
+            vkDestroyPipelineLayout(ld->device, *cp->pipelineLayout, NULL);
+            free(cp->pipelineLayout);
+            cp->pipelineLayout = NULL;
+        }
+    }
+
     perPassLayoutsDestroy(&ld->perPassLayouts);
     bindlessDestroy(&ld->bindless);
 
