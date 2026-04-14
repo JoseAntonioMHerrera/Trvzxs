@@ -14,6 +14,7 @@
 #include <assert.h>
 #include "deviceManagmentTypes.h"
 #include "commandPool.h"
+#include "bindlessTypes.h"
 
 #define PARTICLE_COMPUTE "shaders/bin/particle.comp.spv\0"
 #define OCL_CULLING_COMPUTE "shaders/bin/oclCulling.comp.spv\0"
@@ -44,6 +45,15 @@ typedef struct ComputePipeline
 
     // SHADERS
     VkShaderModule* computeShader;
+
+    // A11 bindless — compute-side wiring. Populated by
+    // initBindlessRegistration, consumed by compute pipeline layout
+    // creation and the dispatch callback.
+    VkDescriptorSetLayout bindlessGlobalLayout;
+    VkDescriptorSet       bindlessGlobalSet;
+    VkDescriptorSetLayout bindlessPerPassLayout;  // particleComputePass layout
+    VkDescriptorPool      perPassPool;
+    VkDescriptorSet*      perPassSets;            // maxFrames
 } ComputePipeline;
 void createOcclusionCullingComputePipeline(ComputePipeline* computeP, VkDevice device);
 void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device);

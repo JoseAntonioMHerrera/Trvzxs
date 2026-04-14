@@ -237,13 +237,22 @@ void executeParticlePass(VkCommandBuffer cmd, const RGPass* pass, void* userData
     };
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *pp->pipelineLayout, 0, 1,
-                            &pp->descriptorSet[frame], 0, VK_NULL_HANDLE);
+    // A11 — bindless set 0 + particle-render per-pass set 1.
+    VkDescriptorSet particleSets[2] = {pp->bindlessGlobalSet, pp->perPassSets[frame]};
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *pp->pipelineLayout, 0, 2,
+                            particleSets, 0, VK_NULL_HANDLE);
     vkCmdBindVertexBuffers(cmd, 0, 1, pp->deviceBuffer->buffer, offsets);
 
     if (!pp->deviceBuffer->indexBuffer || *pp->deviceBuffer->indexBuffer == VK_NULL_HANDLE)
         return;
     vkCmdBindIndexBuffer(cmd, *pp->deviceBuffer->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+    BindlessPushConstants ppc = {
+        .textureIdx   = 0,
+        .transformIdx = pp->bindlessTransformHandles[frame], // current-frame particle SSBO slot
+    };
+    vkCmdPushConstants(cmd, *pp->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                       0, sizeof(ppc), &ppc);
 
     const SCENE* scene = pp->scene;
     for (uint32_t g = 0; g < scene->particleManager.particleGroupLen; g++)
@@ -265,8 +274,20 @@ void executeParticleComputePass(VkCommandBuffer cmd, const RGPass* pass, void* u
     uint32_t                  frame    = data->dm->currentFrame;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *computeP->pipeline);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline->pipelineLayout, 0, 1,
-                            &pipeline->descriptorSet[frame], 0, 0);
+    // A11 — compute uses its own pipeline layout (dedicated in initPipelines).
+    VkDescriptorSet computeSets[2] = {computeP->bindlessGlobalSet, computeP->perPassSets[frame]};
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *computeP->pipelineLayout, 0, 2,
+                            computeSets, 0, 0);
+
+    uint32_t maxFrames    = pipeline->maxFrames;
+    uint32_t prevSSBOSlot = pipeline->bindlessTransformHandles[(frame + maxFrames - 1) % maxFrames];
+    uint32_t currSSBOSlot = pipeline->bindlessTransformHandles[frame];
+    BindlessPushConstants cpc = {
+        .textureIdx   = prevSSBOSlot, // named prevIdx in particle.comp
+        .transformIdx = currSSBOSlot, // named currIdx in particle.comp
+    };
+    vkCmdPushConstants(cmd, *computeP->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
+                       0, sizeof(cpc), &cpc);
 
     float deltaTime = *data->deltaTime;
     vkCmdUpdateBuffer(cmd, *computeP->deviceBuffer->pUbo->uniformBuffers, 0, sizeof(float), &deltaTime);
@@ -275,7 +296,11 @@ void executeParticleComputePass(VkCommandBuffer cmd, const RGPass* pass, void* u
     VkBufferMemoryBarrier uboBarrier = {
         .sType         = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
         .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
+        // A11 — compute now binds this buffer as a UBO (set 1 binding 0) via
+        // the dedicated compute pipeline layout. UNIFORM_READ must be in the
+        // barrier explicitly; sync validation does not fold it under the
+        // generic SHADER_READ mask.
+        .dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
         .buffer        = *computeP->deviceBuffer->pUbo->uniformBuffers,
         .offset        = 0,
         .size          = sizeof(float),

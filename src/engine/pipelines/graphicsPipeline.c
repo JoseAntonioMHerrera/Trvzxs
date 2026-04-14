@@ -601,19 +601,25 @@ void createParticleGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager
         .pNext             = VK_NULL_HANDLE,
     };
 
-    /*VkPushConstantRange pushConstantRange = {
+    // A11 — bindless 2-set layout for particle render pass. Vert reads the
+    // current-frame particle SSBO via bindless set 0 + frame globals via
+    // set 1. Push constants carry the current SSBO slot.
+    VkDescriptorSetLayout particleSetLayouts[2] = {
+        gdp->bindlessGlobalLayout,
+        gdp->bindlessPerPassLayout,
+    };
+    VkPushConstantRange particlePushRange = {
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .offset = 0,
-        .size = sizeof(PushConstantDisplayTimer)
-    }*/
-    ;
+        .offset     = 0,
+        .size       = sizeof(BindlessPushConstants),
+    };
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-        .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = gdp->maxFrames, // Optional
-        .pSetLayouts    = (VkDescriptorSetLayout[]) {gdp->dsl, gdp->dsl, gdp->dsl},
-        //.pushConstantRangeCount = 0,
-        //.pPushConstantRanges = &pushConstantRange, // Optional
-        .pNext = VK_NULL_HANDLE,
+        .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount         = 2,
+        .pSetLayouts            = particleSetLayouts,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges    = &particlePushRange,
+        .pNext                  = VK_NULL_HANDLE,
     };
 
     gdp->pipelineLayout = malloc(sizeof(*gdp->pipelineLayout));
