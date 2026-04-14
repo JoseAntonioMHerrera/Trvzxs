@@ -41,13 +41,13 @@ const int MARGIN = 20;
 const int LIGHT_INSTANCE_COUNT = 2;
 const int MODEL_INSTANCE_COUNT = 20000;
 
-const double TARGET_FPS = 60; // Assuming 60Hz refresh rate
+const double TARGET_FPS = 100; // Assuming 60Hz refresh rate
 const double FRAME_TIME = 1.0 / TARGET_FPS;
 
 // Global variables for camera control
 static int mouseLookActive = 0;
 static float mouseSensitivity = 0.002f;
-static float moveSpeed = 5.0f;
+static float moveSpeed = 1000.0f; // world units/sec — scene is ±6000 so crosses in ~12s
 static int keys[256] = {0}; // Key state array
 
 double getCurrentTime()
@@ -144,27 +144,44 @@ struct BenchmarkScenario
 // 3/4/5 get double weight because they're in the CPU-visible regime where the
 // per-frame variance dominates; scenarios 1/2 are already fence-blocked on the
 // GPU wall so 40 is plenty.
+// Scene geometry: 10×10 groups, groupSpacing=1200, lightScale=120 → grid spans
+// ±6000 on X and Y, each light volume is a 1200-per-side cube.  Models scaled
+// 6× from the previous layout (modelScale=60) and spaced 6× (modelSpacing=60)
+// → cluster ~630×1230 per group, comfortably inside each 1200-cube light
+// volume.  Camera positions scaled ~6× from the previous ±1000 layout.
 static const BenchmarkScenario g_benchmarkScenarios[] = {
-    // 1. Top-down overview: camera high above the 10×10 grid (spans ±90 on X/Y).
-    //    Most groups visible. Exercises the "many tests, few bulk skips" path.
-    {"top-down overview", {0.0f, 0.0f, 260.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, 40},
+    // 1. Top-down overview: camera high above the 10×10 grid (spans ±6000).
+    //    All groups visible. At FOV 45° + 16:9, z=16800 gives a vertical
+    //    half-view of ~6960 — scene fills ~86% of the vertical axis.
+    {"top-down overview", {0.0f, 0.0f, 16800.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, 40},
 
-    // 2. Low edge grazing: camera at Y=-180 looking toward the grid along +Y.
+    // 2. Low edge grazing: camera at Y=-12000 looking along +Y into the grid.
     //    About half the groups in view; distant ones get bulk-skipped.
-    {"low edge grazing", {0.0f, -180.0f, 20.0f}, {0.0f, 20.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, 40},
+    {"low edge grazing", {0.0f, -12000.0f, 1440.0f}, {0.0f, 1440.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, 40},
 
-    // 3. Close-up on one corner group: camera near (-90,-90) looking at that
-    //    single group. 99% of the scene outside the frustum → ideal bulk-skip.
-    {"corner close-up", {-95.0f, -95.0f, 15.0f}, {-85.0f, -85.0f, 5.0f}, {0.0f, 0.0f, 1.0f}, 80},
+    // 3. Close-up on the corner group at (-6000,-6000): camera just outside
+    //    the group's own light volume (half-extent 600 from center), looking
+    //    at the group center. 99% of the scene outside the frustum → ideal
+    //    bulk-skip. Close enough that models hit a full LOD 0/1/2 mix.
+    {"corner close-up", {-6360.0f, -6360.0f, 900.0f}, {-5640.0f, -5640.0f, 300.0f}, {0.0f, 0.0f, 1.0f}, 80},
 
-    // 4. Facing away from the grid: camera at origin looking -Z. Zero groups
-    //    in frustum → 100 light roots tested, all culled, 20000 models
-    //    bulk-skipped. The "cheapest cull" case.
-    {"facing away (full cull)", {0.0f, 0.0f, 5.0f}, {0.0f, 0.0f, -95.0f}, {0.0f, 1.0f, 0.0f}, 80},
+    // 4. Facing away from the grid: camera above the scene top (z=7800) looking
+    //    straight up (+Z). Every group is behind the camera's near plane → 100
+    //    light roots tested, all culled, 20000 models bulk-skipped. Cheapest-cull.
+    {"facing away (full cull)", {0.0f, 0.0f, 7800.0f}, {0.0f, 0.0f, 15600.0f}, {0.0f, 1.0f, 0.0f}, 80},
 
-    // 5. Inside the grid looking along +X: a strip of groups visible across
-    //    the middle of the frustum, others outside.
-    {"inside grid, +X view", {0.0f, 0.0f, 10.0f}, {60.0f, 0.0f, 10.0f}, {0.0f, 0.0f, 1.0f}, 80},
+    // 5. Inside the grid looking along +X: camera at the left edge of the
+    //    central group (-660,0,330) looking at +X across ~5 groups. Strip of
+    //    groups visible across the middle of the frustum, others outside.
+    {"inside grid, +X view", {-660.0f, 0.0f, 330.0f}, {6000.0f, 0.0f, 330.0f}, {0.0f, 0.0f, 1.0f}, 80},
+
+    // 6. Low-altitude flyover of the center group (0,0,0): camera starts south
+    //    of the group at (0, -800, 150), looking forward along +Y at the same
+    //    altitude (models peak at ~z=44, so camera is ~100 units above them).
+    //    Forward step 30/frame × 80 frames = 2400 units — camera flies over
+    //    the group (which spans y=-614..614) and out the far side. Good test
+    //    of how large individual models look at grazing range.
+    {"flyover center group", {0.0f, -800.0f, 150.0f}, {0.0f, 100.0f, 150.0f}, {0.0f, 0.0f, 1.0f}, 80},
 };
 static const uint32_t g_benchmarkScenarioCount =
     sizeof(g_benchmarkScenarios) / sizeof(g_benchmarkScenarios[0]);
@@ -185,7 +202,17 @@ static float benchRng_signedUnit(uint32_t *state)
     return ((float)(benchRng_nextU32(state) & 0xFFFF) / 32768.0f) - 1.0f;
 }
 
-// Apply the scenario for the given frame index. Logs on scenario entry.
+// Per-frame forward-translation step applied during each scenario's playback.
+// Camera snaps to scenario's eye/center on entry, then each subsequent frame
+// translates both points along the look direction by this amount. Lets cull/
+// LOD behavior be observed as the camera moves through the scene instead of
+// staying frozen.
+static const float BENCH_FORWARD_STEP_PER_FRAME = 30.0f;
+
+// Apply the scenario for the given frame index. On scenario entry, snap the
+// camera to the scenario's base pose. On subsequent frames of the same
+// scenario, translate eye+center along the (constant) forward direction so
+// the camera advances while keeping the original look vector.
 static void benchApplyCamera(uint32_t frameIdx, Camera3D *camera)
 {
     uint32_t cumulative = 0;
@@ -194,16 +221,30 @@ static void benchApplyCamera(uint32_t frameIdx, Camera3D *camera)
         uint32_t next = cumulative + g_benchmarkScenarios[s].frameCount;
         if (frameIdx < next)
         {
-            // Set camera every frame of the scenario so nothing drifts it.
-            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].eye), camera->eye);
-            glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].center), camera->center);
+            uint32_t relFrame = frameIdx - cumulative;
+
+            // Forward = normalize(center - eye). Constant for the scenario so
+            // the camera tracks a straight line through the scene.
+            vec3 forward;
+            glm_vec3_sub(const_cast<float *>(g_benchmarkScenarios[s].center),
+                         const_cast<float *>(g_benchmarkScenarios[s].eye),
+                         forward);
+            glm_vec3_normalize(forward);
+
+            vec3 delta;
+            glm_vec3_scale(forward, BENCH_FORWARD_STEP_PER_FRAME * (float)relFrame, delta);
+
+            // Eye + center translated by the same delta; up unchanged.
+            glm_vec3_add(const_cast<float *>(g_benchmarkScenarios[s].eye), delta, camera->eye);
+            glm_vec3_add(const_cast<float *>(g_benchmarkScenarios[s].center), delta, camera->center);
             glm_vec3_copy(const_cast<float *>(g_benchmarkScenarios[s].up), camera->up);
 
-            if (frameIdx == cumulative)
+            if (relFrame == 0)
             {
                 std::cout << "\n[bench] frame " << frameIdx << " → scenario '"
                           << g_benchmarkScenarios[s].name << "' (" << g_benchmarkScenarios[s].frameCount
-                          << " frames)" << std::endl;
+                          << " frames, forward step " << BENCH_FORWARD_STEP_PER_FRAME << "/frame)"
+                          << std::endl;
                 // Flush previous scenario's stats and start a new sample window.
                 displayBenchBeginScenario(g_benchmarkScenarios[s].name);
             }
@@ -340,24 +381,25 @@ int main()
 
         // Replace the flat layout from init() with a preorder hierarchy of
         // 100 groups arranged as a 10x10 grid on the XY plane. Each group
-        // is a light root (scale=1, 10x10x10 world AABB) parenting 200
-        // model children (10x20 grid at 0.3 spacing → ~3x6 unit local
-        // extent, safely inside the light's bounding volume).
+        // is a light root (scale=120, 1200x1200x1200 world AABB) parenting
+        // 200 model children (10x20 grid at 60-unit spacing, world model
+        // scale 60 → cluster ~630x1230 units, filling the light volume).
         //
         //   Total: 100 groups × 200 models = 20000 model instances
         //          + 100 light instances
         //          = 20100 entities in the preorder transform array
         //
-        // The group grid spans ±90 units on X and Y, so at typical camera
-        // angles most groups fall entirely outside the frustum and their
-        // subtrees are bulk-skipped by frustumCullScene in O(1).
+        // Lights tile edge-to-edge at groupSpacing = lightScale * cubeBaseSize
+        // = 1200 so adjacent volumes share faces with no gap. Grid spans
+        // ±6000 on X and Y — camera scenarios above retuned 6× accordingly.
         scene->buildAndApplyGroupedSpecTree(
             /*groupsPerSide*/ 10,
             /*modelsPerGroupX*/ 10,
             /*modelsPerGroupY*/ 20,
-            /*groupSpacing*/ 20.0f,
-            /*modelSpacing*/ 0.3f,
-            /*lightScale*/ 1.0f);
+            /*groupSpacing*/ 1200.0f,
+            /*modelSpacing*/ 60.0f,
+            /*lightScale*/ 120.0f,
+            /*modelScale*/ 60.0f);
 
         std::cout << "QUE??????\n";
         engine->bulkInitVulkanWithScene(window, scene.get());
@@ -684,11 +726,20 @@ int main()
             // Llamada a la función drawFrame
             if (deltaTime >= FRAME_TIME)
             {
-                // Benchmark: fixed camera sequence + partial random dirty load.
-                // Overrides interactive WASD/mouse-look so the profile output
-                // corresponds to a reproducible scenario schedule.
+                // Benchmark harness — set to 1 to run the fixed camera
+                // schedule + random dirty load (reproducible profile runs).
+                // Set to 0 for free interactive WASD/mouse-look.
+#define BENCH_ENABLED 1
+#if BENCH_ENABLED
                 benchApplyCamera((uint32_t)frameCount, scene->getCamera3D());
                 benchApplyRandomDirty(scene->getScene());
+#else
+                // Free fly: WASD via updateCamera, mouse look via SDL_MOUSEMOTION
+                // handler. Hold middle/right mouse to look around.
+                updateCamera(scene->getCamera3D(), (float)deltaTime);
+                (void)benchApplyCamera;
+                (void)benchApplyRandomDirty;
+#endif
 
                 // Render and present frame
                 if (!resizing)
@@ -696,10 +747,12 @@ int main()
 
                 lastFrameTime = currentTime;
                 frameCount++;
+#if BENCH_ENABLED
                 if (frameCount >= MAX_FRAME_COUNT)
                 {
                     running = 0;
                 }
+#endif
 
                 // Frame pacing: Sleep to align with next vsync
                 double sleepTime = FRAME_TIME - (getCurrentTime() - currentTime);

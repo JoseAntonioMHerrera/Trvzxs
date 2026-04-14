@@ -369,16 +369,41 @@ VkSurfaceFormatKHR* chooseSwapSurfaceFormat(VkSurfaceFormatKHR* availableFormats
     return &availableFormats[0];
 }
 
+static const char* presentModeName(VkPresentModeKHR m)
+{
+    switch (m)
+    {
+    case VK_PRESENT_MODE_IMMEDIATE_KHR:                 return "IMMEDIATE (no vsync, tearing)";
+    case VK_PRESENT_MODE_MAILBOX_KHR:                   return "MAILBOX (no vsync, no tearing)";
+    case VK_PRESENT_MODE_FIFO_KHR:                      return "FIFO (vsync)";
+    case VK_PRESENT_MODE_FIFO_RELAXED_KHR:              return "FIFO_RELAXED";
+    case VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR:     return "SHARED_DEMAND_REFRESH";
+    case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR: return "SHARED_CONTINUOUS_REFRESH";
+    default:                                            return "unknown";
+    }
+}
+
 VkPresentModeKHR chooseSwapPresentMode(VkPresentModeKHR* availablePresentModes, uint8_t availableModesCount,
                                        VkPresentModeKHR mode)
 {
+    printf("[swapchain] requested present mode: %s\n", presentModeName(mode));
+    printf("[swapchain] surface advertises %u present mode(s):\n", availableModesCount);
+    for (uint8_t i = 0; i < availableModesCount; i++)
+    {
+        printf("              [%u] %s\n", i, presentModeName(availablePresentModes[i]));
+    }
     for (uint8_t i = 0; i < availableModesCount; i++)
     {
         if (availablePresentModes[i] == mode)
         {
+            printf("[swapchain] GRANTED: %s\n", presentModeName(availablePresentModes[i]));
+            fflush(stdout);
             return availablePresentModes[i];
         }
     }
+    printf("[swapchain] FALLBACK to %s — requested mode not supported by surface\n",
+           presentModeName(VK_PRESENT_MODE_FIFO_KHR));
+    fflush(stdout);
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 

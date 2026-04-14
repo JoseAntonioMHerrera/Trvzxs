@@ -6,6 +6,8 @@
 #include "timelineSync.h"
 #include "particle.h"
 #include "renderGraph.h"
+#include "scene.h"
+#include "model.h"
 #include "transformNode.h"
 #include "transformations.h"
 #include "mat4.h"
@@ -49,6 +51,33 @@ static uint32_t    g_benchSampleCount            = 0;
 static double      g_benchResolveSamples[MAX_FRAME_COUNT];
 static double      g_benchCullSamples[MAX_FRAME_COUNT];
 static double      g_benchTotalCpuSamples[MAX_FRAME_COUNT];
+static double      g_benchGpuWaitSamples[MAX_FRAME_COUNT];   // vkWaitSemaphores on graphics timeline
+static double      g_benchPresentSamples[MAX_FRAME_COUNT];   // vkQueuePresentKHR (FIFO blocks here)
+static double      g_benchAcquireSamples[MAX_FRAME_COUNT];   // vkAcquireNextImageKHR
+
+// Per-scenario LOD distribution accumulator. Each frame, displayBenchRecordLodSample
+// walks the models and sums lodLiveInstanceCount[k] into g_benchLodBuckets[k].
+// Reported as percentages in the scenario stats block.
+static uint64_t g_benchLodBuckets[MODEL_LOD_COUNT];
+static uint64_t g_benchLodTotal;
+static uint32_t g_benchLodFrames;
+
+static void benchPrintLodDistribution(void)
+{
+    if (g_benchLodTotal == 0 || g_benchLodFrames == 0)
+    {
+        printf("  %-18s (no samples)\n", "lod distribution");
+        return;
+    }
+    double total = (double) g_benchLodTotal;
+    printf("  %-18s", "lod distribution");
+    for (int k = 0; k < MODEL_LOD_COUNT; k++)
+    {
+        double pct = 100.0 * (double) g_benchLodBuckets[k] / total;
+        printf("  LOD%d=%7llu (%5.1f%%)", k, (unsigned long long) g_benchLodBuckets[k], pct);
+    }
+    printf("   avg/frame=%.0f\n", total / (double) g_benchLodFrames);
+}
 
 static inline double timespecDiffUs(struct timespec* start, struct timespec* end)
 {
@@ -108,12 +137,19 @@ void displayBenchBeginScenario(const char* name)
         printf("\n── Bench stats: '%s' (µs, warmup dropped) ──\n", g_benchScenarioName);
         benchPrintStatsLine("resolveTransforms", g_benchResolveSamples,  g_benchSampleCount);
         benchPrintStatsLine("frustumCull",       g_benchCullSamples,     g_benchSampleCount);
+        benchPrintStatsLine("gpuFenceWait",      g_benchGpuWaitSamples,  g_benchSampleCount);
+        benchPrintStatsLine("acquireImage",      g_benchAcquireSamples,  g_benchSampleCount);
+        benchPrintStatsLine("present",           g_benchPresentSamples,  g_benchSampleCount);
         benchPrintStatsLine("totalCpu",          g_benchTotalCpuSamples, g_benchSampleCount);
+        benchPrintLodDistribution();
         printf("──────────────────────────────────────────\n\n");
         fflush(stdout);
     }
     g_benchScenarioName = name;
     g_benchSampleCount  = 0;
+    for (int k = 0; k < MODEL_LOD_COUNT; k++) g_benchLodBuckets[k] = 0;
+    g_benchLodTotal  = 0;
+    g_benchLodFrames = 0;
 }
 
 void displayBenchEndScenario(void)
@@ -123,12 +159,35 @@ void displayBenchEndScenario(void)
         printf("\n── Bench stats: '%s' (µs, warmup dropped) ──\n", g_benchScenarioName);
         benchPrintStatsLine("resolveTransforms", g_benchResolveSamples,  g_benchSampleCount);
         benchPrintStatsLine("frustumCull",       g_benchCullSamples,     g_benchSampleCount);
+        benchPrintStatsLine("gpuFenceWait",      g_benchGpuWaitSamples,  g_benchSampleCount);
+        benchPrintStatsLine("acquireImage",      g_benchAcquireSamples,  g_benchSampleCount);
+        benchPrintStatsLine("present",           g_benchPresentSamples,  g_benchSampleCount);
         benchPrintStatsLine("totalCpu",          g_benchTotalCpuSamples, g_benchSampleCount);
+        benchPrintLodDistribution();
         printf("──────────────────────────────────────────\n\n");
         fflush(stdout);
     }
     g_benchScenarioName = NULL;
     g_benchSampleCount  = 0;
+    for (int k = 0; k < MODEL_LOD_COUNT; k++) g_benchLodBuckets[k] = 0;
+    g_benchLodTotal  = 0;
+    g_benchLodFrames = 0;
+}
+
+void displayBenchRecordLodSample(const struct SCENE* scene)
+{
+    if (g_benchScenarioName == NULL || scene == NULL) return;
+    for (uint32_t i = 0; i < scene->modelsManager.modelLen; i++)
+    {
+        const Model3D* m = &scene->modelsManager.pModel[i];
+        if (m->alive != 1) continue;
+        for (int k = 0; k < MODEL_LOD_COUNT; k++)
+        {
+            g_benchLodBuckets[k] += m->lodLiveInstanceCount[k];
+            g_benchLodTotal      += m->lodLiveInstanceCount[k];
+        }
+    }
+    g_benchLodFrames++;
 }
 
 static void accumulateTiming(FrameTiming* t)
@@ -142,6 +201,9 @@ static void accumulateTiming(FrameTiming* t)
         g_benchResolveSamples[g_benchSampleCount]  = t->resolveTransforms;
         g_benchCullSamples[g_benchSampleCount]     = t->frustumCull;
         g_benchTotalCpuSamples[g_benchSampleCount] = t->totalCpu;
+        g_benchGpuWaitSamples[g_benchSampleCount]  = t->semaphoreWait;
+        g_benchAcquireSamples[g_benchSampleCount]  = t->acquireImage;
+        g_benchPresentSamples[g_benchSampleCount]  = t->present;
         g_benchSampleCount++;
     }
 
@@ -191,6 +253,7 @@ static void accumulateTiming(FrameTiming* t)
 #else // !DEBUG — provide no-op bench stubs so main.cpp can call them unconditionally.
 void displayBenchBeginScenario(const char* name) { (void) name; }
 void displayBenchEndScenario(void) {}
+void displayBenchRecordLodSample(const struct SCENE* scene) { (void) scene; }
 #endif // DEBUG
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp)
 {
@@ -359,12 +422,18 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     MARK_TIME(tAfterFrustum);
 #endif
 
-    // Model UBO fill — writes ModelInstanceUBO (mat4 model only) directly to mapped memory
+    // Model UBO fill — writes ModelInstanceUBO (mat4 model only) directly to mapped memory.
+    // The LOD classifier reads from scene->camera (eye + screenSize), which is never
+    // written to elsewhere in the C engine — the live camera state lives in the C++
+    // Scene wrapper. Sync it each frame so LOD pixel-size selection uses the real camera.
+    dm->graphicPipeline[0].scene->camera = camera;
     updateModelUniformBuffersDirect(gdp->deviceBuffer->pUbo->uniformBuffersMapped[dm->currentFrame],
                                     dm->graphicPipeline[0].scene);
 
 #ifdef DEBUG
     MARK_TIME(tAfterModels);
+    // Record the per-frame LOD bucket distribution for the active scenario.
+    displayBenchRecordLodSample(dm->graphicPipeline[0].scene);
 #endif
 
     // Light SSBO fill — write to host-visible staging buffer
