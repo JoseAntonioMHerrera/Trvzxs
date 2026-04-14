@@ -7,6 +7,7 @@ extern "C"
 {
 #include "bindless.h"
 #include "perPassLayouts.h"
+#include "transformations.h"
 }
 
 static void allocPerPassPoolAndSets(VkDevice device,
@@ -59,7 +60,10 @@ static void writeFrameGlobalsUBO(VkDevice device, uint32_t maxFrames,
         const VkDescriptorBufferInfo buf = {
             .buffer = frameGlobals->uniformBuffers[i],
             .offset = 0,
-            .range  = frameGlobals->stagingSize,
+            // FrameGlobals UBO is created by createFrameGlobalsUniformBuffersMapped
+            // which does not populate stagingSize (it's a mapped UBO, not
+            // staging+device). Use sizeof(FrameGlobals) explicitly.
+            .range  = sizeof(FrameGlobals),
         };
         const VkWriteDescriptorSet write = {
             .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
