@@ -15,7 +15,7 @@ layout(set = 1, binding = 0) uniform FrameGlobals {
     mat4 invViewProj;
 } globals;
 
-layout(set = 0, binding = 1) readonly buffer ModelTransforms {
+layout(std430, set = 0, binding = 1) readonly buffer ModelTransforms {
     mat4 data[];
 } transforms[];
 
