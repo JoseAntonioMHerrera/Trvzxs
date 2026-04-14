@@ -71,12 +71,21 @@ void updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene)
                 continue;
             }
 
-            // Projected pixel size from world-space distance
+            // Projected pixel size from world-space distance. modelRadius is
+            // the model-local bounding-sphere radius (unscaled); multiply by
+            // the instance's world scale to get the real radius on screen.
+            // Assumes uniform scale — take the length of column 0 of the
+            // world matrix (TRS output); for non-uniform scale this reads
+            // the X-axis scale (conservative callers should use max component).
             float wx = world->worldMatrix[3][0] - camEye[0];
             float wy = world->worldMatrix[3][1] - camEye[1];
             float wz = world->worldMatrix[3][2] - camEye[2];
             float dist = sqrtf(wx * wx + wy * wy + wz * wz);
-            float pixelSize = (dist > 1e-6f) ? (modelRadius * pixelScale / dist) : 1e6f;
+            float instanceScale = sqrtf(world->worldMatrix[0][0] * world->worldMatrix[0][0] +
+                                        world->worldMatrix[0][1] * world->worldMatrix[0][1] +
+                                        world->worldMatrix[0][2] * world->worldMatrix[0][2]);
+            float effectiveRadius = modelRadius * instanceScale;
+            float pixelSize = (dist > 1e-6f) ? (effectiveRadius * pixelScale / dist) : 1e6f;
 
             // Pick finest LOD whose threshold is satisfied (lod[0].minPixelSize
             // is highest, lod[MODEL_LOD_COUNT-1].minPixelSize is 0).
@@ -351,7 +360,7 @@ void updateFrameGlobals(FrameGlobals* globals, GraphicSwapchain* dsm, Camera3D c
 
     // Projection matrix
     float aspectRatio = dsm->currentExtent2D.width / (float) dsm->currentExtent2D.height;
-    glm_perspective(glm_rad(45.0f), aspectRatio, 0.1f, 500.0f, globals->proj);
+    glm_perspective(glm_rad(45.0f), aspectRatio, 0.1f, 30000.0f, globals->proj);
     globals->proj[1][1] *= -1; // Vulkan Y-flip
 
     // Precomputed viewProj

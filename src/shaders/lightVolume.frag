@@ -70,7 +70,14 @@ vec3 calculateBlinnPhong(vec3 worldPos, vec3 normal, vec3 albedo) {
     vec3 viewDir = normalize(globals.cameraEye - worldPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
 
-    float distance = length(lightPos - worldPos);
+    // Scale-invariant attenuation: rescale distance so "30 units" maps to the
+    // light's own half-extent (scale × 5, since cube base is 10). The 0.09 /
+    // 0.032 constants below were originally tuned for lightScale=12
+    // (half-extent 30) — at d_normalized = 30, attenuation ≈ 0.03, so light
+    // fades to ~3% at the edge of its own volume. This form keeps that curve
+    // shape for any lightScale without retuning.
+    float lightHalfExtent = lights.instances[instanceIndex].scale * 5.0;
+    float distance = length(lightPos - worldPos) * (30.0 / lightHalfExtent);
     float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
 
     // Ambient (simulated global illumination)

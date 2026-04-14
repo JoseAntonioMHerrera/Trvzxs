@@ -3,6 +3,7 @@
 #include "light.h"
 #include "transformNode.h"
 #include "vertex.h"
+#include "graphicConfiguration.h"
 #include "meshoptimizer/meshoptimizer.h"
 #include <assert.h>
 #include <math.h>
@@ -604,7 +605,7 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
             model->lod[0].vertexCount  = vertCount;
             model->lod[0].indexOffset  = lod0IndexOffset;
             model->lod[0].indexCount   = lod0IndexCount;
-            model->lod[0].minPixelSize = 50.0f;
+            model->lod[0].minPixelSize = LOD_MIN_PX_FULL;
 
             // 2. Generate LOD 1 (~30% of full) in compact space, then unremap.
             uint32_t target1 = (uint32_t)((size_t) lod0IndexCount * 3 / 10);
@@ -621,7 +622,7 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
             model->lod[1].vertexCount  = vertCount;
             model->lod[1].indexOffset  = appendCursor;
             model->lod[1].indexCount   = (uint32_t) lod1Count;
-            model->lod[1].minPixelSize = 15.0f;
+            model->lod[1].minPixelSize = LOD_MIN_PX_MEDIUM;
             appendCursor += (uint32_t) lod1Count;
 
             // 3. Generate LOD 2 (~10% of full) — same pattern.
@@ -639,7 +640,7 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
             model->lod[2].vertexCount  = vertCount;
             model->lod[2].indexOffset  = appendCursor;
             model->lod[2].indexCount   = (uint32_t) lod2Count;
-            model->lod[2].minPixelSize = 0.0f;  // coarsest — always matches
+            model->lod[2].minPixelSize = LOD_MIN_PX_COARSEST;  // coarsest — always matches
             appendCursor += (uint32_t) lod2Count;
 
             // Zero the per-frame LOD live counts

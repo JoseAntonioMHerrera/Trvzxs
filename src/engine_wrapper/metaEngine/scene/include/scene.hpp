@@ -1,3 +1,5 @@
+#pragma once
+
 #include "metaObject.hpp"
 #include <memory>
 #include <type_traits>
@@ -10,7 +12,7 @@ extern "C"
 #include "sceneSpec.h"
 }
 
-void sceneDeletor(SCENE *scene) {
+inline void sceneDeletor(SCENE *scene) {
     /* std::cout << "Starting SCENE deletion..." << std::endl;
 
      if (scene)
@@ -571,16 +573,20 @@ public:
                                       uint32_t modelsPerGroupY,
                                       float    groupSpacing,
                                       float    modelSpacing,
-                                      float    lightScale)
+                                      float    lightScale,
+                                      float    modelScale)
     {
         uint32_t totalGroups    = groupsPerSide * groupsPerSide;
         uint32_t modelsPerGroup = modelsPerGroupX * modelsPerGroupY;
 
         SceneEntitySpec **roots = (SceneEntitySpec **)malloc(totalGroups * sizeof(SceneEntitySpec *));
 
-        // Inverse of parent scale — used to compute compensated child TRS so
-        // that childWorldScale = parentScale * childLocalScale = 1.
-        float invLight = 1.0f / lightScale;
+        // Inverse of parent scale — used to compensate child TRS so that
+        // childWorldScale = parentScale * childLocalScale = modelScale.
+        // Position compensation is independent of modelScale (parent scale
+        // cancels out regardless) so modelSpacing units are world-space.
+        float invLight       = 1.0f / lightScale;
+        float childLocalScale = modelScale * invLight;
 
         GEOM_VERTEX_COLOR_RGBA white;
         white.r = 1.0f; white.g = 1.0f; white.b = 1.0f; white.a = 1.0f;
@@ -619,9 +625,9 @@ public:
                     // Compensate local position for the parent's scale cascade.
                     vec3             localPos = {worldOffsetX * invLight, worldOffsetY * invLight, 0.0f};
                     SceneEntitySpec *child    = sceneSpecNewModel(0 /*model type*/, localPos, white);
-                    child->scale[0]           = invLight;
-                    child->scale[1]           = invLight;
-                    child->scale[2]           = invLight;
+                    child->scale[0]           = childLocalScale;
+                    child->scale[1]           = childLocalScale;
+                    child->scale[2]           = childLocalScale;
 
                     sceneSpecAddChild(lightRoot, child);
                 }

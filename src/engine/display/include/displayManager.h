@@ -22,3 +22,10 @@ void createSDLSurface(DisplayManager *dm, VkInstance* instance, SDL_Window* wind
 // and totalCpu timings, captured automatically from the frame loop.
 void displayBenchBeginScenario(const char* name);
 void displayBenchEndScenario(void);
+
+// Record the current frame's LOD bucket distribution into the active
+// scenario's accumulator. Sums lodLiveInstanceCount[] across all alive model
+// types; the scenario report prints absolute totals and percentages. Call
+// once per frame after updateModelUniformBuffersDirect. No-op in non-DEBUG.
+struct SCENE;
+void displayBenchRecordLodSample(const struct SCENE* scene);

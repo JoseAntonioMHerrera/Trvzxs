@@ -2,21 +2,25 @@
 
 
 # Gather all source files
-file(GLOB_RECURSE ENGINE_WRAPPER_SOURCES
+# CONFIGURE_DEPENDS makes CMake re-scan the glob on every build, so new files
+# (e.g. I5 init-split extractions) don't require a manual `cmake -B build` step.
+file(GLOB_RECURSE ENGINE_WRAPPER_SOURCES CONFIGURE_DEPENDS
     "main.cpp"
     "metaEngine/model/*.cpp"
     "metaEngine/scene/*.cpp"
     "metaEngine/metaObject/*.cpp"
+    "metaEngine/init/*.cpp"
     "metaEngine/*.cpp"
  #TODO move entryfiles to the library to engine folder tree
 )
 
 # Gather all header files
-file(GLOB_RECURSE ENGINE_WRAPPER_HEADERS
+file(GLOB_RECURSE ENGINE_WRAPPER_HEADERS CONFIGURE_DEPENDS
     "metaEngine/model/include/*.hpp"
     "metaEngine/metaObject/include/*.hpp"
     "metaEngine/include/*.hpp"
     "metaEngine/scene/include/*.hpp"
+    "metaEngine/init/*.hpp"
      # TODO move CInterface to engine with entrypoint of engine
 )
 
@@ -61,6 +65,7 @@ target_include_directories(${PROJECT_NAME}
     metaEngine/scene/include/
     metaEngine/metaObject/include
     metaEngine/include
+    metaEngine/init
 )
 
 
