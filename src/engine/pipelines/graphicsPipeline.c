@@ -810,19 +810,23 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
         .pNext             = VK_NULL_HANDLE,
     };
 
-    /*VkPushConstantRange pushConstantRange = {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .offset = 0,
-        .size = sizeof(PushConstantDisplayTimer)
-    }*/
-    ;
+    // A11 — bindless 2-set layout for light pass.
+    VkDescriptorSetLayout lightSetLayouts[2] = {
+        gdp->bindlessGlobalLayout,
+        gdp->bindlessPerPassLayout,
+    };
+    VkPushConstantRange lightPushRange = {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset     = 0,
+        .size       = sizeof(BindlessPushConstants),
+    };
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-        .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = gdp->maxFrames, // Optional
-        .pSetLayouts    = (VkDescriptorSetLayout[]) {gdp->dsl, gdp->dsl, gdp->dsl},
-        //.pushConstantRangeCount = 0,
-        //.pPushConstantRanges = &pushConstantRange, // Optional
-        .pNext = VK_NULL_HANDLE,
+        .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount         = 2,
+        .pSetLayouts            = lightSetLayouts,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges    = &lightPushRange,
+        .pNext                  = VK_NULL_HANDLE,
     };
 
     gdp->pipelineLayout = malloc(sizeof(*gdp->pipelineLayout));

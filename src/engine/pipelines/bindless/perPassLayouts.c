@@ -42,9 +42,10 @@ void perPassLayoutsCreate(PerPassLayouts* pp, VkDevice device)
     pp->modelPass        = createLayout(device, frameGlobalsOnly, 1);
     pp->depthPrepassPass = createLayout(device, frameGlobalsOnly, 1);
 
-    // Light pass: frame globals + two subpass input attachments (geometry,
-    // normals). Input attachments must stay in a descriptor set — they
-    // cannot go bindless.
+    // Light pass: frame globals + G-buffer texture + normals texture.
+    // G-buffer and normals are sampled (COMBINED_IMAGE_SAMPLER, not subpass
+    // input attachments). They stay per-pass because they are pass-local
+    // resources, not a global material catalog.
     const VkDescriptorSetLayoutBinding lightBindings[] = {
         {
             .binding         = 0,
@@ -54,13 +55,13 @@ void perPassLayoutsCreate(PerPassLayouts* pp, VkDevice device)
         },
         {
             .binding         = 1,
-            .descriptorType  = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+            .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = 1,
             .stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT,
         },
         {
             .binding         = 2,
-            .descriptorType  = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+            .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = 1,
             .stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT,
         },

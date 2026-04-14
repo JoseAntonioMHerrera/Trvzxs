@@ -45,7 +45,7 @@ foreach(SHADER ${SHADERS})
 
     add_custom_command(
         OUTPUT ${SPIRV}
-        COMMAND ${GLSLC} -g -o ${SPIRV} ${SHADER}
+        COMMAND ${GLSLC} -g --target-env=vulkan1.3 -o ${SPIRV} ${SHADER}
         DEPENDS ${SHADER}
         COMMENT "Compiling shader ${SHADER_NAME}"
     )

@@ -180,9 +180,19 @@ void executeLightPass(VkCommandBuffer cmd, const RGPass* pass, void* userData)
     };
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *lp->pipelineLayout, 0, 1,
-                            &lp->descriptorSet[frame], 0, VK_NULL_HANDLE);
+    // A11 — bind bindless global set (0) + light per-pass set (1).
+    VkDescriptorSet lightSets[2] = {lp->bindlessGlobalSet, lp->perPassSets[frame]};
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *lp->pipelineLayout, 0, 2,
+                            lightSets, 0, VK_NULL_HANDLE);
     vkCmdBindVertexBuffers(cmd, 0, 1, lp->deviceBuffer->buffer, offsets);
+
+    BindlessPushConstants pc = {
+        .textureIdx   = 0,
+        .transformIdx = lp->bindlessTransformHandles[frame],
+    };
+    vkCmdPushConstants(cmd, *lp->pipelineLayout,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       0, sizeof(pc), &pc);
 
     const SCENE* scene = lp->scene;
     for (int i = 0; i < scene->lightManager.lightLen; i++)

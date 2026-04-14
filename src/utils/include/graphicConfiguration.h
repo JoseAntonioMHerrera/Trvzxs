@@ -17,6 +17,6 @@
 //   LOD 2 everywhere else
 // Larger-radius assets will want proportionally higher thresholds. Long term these
 // should migrate into per-asset metadata; for now they're a single global knob.
-#define LOD_MIN_PX_FULL     20.0f  // lod[0] — full-detail mesh
-#define LOD_MIN_PX_MEDIUM   15.0f  // lod[1] — ~30% simplification
-#define LOD_MIN_PX_COARSEST  0.0f  // lod[MODEL_LOD_COUNT-1] — catch-all
+#define LOD_MIN_PX_FULL 20.0f    // lod[0] — full-detail mesh
+#define LOD_MIN_PX_MEDIUM 15.0f  // lod[1] — ~30% simplification
+#define LOD_MIN_PX_COARSEST 0.0f // lod[MODEL_LOD_COUNT-1] — catch-all
