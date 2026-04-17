@@ -3,6 +3,10 @@
 #include "transformNode.h"
 #include "cglm.h"
 
+// Set by camera cuts / scene reloads to force one full resolve pass that
+// ignores FRUSTUM_CULLED. Consumed + cleared by resolveTransforms.
+int g_visibilityCacheInvalidated = 1;
+
 void transformInitCold(TransformCold* cold)
 {
     glm_vec3_zero(cold->position);
@@ -154,6 +158,13 @@ void resolveTransforms(TransformManager* man)
     uint32_t        count  = man->count;
     uint32_t        live   = 0;
 
+    // Camera cut / scene reload: ignore FRUSTUM_CULLED for exactly one frame,
+    // so stale cached matrices can't cause one-frame ghost renders. Clear the
+    // flag after consuming it.
+    const int invalidate = g_visibilityCacheInvalidated;
+    const uint32_t skipMask = invalidate ? TRANSFORM_PASS_DISABLED
+                                         : TRANSFORM_RESOLVE_SKIP_MASK;
+
     // Pass 1: SoA preorder walk. Touches only the 12-byte pHot entries for
     // clean nodes (241 KB at 20K entries — L2-resident). pWorld is loaded
     // only when a node is dirty, i.e. when we actually recompute.
@@ -161,7 +172,9 @@ void resolveTransforms(TransformManager* man)
     {
         TransformHot* hot = &pHot[i];
 
-        // Clear DISABLED but keep DIRTY — DIRTY is sticky until pass 2.
+        // Clear DISABLED but keep DIRTY + FRUSTUM_CULLED — DIRTY is sticky
+        // until pass 2; FRUSTUM_CULLED was written by this-frame's cull pass
+        // which ran immediately before resolve.
         hot->passFlags &= ~TRANSFORM_PASS_DISABLED;
 
         // Lifecycle disable (node is DESTROYED or DISABLED)
@@ -186,18 +199,32 @@ void resolveTransforms(TransformManager* man)
             parentDirty = (parentHot->passFlags & TRANSFORM_PASS_DIRTY) != 0;
         }
 
+        // Frustum-culled (decided by cull before us): skip the TRS rebuild.
+        // Keep DIRTY sticky so the node resolves when it comes back in view.
+        // Cull already guaranteed this isn't set on a dirty node, except in
+        // the cache-invalidated bootstrap case where we ignore the bit.
+        if (hot->passFlags & skipMask & TRANSFORM_PASS_FRUSTUM_CULLED)
+        {
+            live++;
+            continue;
+        }
+
         int selfDirty = (hot->passFlags & TRANSFORM_PASS_DIRTY) != 0;
         if (!selfDirty && !parentDirty)
         {
             // Clean: cached worldMatrix from previous frame is still valid.
             // pWorld is NOT loaded for this node — that's the point of SoA.
+            // Clear FRUSTUM_CULLED so next-frame cull starts from a clean
+            // slate (cull re-decides from scratch).
+            hot->passFlags &= ~TRANSFORM_PASS_FRUSTUM_CULLED;
             live++;
             continue;
         }
 
         // Dirty branch: compose local matrix into a stack temp (no writeback
         // to cold — it's scratch), then compose worldMatrix. Mark this node
-        // DIRTY so its children (later in preorder) also recompute.
+        // DIRTY so its children (later in preorder) also recompute. Clear
+        // FRUSTUM_CULLED — matrix is fresh, next-frame cull decides anew.
         TransformCold* cold = &pCold[i];
         mat4 localMatrix;
         transformBuildLocalMatrix(cold, localMatrix);
@@ -212,20 +239,22 @@ void resolveTransforms(TransformManager* man)
         }
 
         hot->passFlags |= TRANSFORM_PASS_DIRTY;
+        hot->passFlags &= ~TRANSFORM_PASS_FRUSTUM_CULLED;
         live++;
     }
 
-    // Pass 2: clear DIRTY on nodes whose worldMatrix was actually recomputed
-    // this frame. Disabled nodes (lifecycle or cascade) keep their DIRTY bit
-    // sticky so the first resolve after they come back alive recomputes them
-    // from fresh TRS instead of skipping them with a stale cached matrix.
-    // Streaming write of 4 B per entry (12-byte hot struct); the array is
-    // already hot in cache from pass 1.
+    // Pass 2: clear DIRTY only on nodes whose worldMatrix was actually
+    // recomputed this frame. Disabled nodes (lifecycle/cascade) and
+    // frustum-culled nodes keep DIRTY sticky so the first resolve after they
+    // come back alive / into view recomputes from fresh TRS.
     for (uint32_t i = 0; i < count; i++)
     {
-        if (!(pHot[i].passFlags & TRANSFORM_PASS_DISABLED))
+        if (!(pHot[i].passFlags & TRANSFORM_RESOLVE_SKIP_MASK))
             pHot[i].passFlags &= ~TRANSFORM_PASS_DIRTY;
     }
+
+    if (invalidate)
+        g_visibilityCacheInvalidated = 0;
 
     man->liveCount = live;
 }

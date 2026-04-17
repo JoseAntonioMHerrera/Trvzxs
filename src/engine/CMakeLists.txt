@@ -32,6 +32,7 @@ target_include_directories(engine_mod PUBLIC
     memory/
     lifecycle/include
     rendergraph/include
+    lighting/include
     sync/include
     "include/"
     "display/include"
@@ -54,6 +55,7 @@ file(GLOB_RECURSE ENGINE_SOURCES
     "memory/*.cpp"
     "lifecycle/*.c"
     "rendergraph/*.c"
+    "lighting/*.c"
     "sync/*.c"
     "commands/*.c"
     "${CMAKE_SOURCE_DIR}/src/*.c" #TODO move entryfiles to the library to engine folder tree
@@ -88,6 +90,7 @@ file(GLOB_RECURSE ENGINE_HEADERS
     "display/include/*.h"
     "lifecycle/include/*.h"
     "rendergraph/include/*.h"
+    "lighting/include/*.h"
     "sync/include/*.h"
     "pipelines/constants/include/*.h"
     "optimizations/include/*.h"

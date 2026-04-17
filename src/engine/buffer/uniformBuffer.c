@@ -65,7 +65,7 @@ void updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene)
             TransformHot*   hot   = &scene->transformManager.pTransformsHot[inst->transformIdx];
             TransformWorld* world = &scene->transformManager.pTransformsWorld[inst->transformIdx];
 
-            if (hot->passFlags & TRANSFORM_PASS_DISABLED)
+            if (hot->passFlags & TRANSFORM_RESOLVE_SKIP_MASK)
             {
                 g_lodScratch[denseIdx] = 255;
                 continue;
@@ -197,8 +197,8 @@ void updateLightUniformBuffersDirect(void* mappedBuffer, float deltaTime, SCENE*
             TransformWorld* world = &scene->transformManager.pTransformsWorld[inst->transformIdx];
             TransformCold*  cold  = &scene->transformManager.pTransformsCold[inst->transformIdx];
 
-            // Skip if cascade-disabled by hierarchy resolve pass
-            if (hot->passFlags & TRANSFORM_PASS_DISABLED)
+            // Skip if cascade-disabled by resolve or frustum-culled by cull
+            if (hot->passFlags & TRANSFORM_RESOLVE_SKIP_MASK)
             {
                 continue;
             }

@@ -24,8 +24,27 @@
 // and cleared by a second sequential sweep at the end of resolve. A node
 // whose DIRTY bit is NOT set when resolve visits it keeps its cached
 // worldMatrix from the previous frame instead of recomputing.
-#define TRANSFORM_PASS_DISABLED 1
-#define TRANSFORM_PASS_DIRTY    2
+#define TRANSFORM_PASS_DISABLED      1
+#define TRANSFORM_PASS_DIRTY         2
+// Set by frustumCullScene (which now runs before resolveTransforms) when a
+// node's last-frame worldMatrix places its AABB outside the current frustum.
+// Sticky across frames: cull re-decides each frame and clears the bit on
+// visible nodes; resolve clears it on nodes it actually resolved. The DIRTY
+// bit overrides this — cull never sets FRUSTUM_CULLED on a dirty node because
+// its worldMatrix is stale by definition.
+#define TRANSFORM_PASS_FRUSTUM_CULLED 4
+
+// Resolve's skip mask: nodes carrying any of these bits keep their cached
+// worldMatrix (or keep their DIRTY bit set, in the FRUSTUM_CULLED case, so
+// they resolve the next frame they become visible).
+#define TRANSFORM_RESOLVE_SKIP_MASK \
+    (TRANSFORM_PASS_DISABLED | TRANSFORM_PASS_FRUSTUM_CULLED)
+
+// Forces resolveTransforms to ignore FRUSTUM_CULLED for exactly one frame
+// after a camera cut / teleport / scene reload, so stale cached matrices
+// can't cause one-frame ghost renders. Set by callers that invalidate view
+// state; consumed and cleared by the next resolveTransforms.
+extern int g_visibilityCacheInvalidated;
 
 // Per-frame loop state for a transform. Walked every frame by resolve, cull,
 // and UBO fill for lifecycle/cascade/dirty decisions. Kept deliberately small

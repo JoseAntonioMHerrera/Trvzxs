@@ -503,6 +503,7 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
         uint32_t vertCount   = model->meshManager.totalMeshVerticesLen;
         GEOM_VERTEX* pVerts  = &scene->modelsManager.pPackedModelVertex[model->vertexOffset];
         computeAABBFromVertices(pVerts, vertCount, &model->localAABB);
+        recenterVerticesAroundOrigin(pVerts, vertCount, &model->localAABB);
         assertAABBValid(&model->localAABB);
 
         // Bounding-sphere radius for LOD screen-space selection: half the
@@ -812,6 +813,7 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
         uint32_t     vertCount = light->model.meshManager.totalMeshVerticesLen;
         GEOM_VERTEX* pVerts  = &scene->lightManager.pPackedLight[light->model.vertexOffset];
         computeAABBFromVertices(pVerts, vertCount, &light->localAABB);
+        recenterVerticesAroundOrigin(pVerts, vertCount, &light->localAABB);
         assertAABBValid(&light->localAABB);
     }
 

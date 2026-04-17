@@ -396,14 +396,10 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     MARK_TIME(tAfterAcquire);
 #endif
 
-    // Resolve transform hierarchy before any UBO/SSBO fills
-    resolveTransforms(&dm->graphicPipeline[0].scene->transformManager);
-
-#ifdef DEBUG
-    MARK_TIME(tAfterResolve);
-#endif
-
-    // Update per-frame globals (view, proj, invViewProj, camera) — computed once, written to binding 9
+    // Cull-before-resolve: cull reads last-frame worldMatrix against this-frame
+    // frustum and marks TRANSFORM_PASS_FRUSTUM_CULLED. Resolve then skips the
+    // TRS-rebuild cost for dirty-but-invisible nodes. One-frame staleness is
+    // bounded and explicit; DIRTY bit overrides (see frustum.c).
     FrameGlobals globals;
     updateFrameGlobals(&globals, dm->graphicPipeline->swapchain, camera);
     memcpy(dm->graphicPipeline[0].pGlobalsUbo->uniformBuffersMapped[dm->currentFrame], &globals,
@@ -413,13 +409,19 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     MARK_TIME(tAfterGlobals);
 #endif
 
-    // Frustum cull — marks TRANSFORM_PASS_DISABLED on instances outside the view frustum
     FrustumPlanes frustum;
     frustumExtractPlanes(globals.viewProj, &frustum);
-    frustumCullScene(dm->graphicPipeline[0].scene, &frustum);
+    frustumCullSceneSphere(dm->graphicPipeline[0].scene, &frustum);
 
 #ifdef DEBUG
     MARK_TIME(tAfterFrustum);
+#endif
+
+    // Resolve transform hierarchy — skips nodes flagged FRUSTUM_CULLED.
+    resolveTransforms(&dm->graphicPipeline[0].scene->transformManager);
+
+#ifdef DEBUG
+    MARK_TIME(tAfterResolve);
 #endif
 
     // Model UBO fill — writes ModelInstanceUBO (mat4 model only) directly to mapped memory.
@@ -566,10 +568,10 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         .deletionQueue    = timespecDiffUs(&tAfterSemaphore, &tAfterDeletion),
         .ssboDescriptor   = timespecDiffUs(&tAfterDeletion, &tAfterSSBO),
         .acquireImage     = timespecDiffUs(&tAfterSSBO, &tAfterAcquire),
-        .resolveTransforms = timespecDiffUs(&tAfterAcquire, &tAfterResolve),
-        .uboGlobals       = timespecDiffUs(&tAfterResolve, &tAfterGlobals),
+        .uboGlobals       = timespecDiffUs(&tAfterAcquire, &tAfterGlobals),
         .frustumCull      = timespecDiffUs(&tAfterGlobals, &tAfterFrustum),
-        .uboModels        = timespecDiffUs(&tAfterFrustum, &tAfterModels),
+        .resolveTransforms = timespecDiffUs(&tAfterFrustum, &tAfterResolve),
+        .uboModels        = timespecDiffUs(&tAfterResolve, &tAfterModels),
         .uboLights        = timespecDiffUs(&tAfterModels, &tAfterLights),
         .cmdRecord        = timespecDiffUs(&tAfterLights, &tAfterCmdRecord),
         .submit           = timespecDiffUs(&tAfterCmdRecord, &tAfterSubmit),
