@@ -337,7 +337,7 @@ void test_cull_keeps_visible_instances(void)
 }
 
 // ---------------------------------------------------------------------------
-// 10. frustumCullScene: off-screen instances get TRANSFORM_PASS_DISABLED
+// 10. frustumCullScene: off-screen instances get TRANSFORM_PASS_FRUSTUM_CULLED
 // ---------------------------------------------------------------------------
 
 void test_cull_marks_offscreen_instances(void)
@@ -362,8 +362,8 @@ void test_cull_marks_offscreen_instances(void)
     CAPTURE_STDERR_END();
 
     ASSERT_EQ(tman->pTransformsHot[0].passFlags, 0);
-    ASSERT_EQ(tman->pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(tman->pTransformsHot[2].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[1].passFlags, TRANSFORM_PASS_FRUSTUM_CULLED);
+    ASSERT_EQ(tman->pTransformsHot[2].passFlags, TRANSFORM_PASS_FRUSTUM_CULLED);
 
     free_test_scene(scene);
 }
@@ -440,9 +440,9 @@ void test_cull_lights_alongside_models(void)
     CAPTURE_STDERR_END();
 
     ASSERT_EQ(tman->pTransformsHot[0].passFlags, 0);
-    ASSERT_EQ(tman->pTransformsHot[1].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[1].passFlags, TRANSFORM_PASS_FRUSTUM_CULLED);
     ASSERT_EQ(tman->pTransformsHot[2].passFlags, 0);
-    ASSERT_EQ(tman->pTransformsHot[3].passFlags, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(tman->pTransformsHot[3].passFlags, TRANSFORM_PASS_FRUSTUM_CULLED);
 
     free_test_scene_mixed(scene);
 }

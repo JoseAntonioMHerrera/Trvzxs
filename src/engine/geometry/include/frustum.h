@@ -22,13 +22,31 @@ void frustumExtractPlanes(mat4 viewProj, FrustumPlanes* out);
 // Returns true if the AABB is (at least partially) inside the frustum.
 bool frustumTestAABB(const FrustumPlanes* frustum, const AABB* localAABB, mat4 worldMatrix);
 
+// Test a world-space sphere against frustum planes. 6 dot products, branchless-friendly.
+// Returns true if the sphere is (at least partially) inside the frustum.
+bool frustumTestSphere(const FrustumPlanes* frustum, const vec3 worldCenter, float worldRadius);
+
 // Compute an AABB from an array of GEOM_VERTEX (scans .point.x/y/z for min/max).
 // vertexCount must be > 0.
 struct GEOM_VERTEX;
 void computeAABBFromVertices(const struct GEOM_VERTEX* vertices, uint32_t vertexCount, AABB* out);
+
+// Shift every vertex by -AABBCenter so the AABB becomes centered at local origin.
+// Mutates `vertices` in place and rewrites `aabb` to the re-centered bounds
+// (min = -halfExtent, max = +halfExtent). Lets the sphere-cull path anchor at
+// worldMatrix[3] (= local origin in world = AABB center in world) and use the
+// cheap half-diagonal radius regardless of authoring convention.
+// Call once at load time, after computeAABBFromVertices.
+void recenterVerticesAroundOrigin(struct GEOM_VERTEX* vertices, uint32_t vertexCount, AABB* aabb);
 
 // Cull all model and light instances against the frustum.
 // Sets TRANSFORM_PASS_DISABLED on transforms whose AABB is fully outside.
 // Must run after resolveTransforms() and before UBO fills.
 typedef struct SCENE SCENE;
 void frustumCullScene(SCENE* scene, const FrustumPlanes* frustum);
+
+// Same pass as frustumCullScene, but uses a world-space bounding sphere derived
+// from the local AABB + worldMatrix (translation as center; half-diagonal × max
+// column scale as radius). Sphere tests are conservative (looser) but cheaper
+// than Arvo transform + p-vertex.
+void frustumCullSceneSphere(SCENE* scene, const FrustumPlanes* frustum);

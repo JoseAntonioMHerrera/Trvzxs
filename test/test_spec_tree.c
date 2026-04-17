@@ -408,11 +408,11 @@ void test_cull_frustum_fail_propagates_to_subtree(void)
 
     frustumCullScene(scene, &frustum);
 
-    // All three should be marked disabled: parent via frustum test, children
+    // All three should be marked frustum-culled: parent via frustum test, children
     // via the propagation loop (no frustum test on them).
-    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
-    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags & TRANSFORM_PASS_DISABLED, TRANSFORM_PASS_DISABLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[0].passFlags & TRANSFORM_PASS_FRUSTUM_CULLED, TRANSFORM_PASS_FRUSTUM_CULLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[1].passFlags & TRANSFORM_PASS_FRUSTUM_CULLED, TRANSFORM_PASS_FRUSTUM_CULLED);
+    ASSERT_EQ(scene->transformManager.pTransformsHot[2].passFlags & TRANSFORM_PASS_FRUSTUM_CULLED, TRANSFORM_PASS_FRUSTUM_CULLED);
 
     sceneSpecFree(root);
     free_empty_scene(scene);

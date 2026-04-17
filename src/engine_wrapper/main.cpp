@@ -48,7 +48,7 @@ const double FRAME_TIME = 1.0 / TARGET_FPS;
 static int mouseLookActive = 0;
 static float mouseSensitivity = 0.002f;
 static float moveSpeed = 1000.0f; // world units/sec — scene is ±6000 so crosses in ~12s
-static int keys[256] = {0}; // Key state array
+static int keys[256] = {0};       // Key state array
 
 double getCurrentTime()
 {
@@ -187,7 +187,7 @@ static const uint32_t g_benchmarkScenarioCount =
     sizeof(g_benchmarkScenarios) / sizeof(g_benchmarkScenarios[0]);
 
 // Fraction of model instances to dirty per frame.
-static const float BENCH_DIRTY_FRACTION = 0.20f;
+static const float BENCH_DIRTY_FRACTION = 0.5f;
 
 // Small LCG. Deterministic across runs for reproducible benchmarks.
 static uint32_t benchRng_nextU32(uint32_t *state)
