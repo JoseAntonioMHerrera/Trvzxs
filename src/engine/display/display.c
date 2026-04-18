@@ -1,4 +1,5 @@
 #include "camera.h"
+#include "clusterGPU.h"
 #include "computePipeline.h"
 #include "deletionQueue.h"
 #include "displayManager.h"
@@ -383,6 +384,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     case VK_SUBOPTIMAL_KHR:
     case VK_ERROR_OUT_OF_DATE_KHR:
         recreateSwapChain(pd, ld, window, rg);
+        rebuildClusterAABBsOnResize(ld, lightGraphics, gdp->swapchain);
         dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
         return;
     case VK_TIMEOUT:
@@ -558,6 +560,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
         presentResult == VK_ERROR_SURFACE_LOST_KHR)
     {
         recreateSwapChain(pd, ld, window, rg);
+        rebuildClusterAABBsOnResize(ld, lightGraphics, gdp->swapchain);
     }
 
 #ifdef DEBUG

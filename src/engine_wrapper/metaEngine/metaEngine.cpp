@@ -20,6 +20,7 @@
 extern "C"
 {
 #include "main_vulkan.h"
+#include "clusterGPU.h"
 }
 
 void MetaEngine::initVkInstance(SDL_Window *window)
@@ -94,9 +95,14 @@ void MetaEngine::metaDrawFrame(SDL_Window *window, float deltaTime)
 void MetaEngine::metaRecreateSwapchain(SDL_Window *window)
 {
     DeviceManager *dm = this->deviceManager.getStruct();
+    LogicalDevice *ld = dm->lDevice[0];
     recreateSwapChain(
         dm->pDevice,
-        dm->lDevice[0],
+        ld,
         window,
         &this->renderGraph);
+    rebuildClusterAABBsOnResize(
+        ld,
+        &ld->displayManager->graphicPipeline[2],
+        ld->displayManager->graphicPipeline[0].swapchain);
 }

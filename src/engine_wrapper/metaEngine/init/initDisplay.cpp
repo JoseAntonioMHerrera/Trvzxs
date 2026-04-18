@@ -50,6 +50,14 @@ void metaInitDisplay(MetaInitContext &ctx, Scene *scene, SDL_Window *window)
         sizeof(*depthPrepassGraphicPipeline->computeP)
         * depthPrepassGraphicPipeline->computePipelineCount);
 
+    // Clustered forward+ Phase 1: stub one compute slot on the light pipeline
+    // for the lightCull pass (shader lands in Phase 2). Slot owns the cluster
+    // AABB SSBOs for now; lightIndexList/lightGrid will join here in Phase 2.
+    lightVolumeGraphicPipeline->computePipelineCount = 1;
+    lightVolumeGraphicPipeline->computeP = (ComputePipeline *)calloc(
+        lightVolumeGraphicPipeline->computePipelineCount,
+        sizeof(*lightVolumeGraphicPipeline->computeP));
+
     // Per-pipeline DeviceBufferManager slots
     gdp->deviceBuffer = (DeviceBufferManager *)calloc(1, sizeof(*gdp->deviceBuffer));
     particleGraphicPipeline->deviceBuffer = (DeviceBufferManager *)calloc(
@@ -71,6 +79,12 @@ void metaInitDisplay(MetaInitContext &ctx, Scene *scene, SDL_Window *window)
         depthPrepassGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)calloc(
             1, sizeof(*depthPrepassGraphicPipeline->computeP[compIndex].deviceBuffer));
     }
+    for (uint32_t compIndex = 0; compIndex < lightVolumeGraphicPipeline->computePipelineCount; compIndex++)
+    {
+        lightVolumeGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)calloc(
+            1, sizeof(*lightVolumeGraphicPipeline->computeP[compIndex].deviceBuffer));
+        lightVolumeGraphicPipeline->computeP[compIndex].maxFrames    = MAX_FRAMES_IN_FLIGHT;
+    }
 
     // Per-pipeline CommandPools slots (actual pools are created in Phase 5)
     gdp->commandPool                         = (CommandPools *)malloc(sizeof(*gdp->commandPool));
@@ -87,6 +101,9 @@ void metaInitDisplay(MetaInitContext &ctx, Scene *scene, SDL_Window *window)
     {
         depthPrepassGraphicPipeline->computeP[compIndex].commandPool = (CommandPools *)malloc(sizeof(CommandPools));
     }
+    // Note: lightCull computeP[*].commandPool is wired in initSwapchainResources
+    // alongside the other per-pipeline command pool aliasing, because the real
+    // command pool handles don't exist until createGraphicsCommandPool runs.
 
     // Seed per-pipeline maxFrames + dsm->scImagesLen with the desired in-flight
     // count. Phase 5 reads back the actual value negotiated by createSwapChain.

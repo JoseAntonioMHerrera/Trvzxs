@@ -10,6 +10,8 @@ extern "C"
 #include "transformations.h"
 #include "particle.h"
 #include "bufferTypes.h"
+#include "clusterConfig.h"
+#include "clusterGrid.h"
 }
 
 static void allocPerPassPoolAndSets(VkDevice device,
@@ -320,4 +322,20 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
     cp->bindlessPerPassLayout = pp->particleComputePass;
     cp->perPassPool           = particleComputePool;
     cp->perPassSets           = particleComputeSets;
+
+    // --- Clustered forward+: cluster AABB SSBOs on the lightCull compute stub ---
+    // Phase 1 only registers the AABB ring (input to the future lightCull.comp).
+    // Phase 2 will register lightIndexList / lightGrid / globalIndexCount here
+    // once those buffers exist. The lightCull compute pipeline is otherwise a
+    // stub — no pipeline handle, no dispatch, no perPass layout yet.
+    ComputePipeline       *lightCullCP = &lightGdp->computeP[0];
+    SSBOBufferManager     *clusterSsbos = lightCullCP->deviceBuffer->ssbos;
+    const VkDeviceSize     clusterBufSize = sizeof(ClusterAABB) * CLUSTER_COUNT;
+    BindlessHandle        *clusterHandles =
+        (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightCullCP->maxFrames);
+    for (uint32_t i = 0; i < lightCullCP->maxFrames; ++i)
+    {
+        clusterHandles[i] = bindlessRegisterBuffer(bs, clusterSsbos->buffers[i], clusterBufSize);
+    }
+    lightCullCP->bindlessClusterAABBHandles = clusterHandles;
 }

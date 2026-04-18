@@ -4,6 +4,7 @@
 #include <time.h>
 #include "graphicConfiguration.h"
 #include "gpuDrivenCommandGen.h"
+#include "clusterGrid.h"
 
 float random_float() { return (float) rand() / (float) RAND_MAX; }
 
@@ -91,6 +92,76 @@ int createReadbackLightPass1SSBOBuffers(PhysicalDevice* pd, LogicalDevice* ld, u
 
     return 1;
 };
+
+// ---------------------------------------------------------------------------
+// Clustered forward+ cluster-AABB SSBO
+// ---------------------------------------------------------------------------
+
+// Helper: build cluster AABBs once on the CPU and stage them into every
+// per-frame device-local buffer. Assumes the destination VkBuffers are already
+// allocated with STORAGE_BUFFER_BIT + TRANSFER_DST_BIT usage.
+static void stageClusterAABBsToAllFrames(LogicalDevice* ld, SSBOBufferManager* ssbos, CommandPools* commandPool,
+                                         mat4 proj, float nearZ, float farZ)
+{
+    ClusterAABB* aabbs = (ClusterAABB*) malloc(sizeof(ClusterAABB) * CLUSTER_COUNT);
+    buildClusterAABBs(proj, nearZ, farZ, aabbs);
+
+    VkDeviceSize bufferSize = sizeof(ClusterAABB) * CLUSTER_COUNT;
+
+    VkBuffer      stagingBuffer;
+    VmaAllocation stagingAlloc;
+    createVkBuffer(ld->allocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                   VMA_BRIDGE_MEMORY_CPU_TO_GPU, &stagingBuffer, &stagingAlloc);
+
+    void* data;
+    vmaBridgeMapMemory(ld->allocator, stagingAlloc, &data);
+    memcpy(data, aabbs, (size_t) bufferSize);
+    vmaBridgeUnmapMemory(ld->allocator, stagingAlloc);
+
+    // Upload to every frame-in-flight copy. Data is identical; the N-way ring
+    // only exists so a future mid-frame proj change can write the next frame's
+    // copy without stalling the one currently in flight.
+    for (size_t frameIdx = 0; frameIdx < ssbos->buffersLen; frameIdx++)
+    {
+        copyBuffer(ld, stagingBuffer, ssbos->buffers[frameIdx], bufferSize,
+                   commandPool->transferCommandPool, *ld->queueManager.transferQueue);
+    }
+
+    vmaBridgeDestroyBuffer(ld->allocator, stagingBuffer, stagingAlloc);
+    free(aabbs);
+}
+
+int createClusterAABBSSBOs(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager* ssbos,
+                           CommandPools* commandPool, mat4 proj, float nearZ, float farZ)
+{
+    (void) pd;
+    assert(ssbos);
+
+    ssbos->buffers     = (VkBuffer*) calloc(ssbosLen, sizeof(VkBuffer));
+    ssbos->allocations = (VmaAllocation*) calloc(ssbosLen, sizeof(VmaAllocation));
+    ssbos->buffersLen  = ssbosLen;
+
+    VkDeviceSize bufferSize = sizeof(ClusterAABB) * CLUSTER_COUNT;
+    for (uint32_t i = 0; i < ssbosLen; i++)
+    {
+        createVkBuffer(ld->allocator, bufferSize,
+                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                       VK_SHARING_MODE_EXCLUSIVE, VMA_BRIDGE_MEMORY_GPU_ONLY,
+                       &ssbos->buffers[i], &ssbos->allocations[i]);
+    }
+
+    stageClusterAABBsToAllFrames(ld, ssbos, commandPool, proj, nearZ, farZ);
+    return 1;
+}
+
+int uploadClusterAABBs(LogicalDevice* ld, SSBOBufferManager* ssbos, CommandPools* commandPool,
+                       mat4 proj, float nearZ, float farZ)
+{
+    assert(ssbos);
+    assert(ssbos->buffers != NULL);
+    stageClusterAABBsToAllFrames(ld, ssbos, commandPool, proj, nearZ, farZ);
+    return 1;
+}
 
 /*uint32_t createOclCullingSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager*
 ssbos, CommandPools* commandPool, SCENE* scene)

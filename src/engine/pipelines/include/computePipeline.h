@@ -54,6 +54,12 @@ typedef struct ComputePipeline
     VkDescriptorSetLayout bindlessPerPassLayout;  // particleComputePass layout
     VkDescriptorPool      perPassPool;
     VkDescriptorSet*      perPassSets;            // maxFrames
+
+    // Clustered forward+: per-frame cluster AABB SSBO bindless handles.
+    // Populated by initBindlessRegistration for the lightCull compute stub,
+    // consumed by lightCull.comp (Phase 2). NULL on compute pipelines that
+    // don't participate in clustered lighting.
+    BindlessHandle* bindlessClusterAABBHandles; // [maxFrames] or NULL
 } ComputePipeline;
 void createOcclusionCullingComputePipeline(ComputePipeline* computeP, VkDevice device);
 void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device);

@@ -88,6 +88,10 @@ void metaInitSwapchainResources(MetaInitContext &ctx, SDL_Window *window)
     {
         depthPrepassGraphicPipeline->computeP[compIndex].commandPool = depthPrepassGraphicPipeline->commandPool;
     }
+    for (uint32_t compIndex = 0; compIndex < lightVolumeGraphicPipeline->computePipelineCount; compIndex++)
+    {
+        lightVolumeGraphicPipeline->computeP[compIndex].commandPool = lightVolumeGraphicPipeline->commandPool;
+    }
 
     createCommandBuffer(gdp, &ld->device, gdp->maxFrames);
     createCommandBuffer(lightVolumeGraphicPipeline, &ld->device,
