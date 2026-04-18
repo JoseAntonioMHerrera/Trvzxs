@@ -35,5 +35,24 @@ int createClusterAABBSSBOs(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbos
 // buffer. Caller must ensure the GPU is idle (swapchain recreate guarantees this).
 int uploadClusterAABBs(LogicalDevice* ld, SSBOBufferManager* ssbos, CommandPools* commandPool,
                        mat4 proj, float nearZ, float farZ);
+
+// Clustered forward+ Phase 2 output SSBO creators. Each allocates `ssbosLen`
+// device-local VkBuffers sized for one frame-in-flight copy. No initial data
+// upload — contents are written each frame by lightCull.comp (globalIndexCount
+// is cleared via vkCmdFillBuffer at the start of the lightCull render graph pass).
+
+// lightIndexList: flat cluster-major array of light indices.
+// Per-frame size = CLUSTER_COUNT * MAX_LIGHTS_PER_CLUSTER * sizeof(uint32).
+int createLightIndexListSSBOs(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen,
+                              SSBOBufferManager* ssbos);
+
+// lightGrid: per-cluster {offset, count}.
+// Per-frame size = CLUSTER_COUNT * 2 * sizeof(uint32).
+int createLightGridSSBOs(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen,
+                         SSBOBufferManager* ssbos);
+
+// globalIndexCount: single uint32 counter (atomic) per frame.
+int createGlobalIndexCountSSBOs(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen,
+                                SSBOBufferManager* ssbos);
 /*uint32_t createOclCullingSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager*
    ssbos, CommandPools* commandPool, SCENE* scene);*/

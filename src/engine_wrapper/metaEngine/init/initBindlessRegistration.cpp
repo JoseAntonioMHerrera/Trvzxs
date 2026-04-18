@@ -12,6 +12,7 @@ extern "C"
 #include "bufferTypes.h"
 #include "clusterConfig.h"
 #include "clusterGrid.h"
+#include "lightCullResources.h"
 }
 
 static void allocPerPassPoolAndSets(VkDevice device,
@@ -338,4 +339,33 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
         clusterHandles[i] = bindlessRegisterBuffer(bs, clusterSsbos->buffers[i], clusterBufSize);
     }
     lightCullCP->bindlessClusterAABBHandles = clusterHandles;
+
+    // Phase 2a: register the three lightCull output buffer rings. Each ring has
+    // maxFrames copies; register each as its own bindless slot. The compute
+    // pass selects the slot for the current frame via push constant / direct index.
+    LightCullResources *lcr = (LightCullResources *)lightCullCP->lightCullResources;
+    if (lcr != nullptr)
+    {
+        const VkDeviceSize indexListBufSize =
+            (VkDeviceSize)CLUSTER_COUNT * MAX_LIGHTS_PER_CLUSTER * sizeof(uint32_t);
+        const VkDeviceSize gridBufSize       = (VkDeviceSize)CLUSTER_COUNT * 2 * sizeof(uint32_t);
+        const VkDeviceSize counterBufSize    = sizeof(uint32_t);
+
+        lcr->lightIndexListHandles   =
+            (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightCullCP->maxFrames);
+        lcr->lightGridHandles        =
+            (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightCullCP->maxFrames);
+        lcr->globalIndexCountHandles =
+            (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightCullCP->maxFrames);
+
+        for (uint32_t i = 0; i < lightCullCP->maxFrames; ++i)
+        {
+            lcr->lightIndexListHandles[i]   =
+                bindlessRegisterBuffer(bs, lcr->lightIndexList.buffers[i], indexListBufSize);
+            lcr->lightGridHandles[i]        =
+                bindlessRegisterBuffer(bs, lcr->lightGrid.buffers[i], gridBufSize);
+            lcr->globalIndexCountHandles[i] =
+                bindlessRegisterBuffer(bs, lcr->globalIndexCount.buffers[i], counterBufSize);
+        }
+    }
 }

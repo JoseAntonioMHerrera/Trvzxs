@@ -60,6 +60,13 @@ typedef struct ComputePipeline
     // consumed by lightCull.comp (Phase 2). NULL on compute pipelines that
     // don't participate in clustered lighting.
     BindlessHandle* bindlessClusterAABBHandles; // [maxFrames] or NULL
+
+    // Clustered forward+ Phase 2: lightCull output buffers (lightIndexList,
+    // lightGrid, globalIndexCount) + their per-frame bindless handles. Owned
+    // by this pipeline when it's the lightCull stub; NULL elsewhere. Kept as
+    // void* to keep this header free of the lighting module include. Real
+    // type: struct LightCullResources (src/engine/lighting/include/lightCullResources.h).
+    void* lightCullResources;
 } ComputePipeline;
 void createOcclusionCullingComputePipeline(ComputePipeline* computeP, VkDevice device);
 void createParticleComputePipeline(ComputePipeline* computeP, VkDevice device);

@@ -6,6 +6,7 @@ extern "C"
 {
 #include "ssboBuffer.h"
 #include "clusterGrid.h"
+#include "lightCullResources.h"
 #include <cglm/cglm.h>
 }
 
@@ -55,4 +56,13 @@ void metaInitStorageBuffers(MetaInitContext &ctx)
     buildInitialProj(ctx.dsm, proj);
     createClusterAABBSSBOs(pd, ld, lightCullCP->maxFrames, lightCullCP->deviceBuffer->ssbos,
                            lightCullCP->commandPool, proj, 0.1f, 30000.0f);
+
+    // Clustered forward+ Phase 2: lightCull output ring (3 buffer types, each
+    // one SSBOBufferManager with a maxFrames-deep ring). Device-local, written
+    // per frame by the compute pass, zeroed (globalIndexCount only) at pass start.
+    LightCullResources *lcr = (LightCullResources *)calloc(1, sizeof(LightCullResources));
+    createLightIndexListSSBOs  (pd, ld, lightCullCP->maxFrames, &lcr->lightIndexList);
+    createLightGridSSBOs       (pd, ld, lightCullCP->maxFrames, &lcr->lightGrid);
+    createGlobalIndexCountSSBOs(pd, ld, lightCullCP->maxFrames, &lcr->globalIndexCount);
+    lightCullCP->lightCullResources = lcr;
 }
