@@ -163,6 +163,62 @@ int uploadClusterAABBs(LogicalDevice* ld, SSBOBufferManager* ssbos, CommandPools
     return 1;
 }
 
+// ---------------------------------------------------------------------------
+// Clustered forward+ Phase 2 output SSBOs (lightIndexList, lightGrid, globalIndexCount)
+// ---------------------------------------------------------------------------
+
+// Helper: allocate `ssbosLen` device-local SSBO buffers of `perFrameSize` bytes
+// each, storage + transfer_dst usage (transfer_dst so vkCmdFillBuffer can clear
+// globalIndexCount each frame; harmless on the other two). No initial upload —
+// contents are compute-written per frame.
+static void allocDeviceLocalSSBORing(LogicalDevice* ld, uint32_t ssbosLen, VkDeviceSize perFrameSize,
+                                     SSBOBufferManager* ssbos)
+{
+    assert(ssbos);
+    ssbos->buffers     = (VkBuffer*) calloc(ssbosLen, sizeof(VkBuffer));
+    ssbos->allocations = (VmaAllocation*) calloc(ssbosLen, sizeof(VmaAllocation));
+    ssbos->buffersLen  = ssbosLen;
+
+    for (uint32_t i = 0; i < ssbosLen; i++)
+    {
+        createVkBuffer(ld->allocator, perFrameSize,
+                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                       VK_SHARING_MODE_EXCLUSIVE, VMA_BRIDGE_MEMORY_GPU_ONLY,
+                       &ssbos->buffers[i], &ssbos->allocations[i]);
+    }
+}
+
+int createLightIndexListSSBOs(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen,
+                              SSBOBufferManager* ssbos)
+{
+    (void) pd;
+    const VkDeviceSize perFrameSize =
+        (VkDeviceSize) CLUSTER_COUNT * MAX_LIGHTS_PER_CLUSTER * sizeof(uint32_t);
+    allocDeviceLocalSSBORing(ld, ssbosLen, perFrameSize, ssbos);
+    return 1;
+}
+
+int createLightGridSSBOs(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen,
+                         SSBOBufferManager* ssbos)
+{
+    (void) pd;
+    // Two uint32 per cluster: { offset, count }.
+    const VkDeviceSize perFrameSize = (VkDeviceSize) CLUSTER_COUNT * 2 * sizeof(uint32_t);
+    allocDeviceLocalSSBORing(ld, ssbosLen, perFrameSize, ssbos);
+    return 1;
+}
+
+int createGlobalIndexCountSSBOs(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen,
+                                SSBOBufferManager* ssbos)
+{
+    (void) pd;
+    // Single uint32 per frame. Cleared to 0 by vkCmdFillBuffer at the start of
+    // each frame's lightCull compute pass (Phase 2d — render graph wiring).
+    const VkDeviceSize perFrameSize = sizeof(uint32_t);
+    allocDeviceLocalSSBORing(ld, ssbosLen, perFrameSize, ssbos);
+    return 1;
+}
+
 /*uint32_t createOclCullingSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager*
 ssbos, CommandPools* commandPool, SCENE* scene)
 {
