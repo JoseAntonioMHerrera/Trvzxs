@@ -2,7 +2,7 @@
 
 A toy Vulkan renderer written in C17, with a thin C++20 layer on top. I built it to learn how Vulkan works from the ground up: devices, swapchains, pipelines, memory, and synchronization across queues.
 
-> **This is a learning project, not a library, but it builds and runs in its current state.** It has plenty of loose ends: hard-coded paths, leftover debug output, half-finished features and code that was never cleaned up. Most of the effort went into the per-frame hot path and the data layout behind it, not into polish.
+> **This is a learning project, not a library, but it builds and runs in its current state (you have to replace some of its hardcoded assets paths).** It has plenty of loose ends: hard-coded paths, leftover debug output, half-finished features and code that was never cleaned up. Most of the effort went into the per-frame hot path and the data layout behind it, not into polish.
 
 ## Where the effort went
 
