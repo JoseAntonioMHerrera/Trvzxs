@@ -391,7 +391,7 @@ int main()
         //
         // Lights tile edge-to-edge at groupSpacing = lightScale * cubeBaseSize
         // = 1200 so adjacent volumes share faces with no gap. Grid spans
-        // ±6000 on X and Y — camera scenarios above retuned 6× accordingly.
+        // ±6000 on X and Y — camera scenarios above retuned 6× accordingly.f
         scene->buildAndApplyGroupedSpecTree(
             /*groupsPerSide*/ 10,
             /*modelsPerGroupX*/ 10,
@@ -401,7 +401,6 @@ int main()
             /*lightScale*/ 120.0f,
             /*modelScale*/ 60.0f);
 
-        std::cout << "QUE??????\n";
         engine->bulkInitVulkanWithScene(window, scene.get());
         // Add these variables at the beginning of your main function or in your game class
         TTF_Font *font = nullptr;
@@ -410,7 +409,6 @@ int main()
         int fps = 0;
         int frameCount = 0;
         float avgFPS = 0.0f;
-        std::cout << "ESTO QUE MIERDA ES" << std::endl;
         uint32_t running = 1;
         bool resizing = 0;
         bool needsSwapchainRecreate = false;
