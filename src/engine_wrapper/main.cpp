@@ -241,10 +241,12 @@ static void benchApplyCamera(uint32_t frameIdx, Camera3D *camera)
 
             if (relFrame == 0)
             {
+#ifdef DEBUG
                 std::cout << "\n[bench] frame " << frameIdx << " → scenario '"
                           << g_benchmarkScenarios[s].name << "' (" << g_benchmarkScenarios[s].frameCount
                           << " frames, forward step " << BENCH_FORWARD_STEP_PER_FRAME << "/frame)"
                           << std::endl;
+#endif
                 // Flush previous scenario's stats and start a new sample window.
                 displayBenchBeginScenario(g_benchmarkScenarios[s].name);
             }
@@ -374,7 +376,7 @@ int main()
         // planeGap=5 matches initInstanceDataModelDualPlane; scale=6 → 60 units covers 50-unit model spread
         scene->initLightsDualPlane(&scene->getVolumetricLight(0), 5.0f, 6.0f, 1);
 
-        scene->addModel(load_obj_to_geom_object(PREPEND_ABSOLUTE_PATH("assets/models/viking_room.obj")));
+        scene->addModel(load_obj_to_geom_object(PREPEND_ASSET_ROOT("assets/models/viking_room.obj")));
         scene->initInstanceDataModelDualPlane(&scene->getModel(0), MODEL_INSTANCE_COUNT);
 
         scene->init();

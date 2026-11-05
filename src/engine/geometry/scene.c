@@ -647,10 +647,12 @@ void fillSceneWithModelData(SCENE* scene, Model3D* pModel, uint32_t modelLen)
             // Zero the per-frame LOD live counts
             for (int k = 0; k < MODEL_LOD_COUNT; k++) model->lodLiveInstanceCount[k] = 0;
 
+#ifdef DEBUG
             printf("[lod] type %d: lod0=%u idx, lod1=%zu idx, lod2=%zu idx "
                    "(unique=%zu/%u, radius=%.2f)\n",
                    i, lod0IndexCount, lod1Count, lod2Count,
                    uniqueCount, vertCount, model->localAABBRadius);
+#endif
         }
 
         free(compactVerts);

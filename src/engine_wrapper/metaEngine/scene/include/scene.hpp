@@ -12,109 +12,7 @@ extern "C"
 #include "sceneSpec.h"
 }
 
-inline void sceneDeletor(SCENE *scene) {
-    /* std::cout << "Starting SCENE deletion..." << std::endl;
-
-     if (scene)
-     {
-
-         // Free Models3DManager resources
-         if (scene->modelsManager.modelLen > 0)
-         {
-
-             // Free each model's mesh resources
-             for (uint32_t modelIndex = 0; modelIndex < scene->modelsManager.modelLen; modelIndex++)
-             {
-                 Model3D *currentModel = &scene->modelsManager.pModel[modelIndex];
-
-                 // Free meshes in each model
-                 if (currentModel->meshManager.meshesLen > 0)
-                 {
-                     free(currentModel->meshManager.pMesh);
-                 }
-             }
-
-             // Free model array
-             free(scene->modelsManager.pModel);
-
-
-
-             // Free packed vertices if they exist
-             if (scene->modelsManager.packedModelVertexLen > 0)
-             {
-                 free(scene->modelsManager.pPackedModelVertex);
-             }
-             if (scene->modelsManager.pPackedModelVertexLean)
-             {
-                 free(scene->modelsManager.pPackedModelVertexLean);
-             }
-
-             // Free instanceOffset array
-             if (scene->modelsManager.instanceOffset.items != NULL)
-             {
-                        (void *)scene->modelsManager.instanceOffset.items, scene->modelsManager.instanceOffset.itemsLen);
-                 free(scene->modelsManager.instanceOffset.items);
-             }
-             else
-             {
-             }
-         }
-         else
-         {
-         }
-
-         // Free VolumetricLightManager resources
-         if (scene->lightManager.lightLen > 0)
-         {
-
-             // Free each volumetric light's resources
-             for (uint32_t lightIndex = 0; lightIndex < scene->lightManager.lightLen; lightIndex++)
-             {
-                 LightVolume *currentLight = &scene->lightManager.pLight[lightIndex];
-
-                 // Free meshes in the light's model
-                 if (currentLight->model.meshManager.meshesLen > 0)
-                 {
-                     free(currentLight->model.meshManager.pMesh);
-                 }
-             }
-
-             // Free volumetric lights array
-             free(scene->lightManager.pLight);
-
-             // Free packed vertices if they exist
-             if (scene->lightManager.packedLightLen > 0)
-             {
-                        scene->lightManager.packedLightLen, (void *)scene->lightManager.pPackedLight);
-                 free(scene->lightManager.pPackedLight);
-             }
-             else
-             {
-             }
-
-             // Free light instanceOffset array
-             if (scene->lightManager.instanceOffset.items != NULL)
-             {
-                        (void *)scene->lightManager.instanceOffset.items, scene->lightManager.instanceOffset.itemsLen);
-                 free(scene->lightManager.instanceOffset.items);
-             }
-             else
-             {
-             }
-         }
-         else
-         {
-         }
-
-         // Finally free the scene itself
-         free(scene);
-     }
-     else
-     {
-     }
-
-     std::cout << "SCENE deletion completed" << std::endl;*/
-};
+inline void sceneDeletor(SCENE *scene) {}
 // TODO: maybe ditch classes and use namespaces as a general approach, in the end working with the render library
 // structs is more natural
 class Scene
@@ -139,7 +37,6 @@ public:
     // Default constructor
     Scene()
     {
-        std::cout << "DEFAULT CONSTRUCTOR DE SCENE" << std::endl;
     };
 
     // Copy constructor
@@ -153,7 +50,6 @@ public:
         this->models = std::move(other.models);
         this->lights = std::move(other.lights);
         this->scene_ = other.scene_;
-        std::cout << "Move constructor of Scene called" << std::endl;
 
         other.models.clear();
         other.lights.clear();
@@ -164,17 +60,14 @@ public:
     {
         this->models = std::move(other.models);
         this->lights = std::move(other.lights);
-        std::cout << "Move constructor of Scene called" << std::endl;
 
         other.models.clear();
         other.lights.clear();
-        std::cout << "LLAMAMOS AL MODEL operator= THE METAOBJECT" << std::endl;
         return *this;
     };
 
     friend std::ostream &operator<<(std::ostream &output, const Scene &scene)
     {
-        std::cout << "EN SOBRECARGA OPERADOR <<" << std::endl;
         printSceneModels(&scene.scene_->modelsManager);
         printSceneLights(&scene.scene_->lightManager);
 
@@ -453,14 +346,6 @@ public:
                                   this->particle.data(), this->particle.size(), this->particleIndices.data(),
                                   this->particleIndices.size());
 
-        /*Model3DInstance **modelInstances = this->modelsInstances.data();
-        fillSceneWithInstancedModelData(&scene->modelsManager, modelInstances, this->modelsInstances.size());
-
-        LightVolumeInstance **lightInstance = this->lightsInstances.data();
-        fillSceneWithInstancedLightVolumeData(&scene->lightManager, lightInstance, this->lightsInstances.size());
-
-        printSceneModels(&scene->modelsManager);
-        */
         scene->sceneInstancesLen = scene->modelsManager.modelInstanceLen + scene->lightManager.lightInstanceCount;
 
         this->scene_ = &(*scene);

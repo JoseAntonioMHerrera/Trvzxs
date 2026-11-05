@@ -19,7 +19,7 @@ enum class PRIMITIVE_TYPE {
     MODEL
 };
 template <typename T>
-constexpr auto lightDeletor = [](T* obj){ std::cout << "LLAMAMOS AL DELETER DE MODEL"<< std::endl;};
+constexpr auto lightDeletor = [](T* obj){};
 
 template <typename T>
 class Light : public MetaObject<T, void(*)(T*)> {
@@ -30,7 +30,6 @@ public:
     // Constructor for loading from file
     explicit Light(const std::string& modelPath) noexcept
     : MetaObject<T, void(*)(T*)>() {
-        std::cout << "LLAMAMOS AL MODELO POR PARAMETRO MODEL PATH" << std::endl;
         T* model;
         model = load_obj_to_geom_object(modelPath.c_str());
         this->MetaObject<T, void(*)(T*)>::operator=(MetaObject<T, void(*)(T*)>(model, modelDeletor<T>));
@@ -80,7 +79,6 @@ public:
     };
 
     friend std::ostream& operator<<(std::ostream& output, const Light& model){
-        std::cout << "EN SOBRECARGA OPERADOR <<" << std::endl;
         for(int i = 0; i < model.object->dataLen; i++){
             output << "X: " << model.object->data[i].point.x << " ";
             output << "Y: " << model.object->data[i].point.y << " ";
@@ -89,9 +87,5 @@ public:
         return output;
     }
     ~Light(){
-        if(this->object){
-            std::cout << "DESTRUCTOR MODELO" << std::endl;
-        }
-
     };
 };

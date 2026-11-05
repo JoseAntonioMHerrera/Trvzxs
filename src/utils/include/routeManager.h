@@ -1,3 +1,3 @@
 #pragma once
-#define ABSOLUTE_PATH "/home/jamh/Desktop/humo2/"
-#define PREPEND_ABSOLUTE_PATH(str) ABSOLUTE_PATH str
+// ASSET_ROOT is defined by CMake (see src/utils/CMakeLists.txt).
+#define PREPEND_ASSET_ROOT(str) ASSET_ROOT str

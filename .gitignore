@@ -60,3 +60,6 @@ build/
 .todo
 .*
 profiling/
+
+# The demo model is a source asset, not an object file
+!assets/models/*.obj

@@ -30,7 +30,7 @@ set(SHADERS
 )
 
 # Ensure the output directory for SPIR-V binaries exists
-file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/build/shaders/bin)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders/bin)
 
 # List to hold SPIR-V binary paths
 set(SPIRV_BINARIES "")
@@ -41,7 +41,7 @@ add_custom_target(shaders_mod ALL)
 # Compile each shader
 foreach(SHADER ${SHADERS})
     get_filename_component(SHADER_NAME ${SHADER} NAME)
-    set(SPIRV "${CMAKE_SOURCE_DIR}/build/shaders/bin/${SHADER_NAME}.spv")
+    set(SPIRV "${CMAKE_BINARY_DIR}/shaders/bin/${SHADER_NAME}.spv")
 
     add_custom_command(
         OUTPUT ${SPIRV}

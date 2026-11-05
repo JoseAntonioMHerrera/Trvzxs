@@ -1647,7 +1647,7 @@ def build_story(styles):
 # ---------------------------------------------------------------------------
 
 def main():
-    out_path = "/home/jamh/Desktop/humo2/doc/humo2_frame_lifecycle.pdf"
+    out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "humo2_frame_lifecycle.pdf")
 
     styles = build_styles()
     story = build_story(styles)

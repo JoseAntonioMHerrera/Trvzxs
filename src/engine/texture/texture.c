@@ -7,7 +7,7 @@ void loadTextureImage(VkDeviceSize* imageSize, stbi_uc** pixels, uint32_t* width
 {
     uint32_t texWidth, texHeight, texChannels;
 
-    *pixels = stbi_load(PREPEND_ABSOLUTE_PATH("assets/textures/viking_room.png"), &texWidth, &texHeight, &texChannels,
+    *pixels = stbi_load(PREPEND_ASSET_ROOT("assets/textures/viking_room.png"), &texWidth, &texHeight, &texChannels,
                         STBI_rgb_alpha);
     assert(*pixels);
     *imageSize = (VkDeviceSize) texWidth * texHeight * 4;
