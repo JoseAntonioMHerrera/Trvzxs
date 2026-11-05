@@ -346,7 +346,9 @@ void chooseSwapExtent2D(VkExtent2D* extent, VkSurfaceCapabilitiesKHR* capabiliti
 {
     int width, height;
     SDL_Vulkan_GetDrawableSize(window, &width, &height);
+#ifdef DEBUG
     fprintf(stderr, "[swapchain] SDL drawable size: %d x %d\n", width, height);
+#endif
 
     // Enforce the configured resolution so profiling numbers are reproducible
     width  = WINDOW_WIDTH;
@@ -354,7 +356,9 @@ void chooseSwapExtent2D(VkExtent2D* extent, VkSurfaceCapabilitiesKHR* capabiliti
 
     extent->width  = CLAMP(width, capabilities->minImageExtent.width, capabilities->maxImageExtent.width);
     extent->height = CLAMP(height, capabilities->minImageExtent.height, capabilities->maxImageExtent.height);
+#ifdef DEBUG
     fprintf(stderr, "[swapchain] Enforced extent: %u x %u\n", extent->width, extent->height);
+#endif
 }
 
 VkSurfaceFormatKHR* chooseSwapSurfaceFormat(VkSurfaceFormatKHR* availableFormats, uint8_t availableFormatsCount)
@@ -370,6 +374,7 @@ VkSurfaceFormatKHR* chooseSwapSurfaceFormat(VkSurfaceFormatKHR* availableFormats
     return &availableFormats[0];
 }
 
+#ifdef DEBUG
 static const char* presentModeName(VkPresentModeKHR m)
 {
     switch (m)
@@ -383,28 +388,35 @@ static const char* presentModeName(VkPresentModeKHR m)
     default:                                            return "unknown";
     }
 }
+#endif
 
 VkPresentModeKHR chooseSwapPresentMode(VkPresentModeKHR* availablePresentModes, uint8_t availableModesCount,
                                        VkPresentModeKHR mode)
 {
+#ifdef DEBUG
     printf("[swapchain] requested present mode: %s\n", presentModeName(mode));
     printf("[swapchain] surface advertises %u present mode(s):\n", availableModesCount);
     for (uint8_t i = 0; i < availableModesCount; i++)
     {
         printf("              [%u] %s\n", i, presentModeName(availablePresentModes[i]));
     }
+#endif
     for (uint8_t i = 0; i < availableModesCount; i++)
     {
         if (availablePresentModes[i] == mode)
         {
+#ifdef DEBUG
             printf("[swapchain] GRANTED: %s\n", presentModeName(availablePresentModes[i]));
             fflush(stdout);
+#endif
             return availablePresentModes[i];
         }
     }
+#ifdef DEBUG
     printf("[swapchain] FALLBACK to %s — requested mode not supported by surface\n",
            presentModeName(VK_PRESENT_MODE_FIFO_KHR));
     fflush(stdout);
+#endif
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 

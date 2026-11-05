@@ -2,7 +2,7 @@
 
 A toy Vulkan renderer written in C17, with a thin C++20 layer on top. I built it to learn how Vulkan works from the ground up: devices, swapchains, pipelines, memory, and synchronization across queues.
 
-> **This is a learning project, not a library, but it builds and runs in its current state (althought you have to replace a few hardcoded asset paths).** It has plenty of loose ends: hard-coded paths, leftover debug output, half-finished features and code that was never cleaned up. Most of the effort went into the per-frame hot path and the data layout behind it, not into polish.
+> **This is a learning project, not a library, but it builds and runs in its current state.** It has plenty of loose ends: half-finished features and code that was never cleaned up. Most of the effort went into the per-frame hot path and the data layout behind it, not into polish.
 
 ## Where the effort went
 
@@ -22,3 +22,7 @@ A toy Vulkan renderer written in C17, with a thin C++20 layer on top. I built it
 - **Memory** is handled by VMA. Descriptors are moving to bindless through descriptor indexing (in progress).
 
 The demo scene has 100 light groups, each parenting 200 model instances, for 20,100 entities in the hierarchy. A benchmark mode flies a fixed camera path and marks random transforms dirty every frame.
+
+## Credits
+
+The [Viking Room](https://sketchfab.com/3d-models/viking-room-a49f1b8e4f5c4ecf9e1fe7d81915ad38) model and texture are by nigelgoh, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), and were downloaded from [Vulkan Tutorial](https://vulkan-tutorial.com/Loading_models).
