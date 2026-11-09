@@ -3,8 +3,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <assert.h>
-#include <X11/Xlib.h>
-#include <unistd.h>
 #include "main_vulkan.h"
 #include "file_functions.h"
 #include "displayManager.h"

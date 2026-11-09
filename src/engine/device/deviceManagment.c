@@ -42,7 +42,7 @@ void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
     }
 
     // Create queue create infos for unique families only
-    VkDeviceQueueCreateInfo queueCreateInfos[uniqueCount];
+    VkDeviceQueueCreateInfo queueCreateInfos[4];
     for (uint32_t i = 0; i < uniqueCount; i++)
     {
         queueCreateInfos[i] = (VkDeviceQueueCreateInfo) {

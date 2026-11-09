@@ -31,15 +31,30 @@ find_package(Vulkan REQUIRED)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
+if(MSVC)
+    # Sources are UTF-8 without a BOM
+    add_compile_options(/utf-8)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+else()
+    set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
+endif()
 
 option(VMA_DUMP "Print VMA statistics on shutdown" OFF)
 add_executable(${PROJECT_NAME})
+# Shaders load relative to the working directory, so keep the executable next
+# to them. $<0:> stops multi-config generators adding a Debug/ or Release/ folder.
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<0:>"
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
 # iterate CMakeLists
 add_subdirectory(src)
 add_subdirectory(include)
-add_subdirectory(test)
+# The test harness captures stderr with POSIX pipes
+if(NOT WIN32)
+    add_subdirectory(test)
+endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
@@ -57,5 +72,5 @@ target_link_libraries(${PROJECT_NAME}
     glslang::SPIRV
     SPIRV-Tools-static
     unofficial::shaderc::shaderc
-    X11
+    $<$<PLATFORM_ID:Linux>:X11>
 )

@@ -17,7 +17,6 @@ extern "C"
 #include <assert.h>
 #include "string_helper_macros.h"
 #include "comparation_helper_macros.h"
-#include <unistd.h>
 #include <vulkan/vulkan_core.h>
 #include "file_functions.h"
 #include "vertex.h"
@@ -287,7 +286,8 @@ static void benchApplyRandomDirty(SCENE *scene)
     }
 }
 
-int main()
+// SDL's Windows entry point requires this exact signature
+int main(int argc, char *argv[])
 {
 
 #ifdef NDEBUG
@@ -753,13 +753,6 @@ int main()
                     running = 0;
                 }
 #endif
-
-                // Frame pacing: Sleep to align with next vsync
-                double sleepTime = FRAME_TIME - (getCurrentTime() - currentTime);
-                if (sleepTime > 0)
-                {
-                    sleep(sleepTime);
-                }
             }
 
             // Aquí puedes añadir tus comandos de dibujo

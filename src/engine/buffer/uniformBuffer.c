@@ -151,9 +151,9 @@ void getRotatingPositionAroundLight(vec3 lightPos, vec3 result, float deltaTime,
     accumulatedAngle += rotationSpeed * deltaTime;
 
     // Keep angle in reasonable range
-    if (accumulatedAngle > 2.0f * M_PI)
+    if (accumulatedAngle > 2.0f * GLM_PI)
     {
-        accumulatedAngle -= 2.0f * M_PI;
+        accumulatedAngle -= 2.0f * GLM_PI;
     }
 
     // Rotate around Y-axis (vertical axis) - fixed direction

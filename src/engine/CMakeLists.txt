@@ -10,7 +10,9 @@ find_package(glslang CONFIG REQUIRED)
 find_package(SPIRV-Tools CONFIG REQUIRED)
 find_package(unofficial-shaderc CONFIG REQUIRED)
 
-target_compile_options(engine_mod PRIVATE -g)
+if(NOT MSVC)
+    target_compile_options(engine_mod PRIVATE -g)
+endif()
 
 target_include_directories(engine_mod PUBLIC
     buffer/include
@@ -125,7 +127,7 @@ target_link_libraries(engine_mod
     glslang::SPIRV
     SPIRV-Tools-static
     unofficial::shaderc::shaderc
-    m  # Math library
-    X11  # X11 library
+    $<$<PLATFORM_ID:Linux>:m>  # Math library
+    $<$<PLATFORM_ID:Linux>:X11>  # X11 library
     utils_mod
 )

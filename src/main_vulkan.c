@@ -6,7 +6,6 @@
 #include <assert.h>
 #include "string_helper_macros.h"
 #include "comparation_helper_macros.h"
-#include <unistd.h>
 #include <vulkan/vulkan_core.h>
 #include "file_functions.h"
 #include "vertex.h"
@@ -356,7 +355,9 @@ void createInstance(VkInstance **instance, SDL_Window *window)
     // char* extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0", "VK_KHR_surface\0", "VK_KHR_dynamic_rendering", VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
     char *extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0"};
     extensionNames[extensionCount++] = extensionsToSelect[0];
+#ifndef _WIN32
     extensionNames[extensionCount++] = extensionsToSelect[1];
+#endif
     // extensionNames[extensionCount++] = extensionsToSelect[2];
     /*
     extensionNames[extensionCount++] = extensionsToSelect[3];

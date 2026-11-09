@@ -281,7 +281,7 @@ public:
         {
             Model3DInstance *inst = &pModel->pStagingInstances[i];
             inst->lifecycle = INSTANCE_ALIVE;
-            inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
+            inst->color = GEOM_VERTEX_COLOR_RGBA{1.0f, 1.0f, 1.0f, 1.0f};
 
             TransformCold *cold = &pModel->pStagingTransforms[i];
             transformInitCold(cold);
@@ -314,7 +314,7 @@ public:
         {
             Model3DInstance *inst = &pModel->pStagingInstances[instanceIndex];
             inst->lifecycle = INSTANCE_ALIVE;
-            inst->color = (GEOM_VERTEX_COLOR_RGBA){1.0f, 1.0f, 1.0f, 1.0f};
+            inst->color = GEOM_VERTEX_COLOR_RGBA{1.0f, 1.0f, 1.0f, 1.0f};
 
             TransformCold *cold = &pModel->pStagingTransforms[instanceIndex];
             transformInitCold(cold);
