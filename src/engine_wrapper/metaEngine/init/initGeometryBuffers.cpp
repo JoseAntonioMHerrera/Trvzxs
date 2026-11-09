@@ -31,7 +31,7 @@ void metaInitGeometryBuffers(MetaInitContext &ctx)
     // Model vertex + index (packed across all Model3D types)
     createGeometryBuffer(pd, ld, gdp->deviceBuffer, gdp->scene,
                          gdp->commandPool);
-    assert(gdp->scene > 0);
+    assert(gdp->scene != nullptr);
     createGeometryIndiceBuffer(pd, ld, gdp->deviceBuffer, gdp->scene,
                                gdp->commandPool);
 

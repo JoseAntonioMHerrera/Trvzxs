@@ -14,6 +14,7 @@
 #include "mat4.h"
 #include "affine.h"
 #include "graphicConfiguration.h"
+#include "monotonicTime.h"
 #include <assert.h>
 #include <time.h>
 #include <stdio.h>
@@ -250,7 +251,7 @@ static void accumulateTiming(FrameTiming* t)
     }
 }
 
-#define MARK_TIME(name) struct timespec name; clock_gettime(CLOCK_MONOTONIC, &name)
+#define MARK_TIME(name) struct timespec name; getMonotonicTime(&name)
 #else // !DEBUG — provide no-op bench stubs so main.cpp can call them unconditionally.
 void displayBenchBeginScenario(const char* name) { (void) name; }
 void displayBenchEndScenario(void) {}

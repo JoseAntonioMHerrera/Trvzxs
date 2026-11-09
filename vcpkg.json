@@ -5,7 +5,7 @@
         {
             "name": "sdl2",
             "default-features": true,
-            "features": ["x11", "vulkan"]
+            "features": [{ "name": "x11", "platform": "linux" }, "vulkan"]
         },
       "sdl2-ttf",
       "spirv-headers",

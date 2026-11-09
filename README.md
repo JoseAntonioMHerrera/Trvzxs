@@ -23,6 +23,30 @@ A toy Vulkan renderer written in C17, with a thin C++20 layer on top. I built it
 
 The demo scene has 100 light groups, each parenting 200 model instances, for 20,100 entities in the hierarchy. A benchmark mode flies a fixed camera path and marks random transforms dirty every frame.
 
+## Building
+
+You need a GPU and driver with Vulkan 1.3 support, the [Vulkan SDK](https://vulkan.lunarg.com/), CMake 3.14+ and [vcpkg](https://vcpkg.io/) with `VCPKG_ROOT` set. vcpkg installs the other dependencies during configuration, so the first run takes a while.
+
+On Windows, with Visual Studio 2022:
+
+```powershell
+cmake -B build -S .
+cmake --build build --config Release
+cd build
+.\renderer.exe
+```
+
+On Linux:
+
+```bash
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cd build
+./renderer
+```
+
+Run it from the build folder, because shaders are loaded relative to the working directory. The tests are not built on Windows.
+
 ## Credits
 
 The [Viking Room](https://sketchfab.com/3d-models/viking-room-a49f1b8e4f5c4ecf9e1fe7d81915ad38) model and texture are by nigelgoh, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), and were downloaded from [Vulkan Tutorial](https://vulkan-tutorial.com/Loading_models).

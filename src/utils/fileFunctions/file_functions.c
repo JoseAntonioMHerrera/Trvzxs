@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdalign.h>
 
 int readSPVBinaryFile(const char* filename, char** data, size_t* length) {
     FILE *file = fopen(filename, "rb");
@@ -21,9 +20,9 @@ int readSPVBinaryFile(const char* filename, char** data, size_t* length) {
         fclose(file);
         return -1;
     }
-    size_t alignment = alignof(uint32_t);
-    // Allocate memory for the file contents
-    *data = aligned_alloc(alignment, sizeof(char)*fileSize);
+    // Allocate memory for the file contents. malloc's alignment already
+    // satisfies the uint32_t alignment that SPIR-V code needs.
+    *data = malloc(sizeof(char)*fileSize);
     if (data == NULL) {
         perror("Failed to allocate memory");
         fclose(file);

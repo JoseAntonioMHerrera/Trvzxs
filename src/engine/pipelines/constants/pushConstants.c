@@ -1,5 +1,5 @@
 #include <vulkan/vulkan.h>
-#include <linux/time.h>
+#include "monotonicTime.h"
 #include "pushConstants.h"
 
 void updatePushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout *pipelineLayout) {
@@ -8,11 +8,11 @@ void updatePushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout *pipeli
     struct timespec currentTime;
 
     if (!initialized) {
-        clock_gettime(CLOCK_MONOTONIC, &startTime);
+        getMonotonicTime(&startTime);
         initialized = 1;
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &currentTime);
+    getMonotonicTime(&currentTime);
 
     // Calculate delta time in seconds
     float deltaTime = (currentTime.tv_sec - startTime.tv_sec) +

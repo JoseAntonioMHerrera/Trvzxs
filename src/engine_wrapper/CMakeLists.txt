@@ -49,8 +49,8 @@ target_link_libraries(${PROJECT_NAME}
     glslang::SPIRV
     SPIRV-Tools-static
     unofficial::shaderc::shaderc
-    m  # Math library
-    X11  # X11 library
+    $<$<PLATFORM_ID:Linux>:m>  # Math library
+    $<$<PLATFORM_ID:Linux>:X11>  # X11 library
     engine_mod
     utils_mod
 )
