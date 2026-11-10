@@ -135,7 +135,7 @@ void createCommandBuffer(GraphicPipelineToSurface* gdp, VkDevice* device, size_t
         .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool        = gdp->commandPool->graphicsCommandPool,
         .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = gdp->maxFrames,
+        .commandBufferCount = (uint32_t) gdp->commandLen,
         .pNext              = VK_NULL_HANDLE,
     };
 
@@ -155,7 +155,7 @@ void createCommandBufferWithCompute(GraphicPipelineToSurface* gdp, VkDevice* dev
         .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool        = gdp->commandPool->graphicsCommandPool,
         .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = gdp->maxFrames,
+        .commandBufferCount = (uint32_t) gdp->commandLen,
         .pNext              = VK_NULL_HANDLE,
     };
 
@@ -170,7 +170,7 @@ void createCommandBufferWithCompute(GraphicPipelineToSurface* gdp, VkDevice* dev
             .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool        = gdp->commandPool->computeCommandPool,
             .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = gdp->maxFrames,
+            .commandBufferCount = (uint32_t) gdp->commandLen,
             .pNext              = VK_NULL_HANDLE,
         };
         if (vkAllocateCommandBuffers(*device, &allocComputeCommandBufferInfo, gdp->computeP[compIndex].commandBuffer) !=

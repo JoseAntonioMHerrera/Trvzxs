@@ -14,7 +14,7 @@ void createSyncObjects(GraphicPipelineToSurface* gd, VkDevice* device)
 
     assert(gd->commandLen >= 2);
     gd->imgViewSemaphore = malloc(sizeof(VkSemaphore) * gd->commandLen);
-    gd->renderEndFlag    = malloc(sizeof(VkSemaphore) * gd->commandLen);
+    gd->renderEndFlag    = malloc(sizeof(VkSemaphore) * gd->swapchain->scImagesLen);
 
     assert(gd->renderEndFlag);
     assert(gd->imgViewSemaphore);
