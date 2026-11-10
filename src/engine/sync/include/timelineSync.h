@@ -7,8 +7,8 @@ typedef struct FrameSync
     VkSemaphore graphicsTimeline;
     VkSemaphore computeTimeline;
 
-    uint64_t graphicsValue;
-    uint64_t computeValue;
+    uint64_t graphicsWorkloadRun;
+    uint64_t computeWorkloadRun;
 
     uint32_t maxFramesInFlight;
 } FrameSync;

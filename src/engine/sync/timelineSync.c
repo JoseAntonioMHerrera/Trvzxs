@@ -3,8 +3,8 @@
 
 void createFrameSync(FrameSync* sync, VkDevice device, uint32_t maxFramesInFlight)
 {
-    sync->graphicsValue     = 0;
-    sync->computeValue      = 0;
+    sync->graphicsWorkloadRun     = 0;
+    sync->computeWorkloadRun      = 0;
     sync->maxFramesInFlight = maxFramesInFlight;
 
     VkSemaphoreTypeCreateInfo timelineInfo = {
@@ -32,6 +32,6 @@ void destroyFrameSync(FrameSync* sync, VkDevice device)
 
     sync->graphicsTimeline = VK_NULL_HANDLE;
     sync->computeTimeline  = VK_NULL_HANDLE;
-    sync->graphicsValue    = 0;
-    sync->computeValue     = 0;
+    sync->graphicsWorkloadRun    = 0;
+    sync->computeWorkloadRun     = 0;
 }
