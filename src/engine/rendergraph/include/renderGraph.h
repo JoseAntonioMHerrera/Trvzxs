@@ -46,4 +46,4 @@ void rgCollectGpuTimings(RenderGraph* rg, uint32_t frameIndex);
 
 // --- Swapchain resize ---
 
-void rgOnSwapchainResize(RenderGraph* rg, uint32_t newWidth, uint32_t newHeight);
+void rgOnSwapchainResize(RenderGraph* rg, uint32_t newWidth, uint32_t newHeight, uint32_t newSwapchainImageCount);
