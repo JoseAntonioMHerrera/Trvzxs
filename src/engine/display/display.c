@@ -259,7 +259,7 @@ void displayBenchRecordLodSample(const struct SCENE* scene) { (void) scene; }
 #endif // DEBUG
 void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp)
 {
-    for (size_t i = 0; i < gdp->maxFrames; i++)
+    for (size_t i = 0; i < gdp->commandLen; i++)
     {
         vkDestroySemaphore(device, gdp->renderEndFlag[i], NULL);
         vkDestroySemaphore(device, gdp->imgViewSemaphore[i], NULL);
@@ -545,14 +545,14 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     // Submit both queues with timeline semaphore sync
     rgSubmit(rg, graphicsCB, computeCB, sync,
              gdp->imgViewSemaphore[dm->currentFrame],
-             gdp->renderEndFlag[dm->currentFrame]);
+             gdp->renderEndFlag[aquireImageIndex]);
 
 #ifdef DEBUG
     MARK_TIME(tAfterSubmit);
 #endif
 
     // Present
-    VkSemaphore    presentWait[] = {gdp->renderEndFlag[dm->currentFrame]};
+    VkSemaphore    presentWait[] = {gdp->renderEndFlag[aquireImageIndex]};
     VkSwapchainKHR swapChains[]  = {dm->graphicPipeline->swapchain->VkSwapchain};
 
     VkPresentInfoKHR presentInfo = {
