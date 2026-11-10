@@ -635,6 +635,7 @@ void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window
         rg->resources[3].image     = sc->nBuffer->image;
         rg->resources[3].imageView = sc->nBuffer->imageView;
 
-        rgOnSwapchainResize(rg, sc->currentExtent2D.width, sc->currentExtent2D.height);
+
+        rgOnSwapchainResize(rg, sc->currentExtent2D.width, sc->currentExtent2D.height, sc->scImagesLen);
     }
 }

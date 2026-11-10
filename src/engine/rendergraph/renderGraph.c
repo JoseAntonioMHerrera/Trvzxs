@@ -1548,7 +1548,7 @@ void rgDumpCompiled(const RenderGraph* rg)
 // Swapchain resize
 // ---------------------------------------------------------------------------
 
-void rgOnSwapchainResize(RenderGraph* rg, uint32_t newWidth, uint32_t newHeight)
+void rgOnSwapchainResize(RenderGraph* rg, uint32_t newWidth, uint32_t newHeight, uint32_t newSwapchainImageCount)
 {
     // Destroy transient resources
     for (uint32_t r = 0; r < rg->resourceCount; r++)
@@ -1591,9 +1591,10 @@ void rgOnSwapchainResize(RenderGraph* rg, uint32_t newWidth, uint32_t newHeight)
         }
     }
 
-    rg->swapchainWidth  = newWidth;
-    rg->swapchainHeight = newHeight;
-    rg->isCompiled      = false;
+    rg->swapchainWidth      = newWidth;
+    rg->swapchainHeight     = newHeight;
+    rg->swapchainImageCount = newSwapchainImageCount;
+    rg->isCompiled          = false;
 
     rgCompile(rg);
 }
