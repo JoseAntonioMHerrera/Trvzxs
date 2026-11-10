@@ -335,10 +335,16 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     FrameSync* sync = &ld->frameSync;
 
-    // CPU pacing: wait for frame N-maxFrames to finish on the graphics timeline
-    if (sync->graphicsValue >= sync->maxFramesInFlight)
+    // The frame slot is derived from the number of graphics workloads already
+    // submitted, so it only advances when a frame is actually submitted. A call
+    // that returns early (timeout, swapchain out of date) retries the same slot.
+    dm->currentFrame = (uint32_t) (sync->graphicsWorkloadRun % sync->maxFramesInFlight);
+
+    // CPU pacing: wait for the frame that last used this slot to finish on the
+    // graphics timeline. That frame signaled graphicsWorkloadRun - maxFramesInFlight + 1.
+    if (sync->graphicsWorkloadRun >= sync->maxFramesInFlight)
     {
-        uint64_t            waitValue = sync->graphicsValue - sync->maxFramesInFlight + 1;
+        uint64_t            waitValue = sync->graphicsWorkloadRun - sync->maxFramesInFlight + 1;
         VkSemaphoreWaitInfo waitInfo  = {
             .sType          = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
             .semaphoreCount = 1,
@@ -381,12 +387,16 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     switch (nextImageResult)
     {
     case VK_SUCCESS:
-        break;
     case VK_SUBOPTIMAL_KHR:
+        // SUBOPTIMAL is a successful acquire: imgViewSemaphore will be signaled,
+        // so this frame must be submitted to consume it. The swapchain is
+        // recreated after present, which reports SUBOPTIMAL again.
+        break;
     case VK_ERROR_OUT_OF_DATE_KHR:
+        // No image was acquired and no semaphore signaled. The next call
+        // retries the same slot, since nothing was submitted.
         recreateSwapChain(pd, ld, window, rg);
         rebuildClusterAABBsOnResize(ld, lightGraphics, gdp->swapchain);
-        dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
         return;
     case VK_TIMEOUT:
     case VK_NOT_READY:
@@ -506,8 +516,8 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     }
 
     // Update per-frame resource handles
-    rg->resources[0].image     = gdp->swapchain->p_scImages[dm->currentFrame];
-    rg->resources[0].imageView = gdp->swapchain->p_scImageView[dm->currentFrame];
+    rg->resources[0].image     = gdp->swapchain->p_scImages[aquireImageIndex];
+    rg->resources[0].imageView = gdp->swapchain->p_scImageView[aquireImageIndex];
 
     uint32_t prevFrame = (dm->currentFrame - 1 + particleGraphics->maxFrames) % particleGraphics->maxFrames;
     rg->resources[4].buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[prevFrame];
@@ -515,11 +525,11 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     rg->deltaTime = deltaTime;
 
-    rgExecute(rg, graphicsCB, computeCB, dm->currentFrame);
+    rgExecute(rg, graphicsCB, computeCB, dm->currentFrame, aquireImageIndex);
 
     // Transition swapchain image to present layout (on graphics CB)
     transitionImageLayout(NULL, VK_NULL_HANDLE,
-                          gdp->swapchain->p_scImages[dm->currentFrame],
+                          gdp->swapchain->p_scImages[aquireImageIndex],
                           gdp->swapchain->currentSurfaceFormat->format,
                           VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 1,
@@ -584,6 +594,6 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     };
     accumulateTiming(&timing);
 #endif
-
-    dm->currentFrame = (dm->currentFrame + 1) % gdp->maxFrames;
+    // No manual slot advance: rgSubmit incremented graphicsWorkloadRun, so the
+    // next drawFrame derives the next slot from it.
 }

@@ -807,7 +807,7 @@ void rgCompile(RenderGraph* rg)
 // Execute (per-frame)
 // ---------------------------------------------------------------------------
 
-void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB, uint32_t frameIndex)
+void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB, uint32_t frameIndex, uint32_t aquireImageIndex)
 {
     assert(rg->isCompiled);
     rg->hasComputeWork = false;
@@ -927,7 +927,7 @@ void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer comp
             VkRenderPassBeginInfo rpBegin = {
                 .sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
                 .renderPass        = pass->renderPass,
-                .framebuffer       = pass->framebuffers[frameIndex],
+                .framebuffer       = pass->framebuffers[aquireImageIndex],
                 .renderArea.offset = {0, 0},
                 .renderArea.extent = {rg->swapchainWidth, rg->swapchainHeight},
                 .clearValueCount   = clearCount,
@@ -1063,7 +1063,7 @@ void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer compu
 {
     if (rg->hasComputeWork)
     {
-        sync->computeValue++;
+        sync->computeWorkloadRun++;
 
         // Compute queue waits for frame pacing only — don't overwrite SSBOs
         // from a frame that's still in flight on the graphics queue.
@@ -1073,16 +1073,16 @@ void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer compu
         VkPipelineStageFlags     computeWaitStages[1];
         uint64_t                 computeWaitValues[1];
 
-        if (sync->graphicsValue >= sync->maxFramesInFlight)
+        if (sync->graphicsWorkloadRun >= sync->maxFramesInFlight)
         {
-            computeWaitValue         = sync->graphicsValue - sync->maxFramesInFlight + 1;
+            computeWaitValue         = sync->graphicsWorkloadRun - sync->maxFramesInFlight + 1;
             computeWaitSemaphores[0] = sync->graphicsTimeline;
             computeWaitStages[0]     = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
             computeWaitValues[0]     = computeWaitValue;
             computeWaitCount         = 1;
         }
 
-        uint64_t computeSignalValue = sync->computeValue;
+        uint64_t computeSignalValue = sync->computeWorkloadRun;
 
         VkTimelineSemaphoreSubmitInfo computeTimelineInfo = {
             .sType                     = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
@@ -1109,7 +1109,7 @@ void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer compu
     }
 
     // Graphics queue submission
-    sync->graphicsValue++;
+    sync->graphicsWorkloadRun++;
 
     // Graphics waits for: swapchain image + compute completion (if any)
     VkSemaphore          graphicsWaitSemaphores[2];
@@ -1128,13 +1128,13 @@ void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer compu
     {
         graphicsWaitSemaphores[graphicsWaitCount] = sync->computeTimeline;
         graphicsWaitStages[graphicsWaitCount]     = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-        graphicsWaitValues[graphicsWaitCount]     = sync->computeValue;
+        graphicsWaitValues[graphicsWaitCount]     = sync->computeWorkloadRun;
         graphicsWaitCount++;
     }
 
     // Graphics signals: graphics timeline + presentReady (binary)
     VkSemaphore graphicsSignalSemaphores[2] = {sync->graphicsTimeline, presentReady};
-    uint64_t    graphicsSignalValues[2]     = {sync->graphicsValue, 0}; // 0 for binary
+    uint64_t    graphicsSignalValues[2]     = {sync->graphicsWorkloadRun, 0}; // 0 for binary
 
     VkTimelineSemaphoreSubmitInfo graphicsTimelineInfo = {
         .sType                     = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
@@ -1153,7 +1153,7 @@ void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer compu
         .commandBufferCount   = 1,
         .pCommandBuffers      = &graphicsCB,
         .signalSemaphoreCount = 2,
-        .pSignalSemaphores    = graphicsSignalSemaphores,
+        .pSignalSemaphores    = graphicsSignalSemaphores, // Signal to graphicsTimeline (num of currentFrame) and presentReady (binary)
     };
 
     VkResult result = vkQueueSubmit(rg->graphicsQueue, 1, &graphicsSubmit, VK_NULL_HANDLE);
