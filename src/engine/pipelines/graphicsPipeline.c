@@ -21,9 +21,21 @@ void createSyncObjects(GraphicPipelineToSurface* gd, VkDevice* device)
 
     for (uint32_t i = 0; i < gd->commandLen; i++)
     {
-        if (vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->imgViewSemaphore[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->renderEndFlag[i]) != VK_SUCCESS)
+        VkResult result = vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->imgViewSemaphore[i]);
+        if (result != VK_SUCCESS)
         {
+            fprintf(stderr, "[sync] createSyncObjects: vkCreateSemaphore failed for imgViewSemaphore[%u] (VkResult %d)\n",
+                    i, (int) result);
+        }
+    }
+
+    for (uint32_t i = 0; i < gd->swapchain->scImagesLen; i++)
+    {
+        VkResult result = vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->renderEndFlag[i]);
+        if (result != VK_SUCCESS)
+        {
+            fprintf(stderr, "[sync] createSyncObjects: vkCreateSemaphore failed for renderEndFlag[%u] (VkResult %d)\n",
+                    i, (int) result);
         }
     }
 }
