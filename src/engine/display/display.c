@@ -372,7 +372,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 #endif
 
     // GPU finished with this frame slot's commands.
-    // Safe to destroy any resources enqueued MAX_FRAMES_IN_FLIGHT frames ago.
+    // Safe to destroy any resources enqueued maxFrames frames ago.
     flushDeletionQueue(&ld->deletionQueue, ld->device, ld->allocator);
     advanceDeletionQueue(&ld->deletionQueue);
 

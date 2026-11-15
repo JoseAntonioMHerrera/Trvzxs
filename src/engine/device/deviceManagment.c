@@ -417,8 +417,8 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
     createVmaAllocator(*instance, pd, ld);
 
     // Initialize the deletion queue after VMA — it defers resource destruction
-    // by MAX_FRAMES_IN_FLIGHT frames so in-flight command buffers never reference freed memory.
-    initDeletionQueue(&ld->deletionQueue);
+    // by maxFrames frames so in-flight command buffers never reference freed memory.
+    initDeletionQueue(&ld->deletionQueue, dispM->graphicPipeline[0].maxFrames);
 }
 
 void createVmaAllocator(VkInstance instance, PhysicalDevice* pd, LogicalDevice* ld)

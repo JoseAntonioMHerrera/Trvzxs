@@ -37,11 +37,6 @@ void metaInitSwapchainResources(MetaInitContext &ctx, SDL_Window *window)
     lightVolumeGraphicPipeline->swapchain = dsm;
     depthPrepassGraphicPipeline->swapchain = dsm;
 
-    gdp->maxFrames                       = dsm->scImagesLen;
-    particleGraphicPipeline->maxFrames   = dsm->scImagesLen;
-    lightVolumeGraphicPipeline->maxFrames = dsm->scImagesLen;
-    depthPrepassGraphicPipeline->maxFrames = dsm->scImagesLen;
-
     // Stage 3: per-frame attachments, render pass, image views, framebuffers,
     // command pools, command buffers.
 

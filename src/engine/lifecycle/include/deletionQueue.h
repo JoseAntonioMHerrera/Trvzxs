@@ -7,13 +7,6 @@
 // Grows via realloc if exceeded — zero allocations at steady state.
 #define DELETION_QUEUE_INITIAL_CAPACITY 16
 
-// Maximum number of in-flight frames. Determines how many slots the
-// ring buffer has — resources are deferred for this many frames before
-// destruction, matching the GPU's pipeline depth.
-#ifndef MAX_FRAMES_IN_FLIGHT
-    #define MAX_FRAMES_IN_FLIGHT 2
-#endif
-
 // One slot per frame in the ring buffer. Each slot holds per-type arrays
 // of resources enqueued for deferred destruction during that frame.
 // Flush order is hardcoded: image views → buffers → images.
@@ -39,17 +32,21 @@ typedef struct DeletionQueueSlot
 
 } DeletionQueueSlot;
 
-// Ring buffer of deletion slots, one per in-flight frame.
+// Ring buffer of deletion slots, one per in-flight frame (slotCount equals the
+// graphics pipeline's maxFrames). Resources are deferred for slotCount frames
+// before destruction, matching the GPU's pipeline depth.
 // Enqueues go into slots[currentSlot]. Flush destroys everything in
 // slots[currentSlot] (the oldest frame), then advance moves to the next slot.
 typedef struct DeletionQueue
 {
-    DeletionQueueSlot slots[MAX_FRAMES_IN_FLIGHT];
-    uint32_t          currentSlot;
+    DeletionQueueSlot* slots;
+    uint32_t           slotCount;
+    uint32_t           currentSlot;
 } DeletionQueue;
 
-// Initialize all slots with starting capacity. Call once after device creation.
-void initDeletionQueue(DeletionQueue* queue);
+// Allocate slotCount slots with starting capacity. Call once after device
+// creation, passing the graphics pipeline's maxFrames.
+void initDeletionQueue(DeletionQueue* queue, uint32_t slotCount);
 
 // Flush the current slot — destroy all resources in it.
 // Must be called AFTER vkWaitForFences confirms the GPU finished with

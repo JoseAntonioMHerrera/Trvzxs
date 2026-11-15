@@ -83,7 +83,6 @@ void metaInitDisplay(MetaInitContext &ctx, Scene *scene, SDL_Window *window)
     {
         lightVolumeGraphicPipeline->computeP[compIndex].deviceBuffer = (DeviceBufferManager *)calloc(
             1, sizeof(*lightVolumeGraphicPipeline->computeP[compIndex].deviceBuffer));
-        lightVolumeGraphicPipeline->computeP[compIndex].maxFrames    = MAX_FRAMES_IN_FLIGHT;
     }
 
     // Per-pipeline CommandPools slots (actual pools are created in Phase 5)
@@ -105,13 +104,18 @@ void metaInitDisplay(MetaInitContext &ctx, Scene *scene, SDL_Window *window)
     // alongside the other per-pipeline command pool aliasing, because the real
     // command pool handles don't exist until createGraphicsCommandPool runs.
 
-    // Seed per-pipeline maxFrames + dsm->scImagesLen with the desired in-flight
-    // count. Phase 5 reads back the actual value negotiated by createSwapChain.
+    // Frames in flight: fixed by MAX_FRAMES_IN_FLIGHT and independent of the
+    // swapchain. Every per-frame resource (indexed by currentFrame) is sized by
+    // maxFrames. The swapchain image count (scImagesLen) is whatever the driver
+    // returns in createSwapChain and only sizes per-image resources.
     gdp->maxFrames                         = MAX_FRAMES_IN_FLIGHT;
     particleGraphicPipeline->maxFrames     = MAX_FRAMES_IN_FLIGHT;
     lightVolumeGraphicPipeline->maxFrames  = MAX_FRAMES_IN_FLIGHT;
     depthPrepassGraphicPipeline->maxFrames = MAX_FRAMES_IN_FLIGHT;
-    gdp->swapchain->scImagesLen            = MAX_FRAMES_IN_FLIGHT;
+    for (uint32_t compIndex = 0; compIndex < lightVolumeGraphicPipeline->computePipelineCount; compIndex++)
+    {
+        lightVolumeGraphicPipeline->computeP[compIndex].maxFrames = lightVolumeGraphicPipeline->maxFrames;
+    }
 
     // SDL surface + Vulkan device selection
     createSDLSurface(dispM, dm->instance, window);

@@ -1,4 +1,5 @@
 #include "deletionQueue.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -69,10 +70,14 @@ static void freeSlot(DeletionQueueSlot* slot)
 
 // --- Public API ---
 
-void initDeletionQueue(DeletionQueue* queue)
+void initDeletionQueue(DeletionQueue* queue, uint32_t slotCount)
 {
+    assert(slotCount >= 1);
+    queue->slotCount   = slotCount;
     queue->currentSlot = 0;
-    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    queue->slots       = malloc(sizeof(DeletionQueueSlot) * slotCount);
+    assert(queue->slots);
+    for (uint32_t i = 0; i < slotCount; i++)
     {
         initSlot(&queue->slots[i]);
     }
@@ -85,17 +90,21 @@ void flushDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator allo
 
 void advanceDeletionQueue(DeletionQueue* queue)
 {
-    queue->currentSlot = (queue->currentSlot + 1) % MAX_FRAMES_IN_FLIGHT;
+    queue->currentSlot = (queue->currentSlot + 1) % queue->slotCount;
 }
 
 void destroyDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator allocator)
 {
-    // Flush every slot — at shutdown there may be entries from the last 1-2 frames.
-    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    // Flush every slot — at shutdown there may be entries from the last slotCount frames.
+    for (uint32_t i = 0; i < queue->slotCount; i++)
     {
         flushSlot(&queue->slots[i], device, allocator);
         freeSlot(&queue->slots[i]);
     }
+    free(queue->slots);
+    queue->slots       = NULL;
+    queue->slotCount   = 0;
+    queue->currentSlot = 0;
 }
 
 // --- Enqueue functions ---
