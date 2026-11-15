@@ -26,6 +26,7 @@
 #include "primitives.h"
 #include "scene.h"
 #include "deletionQueue.h"
+#include "lightCullResources.h"
 
 void destroyDebugCallbackForVulkan(VkInstance *instance, VkDebugUtilsMessengerEXT *callback_messenger)
 {
@@ -152,6 +153,31 @@ static void deferDestroyDeviceBuffer(DeletionQueue* queue, DeviceBufferManager* 
     }
 }
 
+// Enqueue every buffer of a per-frame SSBO ring for deferred destruction.
+static void deferDestroySSBORing(DeletionQueue* queue, SSBOBufferManager* ring)
+{
+    if (!ring || !ring->buffers)
+        return;
+    for (uint32_t i = 0; i < ring->buffersLen; i++)
+    {
+        if (ring->allocations[i])
+            deferDestroyBuffer(queue, ring->buffers[i], ring->allocations[i]);
+    }
+}
+
+// Free a ring's handle arrays. Call after the deletion queue has destroyed
+// the buffers themselves.
+static void freeSSBORingArrays(SSBOBufferManager* ring)
+{
+    if (!ring)
+        return;
+    free(ring->buffers);
+    free(ring->allocations);
+    ring->buffers     = NULL;
+    ring->allocations = NULL;
+    ring->buffersLen  = 0;
+}
+
 // Enqueue a CommonImage's VkImage + VmaAllocation for deferred destruction.
 static void deferDestroyCommonImage(DeletionQueue* queue, CommonImage* img)
 {
@@ -191,6 +217,21 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
 
     // Pipeline 2: light volumes
     deferDestroyDeviceBuffer(dq, dispM->graphicPipeline[2].deviceBuffer);
+    // Pipeline 2 compute (light cull): cluster AABB ring lives in
+    // deviceBuffer->ssbos; the lightCull output rings live in lightCullResources.
+    for (uint32_t c = 0; c < dispM->graphicPipeline[2].computePipelineCount; c++)
+    {
+        ComputePipeline* cp = &dispM->graphicPipeline[2].computeP[c];
+        deferDestroyDeviceBuffer(dq, cp->deviceBuffer);
+
+        LightCullResources* lcr = (LightCullResources*) cp->lightCullResources;
+        if (lcr)
+        {
+            deferDestroySSBORing(dq, &lcr->lightIndexList);
+            deferDestroySSBORing(dq, &lcr->lightGrid);
+            deferDestroySSBORing(dq, &lcr->globalIndexCount);
+        }
+    }
 
     vkDestroyRenderPass(ld->device, *gdp->renderPass, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
@@ -204,6 +245,35 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     // Flush all deferred deletions (both from the last 1-2 frames and the
     // resources just enqueued above), then free the queue's internal arrays.
     destroyDeletionQueue(dq, ld->device, ld->allocator);
+
+    // Light cull heap side: the GPU buffers are gone now, free the ring arrays,
+    // their bindless handle arrays and the owning structs.
+    for (uint32_t c = 0; c < dispM->graphicPipeline[2].computePipelineCount; c++)
+    {
+        ComputePipeline* cp = &dispM->graphicPipeline[2].computeP[c];
+
+        if (cp->deviceBuffer && cp->deviceBuffer->ssbos)
+        {
+            freeSSBORingArrays(cp->deviceBuffer->ssbos);
+            free(cp->deviceBuffer->ssbos);
+            cp->deviceBuffer->ssbos = NULL;
+        }
+        free(cp->bindlessClusterAABBHandles);
+        cp->bindlessClusterAABBHandles = NULL;
+
+        LightCullResources* lcr = (LightCullResources*) cp->lightCullResources;
+        if (lcr)
+        {
+            freeSSBORingArrays(&lcr->lightIndexList);
+            freeSSBORingArrays(&lcr->lightGrid);
+            freeSSBORingArrays(&lcr->globalIndexCount);
+            free(lcr->lightIndexListHandles);
+            free(lcr->lightGridHandles);
+            free(lcr->globalIndexCountHandles);
+            free(lcr);
+            cp->lightCullResources = NULL;
+        }
+    }
 
     // Print VMA suballocation statistics before teardown.
     printVmaStats(ld);
