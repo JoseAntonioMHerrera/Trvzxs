@@ -265,6 +265,13 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
 
     vkDestroySurfaceKHR(*dm->instance, dispM->surface, NULL);
     vkDestroyInstance(*dm->instance, NULL);
+
+    // Each PhysicalDevice slot owns its copy of the VkPhysicalDevice handle.
+    for (size_t i = 0; i < dm->phyDeviceLen; i++)
+    {
+        free(dm->pDevice[i].gpu);
+        dm->pDevice[i].gpu = NULL;
+    }
 }
 
 void createInstance(VkInstance **instance, SDL_Window *window)

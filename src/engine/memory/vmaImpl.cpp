@@ -13,6 +13,10 @@
 #define VMA_STATIC_VULKAN_FUNCTIONS  1
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 
+#include <cstdio>
+#define VMA_LEAK_LOG_FORMAT(format, ...) \
+    do { std::fprintf(stderr, format, __VA_ARGS__); std::fprintf(stderr, "\n"); } while (0)
+
 // Generate the implementation
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>

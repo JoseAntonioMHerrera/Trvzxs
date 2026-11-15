@@ -70,7 +70,7 @@ void MetaEngine::bulkInitVulkanWithScene(SDL_Window *window, Scene *scene)
 void MetaEngine::metaCleanup()
 {
     DeviceManager            *dm    = this->deviceManager.getStruct();
-    LogicalDevice            *ld    = dm->lDevice[0];
+    LogicalDevice            *ld    = dm->lDevice[dm->deviceIndex];
     DisplayManager           *dispM = ld->displayManager;
     GraphicPipelineToSurface *gdp   = &dispM->graphicPipeline[0];
     cleanup(dm, ld, dispM, gdp, dm->logCallback);
@@ -80,24 +80,25 @@ void MetaEngine::metaDrawFrame(SDL_Window *window, float deltaTime)
 {
     DeviceManager *dm = this->deviceManager.getStruct();
     Camera3D camera = *this->scene.getCamera3D();
+    LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
 
     drawFrame(
-        dm->pDevice,
-        dm->lDevice[0], // TODO: use deviceManager->deviceIndex / gpuIndex
-        dm->lDevice[0]->displayManager,
-        &dm->lDevice[0]->displayManager->graphicPipeline[0],
-        &dm->lDevice[0]->displayManager->graphicPipeline[1],
-        &dm->lDevice[0]->displayManager->graphicPipeline[2],
-        dm->lDevice[0]->device, window, deltaTime, camera,
+        &dm->pDevice[dm->gpuIndex],
+        ld,
+        ld->displayManager,
+        &ld->displayManager->graphicPipeline[0],
+        &ld->displayManager->graphicPipeline[1],
+        &ld->displayManager->graphicPipeline[2],
+        ld->device, window, deltaTime, camera,
         &this->renderGraph);
 }
 
 void MetaEngine::metaRecreateSwapchain(SDL_Window *window)
 {
     DeviceManager *dm = this->deviceManager.getStruct();
-    LogicalDevice *ld = dm->lDevice[0];
+    LogicalDevice *ld = dm->lDevice[dm->deviceIndex];
     recreateSwapChain(
-        dm->pDevice,
+        &dm->pDevice[dm->gpuIndex],
         ld,
         window,
         &this->renderGraph);

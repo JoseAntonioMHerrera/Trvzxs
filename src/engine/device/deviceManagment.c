@@ -337,27 +337,35 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
 
     dm->phyDeviceLen = supportedGpuLen;
     dm->deviceLen    = supportedGpuLen;
-    dm->pDevice      = malloc(sizeof(*dm->pDevice) * supportedGpuLen);
-    dm->lDevice      = malloc(sizeof(*dm->lDevice) * supportedGpuLen);
+    // calloc: slots that are never selected stay zeroed (NULL pointers, 0 counts)
+    // instead of holding garbage.
+    dm->pDevice      = calloc(supportedGpuLen, sizeof(*dm->pDevice));
+    dm->lDevice      = calloc(supportedGpuLen, sizeof(*dm->lDevice));
+    assert(dm->pDevice && dm->lDevice);
 
+    // Scratch list for enumeration only; freed once every slot owns its handle.
     VkPhysicalDevice* pdCandidates = malloc(sizeof(VkPhysicalDevice) * supportedGpuLen);
+    assert(pdCandidates);
 
     vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, pdCandidates);
     assert(vkEnumPhysDevcResult == VK_SUCCESS);
 
-    uint32_t                   bestCandidateIndex = 0;
-    uint32_t                   bestCandidateFit   = 0;
-    VkPhysicalDeviceProperties bestCandidateProperties;
-    VkPhysicalDeviceFeatures   bestCandidateFeatures;
+    uint32_t bestCandidateIndex = 0;
+    uint32_t bestCandidateFit   = 0;
 
     FOR(i, 0, supportedGpuLen, 1)
     {
+        // Each PhysicalDevice slot owns its own copy of the handle and the
+        // properties of its own GPU, so any index reads valid data.
+        dm->pDevice[i].gpu = malloc(sizeof(VkPhysicalDevice));
+        assert(dm->pDevice[i].gpu);
+        *dm->pDevice[i].gpu = pdCandidates[i];
+        vkGetPhysicalDeviceProperties(*dm->pDevice[i].gpu, &dm->pDevice[i].gpuProperties);
 
-        VkPhysicalDeviceProperties deviceProperties;
-        VkPhysicalDeviceFeatures   deviceFeatures;
-        vkGetPhysicalDeviceProperties(pdCandidates[i], &deviceProperties);
-        vkGetPhysicalDeviceFeatures(pdCandidates[i], &deviceFeatures);
-        uint32_t currentCandidateScore = rateDeviceSuitability(pdCandidates[i], deviceProperties, deviceFeatures);
+        VkPhysicalDeviceFeatures deviceFeatures;
+        vkGetPhysicalDeviceFeatures(*dm->pDevice[i].gpu, &deviceFeatures);
+        uint32_t currentCandidateScore =
+            rateDeviceSuitability(*dm->pDevice[i].gpu, dm->pDevice[i].gpuProperties, deviceFeatures);
         if (bestCandidateFit < currentCandidateScore)
         {
             bestCandidateFit   = currentCandidateScore;
@@ -365,10 +373,11 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
         };
     }
 
-    // We init the best available device
-    dm->pDevice->gpu =
-        &pdCandidates[bestCandidateIndex]; // TODO: change gpu type from VkPHysicalDEvice* to dereferenced type
-    vkGetPhysicalDeviceProperties((*dm->pDevice->gpu), &(dm->pDevice->gpuProperties));
+    // Selection done: the pDevice slots own the handles, the scratch list goes.
+    free(pdCandidates);
+    pdCandidates = NULL;
+
+    // gpuIndex / deviceIndex are the only way to reach the selected device.
     dm->gpuIndex = bestCandidateIndex;
 
     // We set the index of the logical device and gpu selected ()
@@ -376,9 +385,9 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
     dm->lDevice[dm->deviceIndex] = malloc(sizeof(**dm->lDevice));
 
     /*uint32_t extensionCount = 0;
-    vkEnumerateDeviceExtensionProperties(*dm->pDevice->gpu, NULL, &extensionCount, NULL);
+    vkEnumerateDeviceExtensionProperties(*dm->pDevice[dm->gpuIndex].gpu, NULL, &extensionCount, NULL);
     VkExtensionProperties* availableExtensions = malloc(sizeof(VkExtensionProperties) * extensionCount);
-    vkEnumerateDeviceExtensionProperties(*dm->pDevice->gpu, NULL, &extensionCount, availableExtensions);
+    vkEnumerateDeviceExtensionProperties(*dm->pDevice[dm->gpuIndex].gpu, NULL, &extensionCount, availableExtensions);
 
     for (uint32_t i = 0; i < extensionCount; i++) {
         if (strcmp(availableExtensions[i].extensionName, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME) == 0) {
@@ -395,18 +404,11 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
     PhysicalDevice* pd = &dm->pDevice[dm->gpuIndex];
     LogicalDevice*  ld = dm->lDevice[dm->deviceIndex];
 
-    if (!isDeviceSuitable(&dm->pDevice[bestCandidateIndex], dm->lDevice[bestCandidateIndex]))
+    if (!isDeviceSuitable(pd, ld))
     {
 
         exit(0);
     }
-
-    // TODO: clean the rest of gpu not selected
-    /*for(int i=0; i < supportedGpuLen; i++){
-        if(pdCandidates[i] != dm->pDevice->gpu){
-            free(pdCandidates[i]);
-        }
-    }*/
 
     // getMatchingQueueIndices(pd, ld, pd->queueFamilyProperties, pd->queueFamilyCount, &pd->queueFamilyIndices);
 
