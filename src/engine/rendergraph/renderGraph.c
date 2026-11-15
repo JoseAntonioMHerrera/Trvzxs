@@ -1059,7 +1059,7 @@ void rgCollectGpuTimings(RenderGraph* rg, uint32_t frameIndex)
 // ---------------------------------------------------------------------------
 
 void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB,
-              FrameSync* sync, VkSemaphore imageAvailable, VkSemaphore presentReady)
+              FrameSync* sync, VkSemaphore imageAvailableSemaphore, VkSemaphore presentReady)
 {
     if (rg->hasComputeWork)
     {
@@ -1118,7 +1118,7 @@ void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer compu
     uint32_t             graphicsWaitCount = 0;
 
     // Wait for swapchain image (binary semaphore — timeline value must be 0)
-    graphicsWaitSemaphores[graphicsWaitCount] = imageAvailable;
+    graphicsWaitSemaphores[graphicsWaitCount] = imageAvailableSemaphore;
     graphicsWaitStages[graphicsWaitCount]     = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     graphicsWaitValues[graphicsWaitCount]     = 0; // binary semaphore: ignored
     graphicsWaitCount++;

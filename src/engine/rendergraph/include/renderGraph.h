@@ -34,7 +34,7 @@ void rgCompile(RenderGraph* rg);
 void rgExecute(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB, uint32_t frameIndex, uint32_t aquireImageIndex);
 
 void rgSubmit(RenderGraph* rg, VkCommandBuffer graphicsCB, VkCommandBuffer computeCB,
-              FrameSync* sync, VkSemaphore imageAvailable, VkSemaphore presentReady);
+              FrameSync* sync, VkSemaphore imageAvailableSemaphore, VkSemaphore presentReady);
 
 // --- Debug ---
 

@@ -13,18 +13,18 @@ void createSyncObjects(GraphicPipelineToSurface* gd, VkDevice* device)
     };
 
     assert(gd->commandLen >= 2);
-    gd->imgViewSemaphore = malloc(sizeof(VkSemaphore) * gd->commandLen);
+    gd->imageAvailableSemaphore = malloc(sizeof(VkSemaphore) * gd->commandLen);
     gd->renderEndFlag    = malloc(sizeof(VkSemaphore) * gd->swapchain->scImagesLen);
 
     assert(gd->renderEndFlag);
-    assert(gd->imgViewSemaphore);
+    assert(gd->imageAvailableSemaphore);
 
     for (uint32_t i = 0; i < gd->commandLen; i++)
     {
-        VkResult result = vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->imgViewSemaphore[i]);
+        VkResult result = vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->imageAvailableSemaphore[i]);
         if (result != VK_SUCCESS)
         {
-            fprintf(stderr, "[sync] createSyncObjects: vkCreateSemaphore failed for imgViewSemaphore[%u] (VkResult %d)\n",
+            fprintf(stderr, "[sync] createSyncObjects: vkCreateSemaphore failed for imageAvailableSemaphore[%u] (VkResult %d)\n",
                     i, (int) result);
         }
     }

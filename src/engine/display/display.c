@@ -261,15 +261,15 @@ void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp)
 {
     for (size_t i = 0; i < gdp->commandLen; i++)
     {
-        vkDestroySemaphore(device, gdp->imgViewSemaphore[i], NULL);
+        vkDestroySemaphore(device, gdp->imageAvailableSemaphore[i], NULL);
     }
     for (size_t i = 0; i < gdp->swapchain->scImagesLen; i++)
     {
         vkDestroySemaphore(device, gdp->renderEndFlag[i], NULL);
     }
 
-    free(gdp->imgViewSemaphore);
-    gdp->imgViewSemaphore = 0;
+    free(gdp->imageAvailableSemaphore);
+    gdp->imageAvailableSemaphore = 0;
     free(gdp->renderEndFlag);
     gdp->renderEndFlag = 0;
 }
@@ -390,13 +390,13 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     VkResult nextImageResult =
         vkAcquireNextImageKHR(device, dm->graphicPipeline->swapchain->VkSwapchain, 100000000ULL, // 100ms
-                              gdp->imgViewSemaphore[dm->currentFrame], VK_NULL_HANDLE, &aquireImageIndex);
+                              gdp->imageAvailableSemaphore[dm->currentFrame], VK_NULL_HANDLE, &aquireImageIndex);
 
     switch (nextImageResult)
     {
     case VK_SUCCESS:
     case VK_SUBOPTIMAL_KHR:
-        // SUBOPTIMAL is a successful acquire: imgViewSemaphore will be signaled,
+        // SUBOPTIMAL is a successful acquire: imageAvailableSemaphore will be signaled,
         // so this frame must be submitted to consume it. The swapchain is
         // recreated after present, which reports SUBOPTIMAL again.
         break;
@@ -552,7 +552,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     // Submit both queues with timeline semaphore sync
     rgSubmit(rg, graphicsCB, computeCB, sync,
-             gdp->imgViewSemaphore[dm->currentFrame],
+             gdp->imageAvailableSemaphore[dm->currentFrame],
              gdp->renderEndFlag[aquireImageIndex]);
 
 #ifdef DEBUG
