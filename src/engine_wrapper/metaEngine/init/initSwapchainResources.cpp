@@ -92,7 +92,7 @@ void metaInitSwapchainResources(MetaInitContext &ctx, SDL_Window *window)
     createCommandBuffer(lightVolumeGraphicPipeline, &ld->device,
                         lightVolumeGraphicPipeline->maxFrames);
     createCommandBufferWithCompute(particleGraphicPipeline, &ld->device,
-                                   gdp->maxFrames);
+                                   particleGraphicPipeline->maxFrames);
 
     // Publish outputs
     ctx.pd  = pd;

@@ -37,6 +37,6 @@ void metaInitUniformBuffers(MetaInitContext &ctx)
     createFrameGlobalsUniformBuffersMapped(pd, ld, gdp->maxFrames, gdp->pGlobalsUbo);
 
     createDeltaTimeUniformBuffers(
-        pd, ld, gdp->maxFrames,
+        pd, ld, particleGraphicPipeline->computeP->maxFrames,
         particleGraphicPipeline->computeP->deviceBuffer->pUbo);
 }

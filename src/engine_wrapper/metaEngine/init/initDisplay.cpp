@@ -112,6 +112,15 @@ void metaInitDisplay(MetaInitContext &ctx, Scene *scene, SDL_Window *window)
     particleGraphicPipeline->maxFrames     = MAX_FRAMES_IN_FLIGHT;
     lightVolumeGraphicPipeline->maxFrames  = MAX_FRAMES_IN_FLIGHT;
     depthPrepassGraphicPipeline->maxFrames = MAX_FRAMES_IN_FLIGHT;
+    // Compute pipelines inherit their owning graphics pipeline's maxFrames.
+    for (uint32_t compIndex = 0; compIndex < particleGraphicPipeline->computePipelineCount; compIndex++)
+    {
+        particleGraphicPipeline->computeP[compIndex].maxFrames = particleGraphicPipeline->maxFrames;
+    }
+    for (uint32_t compIndex = 0; compIndex < depthPrepassGraphicPipeline->computePipelineCount; compIndex++)
+    {
+        depthPrepassGraphicPipeline->computeP[compIndex].maxFrames = depthPrepassGraphicPipeline->maxFrames;
+    }
     for (uint32_t compIndex = 0; compIndex < lightVolumeGraphicPipeline->computePipelineCount; compIndex++)
     {
         lightVolumeGraphicPipeline->computeP[compIndex].maxFrames = lightVolumeGraphicPipeline->maxFrames;
