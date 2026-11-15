@@ -33,28 +33,28 @@ typedef struct DeletionQueueSlot
 } DeletionQueueSlot;
 
 // Ring buffer of deletion slots, one per in-flight frame (slotCount equals the
-// graphics pipeline's maxFrames). Resources are deferred for slotCount frames
-// before destruction, matching the GPU's pipeline depth.
-// Enqueues go into slots[currentSlot]. Flush destroys everything in
-// slots[currentSlot] (the oldest frame), then advance moves to the next slot.
+// graphics pipeline's maxFrames, i.e. frames in flight). Resources are deferred
+// for slotCount frames before destruction, matching the GPU's pipeline depth.
+// currentSlot is derived from the frame number on every flush:
+//   currentSlot = graphicsWorkloadRun % slotCount
+// The flush destroys what frame (run - slotCount) queued in that slot, then this
+// frame's deferDestroy* calls fill the same slot.
 typedef struct DeletionQueue
 {
     DeletionQueueSlot* slots;
     uint32_t           slotCount;
-    uint32_t           currentSlot;
+    uint32_t           currentSlot; // graphicsWorkloadRun % slotCount, set by flushDeletionQueue
 } DeletionQueue;
 
 // Allocate slotCount slots with starting capacity. Call once after device
 // creation, passing the graphics pipeline's maxFrames.
 void initDeletionQueue(DeletionQueue* queue, uint32_t slotCount);
 
-// Flush the current slot — destroy all resources in it.
-// Must be called AFTER vkWaitForFences confirms the GPU finished with
-// the commands that referenced these resources.
-void flushDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator allocator);
-
-// Advance to the next ring buffer slot. Call once per frame after flushing.
-void advanceDeletionQueue(DeletionQueue* queue);
+// Set currentSlot = frameRun % slotCount and destroy all resources in it.
+// frameRun is the graphics timeline's graphicsWorkloadRun for this frame.
+// Must be called AFTER the timeline wait confirms frame (frameRun - slotCount)
+// finished, and before this frame's deferDestroy* calls.
+void flushDeletionQueue(DeletionQueue* queue, uint64_t frameRun, VkDevice device, VmaAllocator allocator);
 
 // Flush ALL slots and free the queue's internal arrays. Call at shutdown
 // after vkDeviceWaitIdle, before destroying the VMA allocator.

@@ -371,10 +371,10 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     rgCollectGpuTimings(rg, dm->currentFrame);
 #endif
 
-    // GPU finished with this frame slot's commands.
-    // Safe to destroy any resources enqueued maxFrames frames ago.
-    flushDeletionQueue(&ld->deletionQueue, ld->device, ld->allocator);
-    advanceDeletionQueue(&ld->deletionQueue);
+    // GPU finished with frame (graphicsWorkloadRun - maxFramesInFlight).
+    // Destroy what that frame queued; this frame's deferDestroy* calls then
+    // reuse the same slot.
+    flushDeletionQueue(&ld->deletionQueue, sync->graphicsWorkloadRun, ld->device, ld->allocator);
 
 #ifdef DEBUG
     MARK_TIME(tAfterDeletion);

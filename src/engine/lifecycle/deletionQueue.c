@@ -83,14 +83,12 @@ void initDeletionQueue(DeletionQueue* queue, uint32_t slotCount)
     }
 }
 
-void flushDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator allocator)
+void flushDeletionQueue(DeletionQueue* queue, uint64_t frameRun, VkDevice device, VmaAllocator allocator)
 {
+    // The slot comes from the frame number, not from a separate counter: frame
+    // G uses slot G % slotCount, which was last filled by frame G - slotCount.
+    queue->currentSlot = (uint32_t) (frameRun % queue->slotCount);
     flushSlot(&queue->slots[queue->currentSlot], device, allocator);
-}
-
-void advanceDeletionQueue(DeletionQueue* queue)
-{
-    queue->currentSlot = (queue->currentSlot + 1) % queue->slotCount;
 }
 
 void destroyDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator allocator)
