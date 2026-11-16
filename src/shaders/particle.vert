@@ -44,6 +44,6 @@ void main() {
     gl_PointSize = 2.0;
     vec4 pPos    = particleBuffers[nonuniformEXT(pc.transformIdx)].data[gl_InstanceIndex].position;
     vec3 wp      = calculateBillboardPosition(pPos);
-    gl_Position  = globals.proj * globals.view * vec4(wp, 1.0);
+    gl_Position  = globals.viewProj * vec4(wp, 1.0);
     fragColor    = color;
 }

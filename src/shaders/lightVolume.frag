@@ -76,7 +76,7 @@ void main() {
 
     LightInstanceData inst = lightBuffers[nonuniformEXT(pc.transformIdx)].instances[instanceIndex];
 
-    vec4 lightClipPos    = globals.proj * globals.view * vec4(inst.position, 1.0);
+    vec4 lightClipPos    = globals.viewProj * vec4(inst.position, 1.0);
     vec3 lightNDC        = lightClipPos.xyz / lightClipPos.w;
     vec2 lightScreenPos  = (lightNDC.xy * 0.5 + 0.5) * globals.screenSize;
     float screenDistance = distance(gl_FragCoord.xy, lightScreenPos);

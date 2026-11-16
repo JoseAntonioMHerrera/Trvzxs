@@ -33,7 +33,7 @@ layout(location = 1) out vec3 outNormal;
 
 void main() {
     mat4 model = transforms[nonuniformEXT(pc.transformIdx)].data[gl_InstanceIndex];
-    gl_Position  = globals.proj * globals.view * model * vec4(inPosition, 1.0);
+    gl_Position  = globals.viewProj * model * vec4(inPosition, 1.0);
     fragTexCoord = inTexCoord;
     outNormal    = normalize(mat3(model) * inNormal);
 }

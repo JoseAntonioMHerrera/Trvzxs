@@ -40,7 +40,7 @@ layout(location = 2) out flat int instanceIndex;
 
 void main() {
     LightInstanceData inst = lightBuffers[nonuniformEXT(pc.transformIdx)].instances[gl_InstanceIndex];
-    gl_Position   = globals.proj * globals.view * inst.model * vec4(point, 1.0);
+    gl_Position   = globals.viewProj * inst.model * vec4(point, 1.0);
     pointOut      = point;
     baryOut       = barycentric;
     instanceIndex = gl_InstanceIndex;
