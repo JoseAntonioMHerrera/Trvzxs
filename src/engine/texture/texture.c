@@ -112,7 +112,6 @@ void createTextureSampler(PhysicalDevice* pd, LogicalDevice* ld, Texture2D* text
     samplerInfo.minLod                  = 0;
     samplerInfo.maxLod                  = mipLevels;
     samplerInfo.anisotropyEnable        = VK_TRUE;
-    samplerInfo.maxAnisotropy           = 1.0f;
 
     if (vkCreateSampler(ld->device, &samplerInfo, VK_NULL_HANDLE, &texture->sampler) != VK_SUCCESS)
     {
