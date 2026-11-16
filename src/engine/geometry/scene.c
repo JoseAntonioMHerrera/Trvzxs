@@ -863,6 +863,11 @@ void fillSceneWithParticleData(SCENE* scene, ParticleGroup* particleGroups, uint
     scene->particleManager.packedParticleIndicesLen  = particleVertexIndicesLen;
     scene->particleManager.packedParticleInstanceLen = packedParticleInstancesOffset;
 
+    // The compute dispatch is packedParticleInstanceLen / PARTICLE_COMPUTE_GROUP_SIZE
+    // with no bounds check in particle.comp: the caller must provide a multiple.
+    assert(packedParticleInstancesOffset % PARTICLE_COMPUTE_GROUP_SIZE == 0 &&
+           "total particle count must be a multiple of PARTICLE_COMPUTE_GROUP_SIZE");
+
     fillParticleGroupsInstancesIndices(&scene->particleManager);
 }
 

@@ -332,7 +332,8 @@ int main(int argc, char *argv[])
         ParticleGroup *particleGroup = (ParticleGroup *)malloc(sizeof(ParticleGroup));
 
         scene->initParticle();
-        uint32_t particleInstancesLen = 1000000;
+        // Must be a multiple of PARTICLE_COMPUTE_GROUP_SIZE (256): 3907 * 256.
+        uint32_t particleInstancesLen = 1000192;
         ParticleInstance *pParticleInstance = (ParticleInstance *)malloc(sizeof(ParticleInstance) * particleInstancesLen);
         for (uint32_t partInstanceIndex = 0; partInstanceIndex < particleInstancesLen; partInstanceIndex++)
         {

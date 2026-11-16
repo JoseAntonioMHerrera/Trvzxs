@@ -309,6 +309,9 @@ void executeParticleComputePass(VkCommandBuffer cmd, const RGPass* pass, void* u
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 1,
                          &uboBarrier, 0, NULL);
 
-    uint32_t xWorkDivision = (uint32_t) floor(pipeline->scene->particleManager.packedParticleInstanceLen / 256);
-    vkCmdDispatch(cmd, xWorkDivision ? xWorkDivision : 1, 1, 1);
+    // Exact: the particle count is a multiple of the group size (asserted in
+    // fillSceneWithParticleData), so every thread maps to a real particle.
+    uint32_t xWorkDivision =
+        pipeline->scene->particleManager.packedParticleInstanceLen / PARTICLE_COMPUTE_GROUP_SIZE;
+    vkCmdDispatch(cmd, xWorkDivision, 1, 1);
 }

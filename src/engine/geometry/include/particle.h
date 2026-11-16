@@ -31,5 +31,11 @@ typedef struct ParticleGroupManager
     ArrayUint32_t particleInstanceOffsets;
 
 } ParticleGroupManager;
+// Workgroup size of particle.comp (layout local_size_x). The packed particle
+// count must be a multiple of it so the compute dispatch covers every particle
+// exactly, with no thread past the end of the buffers (the shader has no
+// bounds check). Keep in sync with src/shaders/particle.comp.
+#define PARTICLE_COMPUTE_GROUP_SIZE 256u
+
 #define PARTICLE_VERT_SHADER "shaders/bin/particle.vert.spv\0"
 #define PARTICLE_FRAG_SHADER "shaders/bin/particle.frag.spv\0"
