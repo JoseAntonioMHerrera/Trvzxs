@@ -148,7 +148,7 @@ VkFormat findSupportedFormat(VkPhysicalDevice* physicalDevice, VkFormat* candida
 // Todo: una misma funcion apra encontrar los formatos de imagenes
 VkFormat findDepthImageFormat(VkPhysicalDevice* physicalDevice)
 {
-    VkFormat candidateFormats[3] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+    VkFormat candidateFormats[] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
     return findSupportedFormat(physicalDevice, candidateFormats, 3, VK_IMAGE_TILING_OPTIMAL,
                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
@@ -156,14 +156,14 @@ VkFormat findDepthImageFormat(VkPhysicalDevice* physicalDevice)
 VkFormat findGeometryBufferFormat(VkPhysicalDevice* physicalDevice)
 {
     VkFormat candidateFormats[] = {VK_FORMAT_R32G32B32A32_SFLOAT};
-    return findSupportedFormat(physicalDevice, candidateFormats, 3, VK_IMAGE_TILING_OPTIMAL,
+    return findSupportedFormat(physicalDevice, candidateFormats, 1, VK_IMAGE_TILING_OPTIMAL,
                                VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
 }
 
 VkFormat findNormalsBufferFormat(VkPhysicalDevice* physicalDevice)
 {
-    VkFormat candidateFormats[2] = {VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16_SFLOAT};
-    return findSupportedFormat(physicalDevice, candidateFormats, 3, VK_IMAGE_TILING_OPTIMAL,
+    VkFormat candidateFormats[] = {VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16_SFLOAT};
+    return findSupportedFormat(physicalDevice, candidateFormats, 2, VK_IMAGE_TILING_OPTIMAL,
                                VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
 }
 
