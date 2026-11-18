@@ -9,7 +9,7 @@
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-void rgInit(RenderGraph* rg, VkDevice device, PhysicalDevice* pd,
+void rgInit(RenderGraph* rg, VkDevice device, PhysicalDevice* pd, VmaAllocator allocator,
             uint32_t swapchainWidth, uint32_t swapchainHeight,
             uint32_t swapchainImageCount)
 {
@@ -19,6 +19,7 @@ void rgInit(RenderGraph* rg, VkDevice device, PhysicalDevice* pd,
     rg->swapchainWidth      = swapchainWidth;
     rg->swapchainHeight     = swapchainHeight;
     rg->swapchainImageCount = swapchainImageCount;
+    rg->allocator = allocator;
     rg->isCompiled          = false;
 
 #ifdef DEBUG

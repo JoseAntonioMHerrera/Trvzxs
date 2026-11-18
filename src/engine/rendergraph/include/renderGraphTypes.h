@@ -2,6 +2,7 @@
 #include <vulkan/vulkan.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <vma_bridge.h>
 
 // Maximum capacities — compile-time limits, not allocations.
 #define RG_MAX_PASSES            16
@@ -179,6 +180,7 @@ typedef struct PhysicalDevice PhysicalDevice;
 
 typedef struct RenderGraph
 {
+    VmaAllocator allocator;
     RGResource resources[RG_MAX_RESOURCES];
     uint32_t   resourceCount;
 
