@@ -28,7 +28,10 @@ void metaInitRenderGraph(MetaInitContext   &ctx,
     rgInit(renderGraph, ld->device, pd,
            dsm->currentExtent2D.width, dsm->currentExtent2D.height,
            dsm->scImagesLen);
+#ifdef DEBUG
     renderGraph->debugLog = true;
+#endif
+
     rgSetQueues(renderGraph,
                 *ld->queueManager.graphicsQueue,
                 *ld->queueManager.computeQueue,

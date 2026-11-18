@@ -1,6 +1,8 @@
 #version 450
 #extension GL_EXT_nonuniform_qualifier : require
 
+
+invariant gl_Position;
 // Bindless — set 0 is the engine-wide descriptor table.
 //   binding 0 : sampler2D textures[]     (fragment only)
 //   binding 1 : buffer     storage[]     (typed views aliased per consumer)

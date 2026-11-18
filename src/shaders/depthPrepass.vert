@@ -1,6 +1,8 @@
 #version 450
 #extension GL_EXT_nonuniform_qualifier : require
 
+invariant gl_Position;
+
 layout(set = 1, binding = 0) uniform FrameGlobals {
     mat4 view;
     mat4 proj;
