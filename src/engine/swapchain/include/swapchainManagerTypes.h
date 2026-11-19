@@ -19,9 +19,6 @@ typedef struct GraphicSwapchain
     VkExtent3D     currentExtent3D;
     VkSwapchainKHR VkSwapchain;
 
-    VkFramebuffer* p_framebuffers;
-    size_t         framebuffersLen;
-
     uint32_t scImagesLen; // size_t TODO
     VkImage  p_scImages[4];
     VkFormat swapchainImageFormat;

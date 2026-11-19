@@ -10,8 +10,6 @@
 VkImageView createImageView(GraphicSwapchain* dsm, VkDevice device, VkFormat format, VkImage image, uint32_t mipLevels,
                             VkImageAspectFlags aspectMask);
 
-void createFrameBuffers(GraphicSwapchain* swapManager, VkRenderPass* renderPass, VkDevice* device);
-
 void chooseSwapExtent2D(VkExtent2D* extent, VkSurfaceCapabilitiesKHR* capabilities, SDL_Window* window);
 
 VkSurfaceFormatKHR* chooseSwapSurfaceFormat(VkSurfaceFormatKHR* availableFormats, uint8_t availableFormatsCount);
@@ -26,6 +24,3 @@ void cleanupSwapChain(LogicalDevice* ld, DisplayManager* dm);
 
 typedef struct RenderGraph RenderGraph;
 void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window, RenderGraph* rg);
-void createRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device, GraphicPipelineToSurface* gdp);
-void createPreDepthRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device,
-                              GraphicPipelineToSurface* gdp);

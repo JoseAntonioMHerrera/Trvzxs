@@ -82,11 +82,12 @@ typedef struct RGResource
     uint32_t              height;
     VkImageUsageFlags     usage;
     VkImageAspectFlags    aspectMask;
+    VmaBridgeMemoryUsage  memoryUsage;
 
     // Resolved handles
     VkImage        image;
     VkImageView    imageView;
-    VkDeviceMemory memory;
+    VmaAllocation  memory;
 
     // Per-frame image views for external resources that change per swapchain
     // image (e.g. the swapchain color attachment). NULL if the same view is

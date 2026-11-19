@@ -73,6 +73,12 @@ void MetaEngine::metaCleanup()
     LogicalDevice            *ld    = dm->lDevice[dm->deviceIndex];
     DisplayManager           *dispM = ld->displayManager;
     GraphicPipelineToSurface *gdp   = &dispM->graphicPipeline[0];
+
+    // Render graph first: it needs the VMA allocator alive (destroyed inside
+    // cleanup). It also owns every pipeline's render pass.
+    vkDeviceWaitIdle(ld->device);
+    rgDestroy(&this->renderGraph);
+
     cleanup(dm, ld, dispM, gdp, dm->logCallback);
 }
 

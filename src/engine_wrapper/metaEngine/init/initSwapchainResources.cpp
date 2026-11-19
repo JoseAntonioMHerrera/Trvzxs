@@ -47,13 +47,8 @@ void metaInitSwapchainResources(MetaInitContext &ctx, SDL_Window *window)
     createNormalsBufferResources(pd, ld, dispM->graphicPipeline->swapchain);
     createGBufferSampler(ld->device, dispM->graphicPipeline->swapchain);
 
-    // Legacy multi-subpass render pass — kept until the render graph's
-    // single-subpass render passes fully replace it. Pipeline creation is
-    // deferred to Phase 2 (initPipelines, post-rgCompile) using the graph's
-    // render passes; this call populates gdp->renderPass only as a placeholder.
-    createRenderPass(pd, dispM->graphicPipeline[0].swapchain, ld->device, gdp);
-    particleGraphicPipeline->renderPass    = gdp->renderPass;
-    lightVolumeGraphicPipeline->renderPass = gdp->renderPass;
+    // Render passes are owned by the render graph; pipelines get them in
+    // metaInitPipelines (post-rgCompile).
 
     dsm->scImageViewLen = dsm->scImagesLen;
     for (uint32_t i = 0; i < dsm->scImagesLen; i++)
@@ -63,8 +58,6 @@ void metaInitSwapchainResources(MetaInitContext &ctx, SDL_Window *window)
             dsm->p_scImages[i],
             1, VK_IMAGE_ASPECT_COLOR_BIT);
     }
-
-    createFrameBuffers(dsm, gdp->renderPass, &ld->device);
 
     createGraphicsCommandPool(pd, ld->device, gdp);
     createTransferQueueCommandPool(pd, ld->device, gdp);

@@ -85,9 +85,7 @@ void rgDestroy(RenderGraph* rg)
         if (res->imageView != VK_NULL_HANDLE)
             vkDestroyImageView(rg->device, res->imageView, NULL);
         if (res->image != VK_NULL_HANDLE)
-            vkDestroyImage(rg->device, res->image, NULL);
-        if (res->memory != VK_NULL_HANDLE)
-            vkFreeMemory(rg->device, res->memory, NULL);
+            vmaBridgeDestroyImage(rg->allocator, res->image, res->memory);
     }
 }
 
@@ -738,35 +736,10 @@ void rgCompile(RenderGraph* rg)
             .samples       = res->samples,
             .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         };
-
-        vkCreateImage(rg->device, &imgInfo, NULL, &res->image);
-
-        VkMemoryRequirements memReqs;
-        vkGetImageMemoryRequirements(rg->device, res->image, &memReqs);
-
-        // Find device-local memory type
-        VkPhysicalDeviceMemoryProperties memProps;
-        vkGetPhysicalDeviceMemoryProperties(*rg->physicalDevice->gpu, &memProps);
-        uint32_t memTypeIndex = UINT32_MAX;
-        for (uint32_t m = 0; m < memProps.memoryTypeCount; m++)
-        {
-            if ((memReqs.memoryTypeBits & (1 << m)) &&
-                (memProps.memoryTypes[m].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
-            {
-                memTypeIndex = m;
-                break;
-            }
-        }
-        assert(memTypeIndex != UINT32_MAX);
-
-        VkMemoryAllocateInfo allocInfo = {
-            .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .allocationSize  = memReqs.size,
-            .memoryTypeIndex = memTypeIndex,
-        };
-
-        vkAllocateMemory(rg->device, &allocInfo, NULL, &res->memory);
-        vkBindImageMemory(rg->device, res->image, res->memory, 0);
+        VkResult imgResult = vmaBridgeCreateImage(rg->allocator, &imgInfo, res->memoryUsage,
+                                                  &res->image, &res->memory);
+        assert(imgResult == VK_SUCCESS);
+        (void) imgResult;
 
         VkImageViewCreateInfo viewInfo = {
             .sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -1562,9 +1535,7 @@ void rgOnSwapchainResize(RenderGraph* rg, uint32_t newWidth, uint32_t newHeight,
             if (res->imageView != VK_NULL_HANDLE)
                 vkDestroyImageView(rg->device, res->imageView, NULL);
             if (res->image != VK_NULL_HANDLE)
-                vkDestroyImage(rg->device, res->image, NULL);
-            if (res->memory != VK_NULL_HANDLE)
-                vkFreeMemory(rg->device, res->memory, NULL);
+                vmaBridgeDestroyImage(rg->allocator, res->image, res->memory);
             res->imageView = VK_NULL_HANDLE;
             res->image     = VK_NULL_HANDLE;
             res->memory    = VK_NULL_HANDLE;

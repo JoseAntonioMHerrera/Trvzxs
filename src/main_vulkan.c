@@ -233,7 +233,6 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
         }
     }
 
-    vkDestroyRenderPass(ld->device, *gdp->renderPass, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->transferCommandPool, NULL);
     vkDestroyPipeline(ld->device, *gdp->pipeline, NULL);
