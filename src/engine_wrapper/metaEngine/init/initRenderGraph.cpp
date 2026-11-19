@@ -25,7 +25,7 @@ void metaInitRenderGraph(MetaInitContext   &ctx,
     GraphicPipelineToSurface *depthPrepassGraphicPipeline = ctx.depthPrepassPipeline;
 
     // === RENDER GRAPH SETUP ===
-    rgInit(renderGraph, ld->device, pd, ld->allocator,
+    rgInit(renderGraph, ld->device, pd, ld->allocator, ld->gpuExtensionsEnabled,
            dsm->currentExtent2D.width, dsm->currentExtent2D.height,
            dsm->scImagesLen);
 #ifdef DEBUG

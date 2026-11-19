@@ -10,6 +10,7 @@
 #include "timelineSync.h"
 #include "bindlessTypes.h"
 #include "perPassLayouts.h"
+#include "deviceExtensions.h"
 
 typedef struct DisplayManager
 {
@@ -30,6 +31,7 @@ typedef struct LogicalDevice
     FrameSync       frameSync;      // Timeline semaphores for multi-queue scheduling
     BindlessSystem  bindless;       // A11 — global descriptor table (textures + storage buffers)
     PerPassLayouts  perPassLayouts; // A11 — per-pass set-1 descriptor set layouts
+    DeviceExtensions gpuExtensionsEnabled; // Optional extensions enabled on this device (DeviceExtensionBits)
 } LogicalDevice;
 
 typedef struct DeviceManager

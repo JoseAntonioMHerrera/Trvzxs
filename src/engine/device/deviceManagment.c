@@ -2,9 +2,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 #include <SDL.h>
 
 #define DEFAULT_QUEUE_INDEX_VALUE UINT32_MAX
+
+static bool hasDeviceExtension(VkPhysicalDevice gpu, const char* name)
+{
+    uint32_t count = 0;
+    vkEnumerateDeviceExtensionProperties(gpu, NULL, &count, NULL);
+    VkExtensionProperties* props = malloc(sizeof(*props) * count);
+    assert(props || count == 0);
+    vkEnumerateDeviceExtensionProperties(gpu, NULL, &count, props);
+
+    bool found = false;
+    for (uint32_t i = 0; i < count && !found; i++)
+        found = strcmp(props[i].extensionName, name) == 0;
+
+    free(props);
+    return found;
+}
 
 uint32_t checkMemoryTypeCache(DeviceManager* pdmm) {}
 
@@ -78,9 +95,34 @@ void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
     };
 
     // TODO: moverlo a una funcion o fichero para configuracion de dispositivo y dispositivo logico
-    const char* logicalDeviceExtensionNames[] = {
+    const char* logicalDeviceExtensionNames[4] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
         VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME}; // TODO: mover las extensiones del device a otro lado
+    uint32_t extensionCount = 3;
+
+    // Optional extensions: enabled only if the GPU supports them; ld->gpuExtensionsEnabled
+    // records which ones made it so callers can branch on them.
+    ld->gpuExtensionsEnabled = 0;
+
+    VkPhysicalDeviceMaintenance9FeaturesKHR maintenance9Features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_9_FEATURES_KHR,
+    };
+    if (hasDeviceExtension(*pd->gpu, VK_KHR_MAINTENANCE_9_EXTENSION_NAME))
+    {
+        VkPhysicalDeviceFeatures2 query = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = &maintenance9Features,
+        };
+        vkGetPhysicalDeviceFeatures2(*pd->gpu, &query);
+
+        if (maintenance9Features.maintenance9)
+        {
+            logicalDeviceExtensionNames[extensionCount++] = VK_KHR_MAINTENANCE_9_EXTENSION_NAME;
+            maintenance9Features.pNext = features12.pNext;
+            features12.pNext           = &maintenance9Features;
+            ld->gpuExtensionsEnabled |= DEVICE_EXTENSION_MAINTENANCE9;
+        }
+    }
 
     // Logical device
     VkDeviceCreateInfo createLogicalDeviceInfo = {
@@ -89,7 +131,7 @@ void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
         .queueCreateInfoCount    = uniqueCount,
         .pEnabledFeatures        = &deviceFeatures,
         .ppEnabledExtensionNames = logicalDeviceExtensionNames,
-        .enabledExtensionCount   = 3,
+        .enabledExtensionCount   = extensionCount,
         .pNext                   = &features12,
     };
 

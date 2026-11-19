@@ -9,7 +9,7 @@
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-void rgInit(RenderGraph* rg, VkDevice device, PhysicalDevice* pd, VmaAllocator allocator,
+void rgInit(RenderGraph* rg, VkDevice device, PhysicalDevice* pd, VmaAllocator allocator, DeviceExtensions gpuExtensionsEnabled,
             uint32_t swapchainWidth, uint32_t swapchainHeight,
             uint32_t swapchainImageCount)
 {
@@ -20,6 +20,7 @@ void rgInit(RenderGraph* rg, VkDevice device, PhysicalDevice* pd, VmaAllocator a
     rg->swapchainHeight     = swapchainHeight;
     rg->swapchainImageCount = swapchainImageCount;
     rg->allocator = allocator;
+    rg->gpuExtensionsEnabled = gpuExtensionsEnabled;
     rg->isCompiled          = false;
 
 #ifdef DEBUG
@@ -403,10 +404,14 @@ static void rgComputeBarriers(RenderGraph* rg)
             }
             else if (res->type == RG_BUFFER && res->lastWriterPass != UINT32_MAX)
             {
+                // maintenance9: buffers need no queue family ownership transfer;
+                // the cross-queue timeline semaphore already orders the access.
+                bool bufferQFOT = crossQueue && !deviceExtensionsHas(rg->gpuExtensionsEnabled, DEVICE_EXTENSION_MAINTENANCE9);
+
                 VkBufferMemoryBarrier barrier = {
                     .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-                    .srcQueueFamilyIndex = crossQueue ? srcQueueFamily : VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = crossQueue ? dstQueueFamily : VK_QUEUE_FAMILY_IGNORED,
+                    .srcQueueFamilyIndex = bufferQFOT ? srcQueueFamily : VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = bufferQFOT ? dstQueueFamily : VK_QUEUE_FAMILY_IGNORED,
                     .buffer              = res->buffer,
                     .offset              = 0,
                     .size                = VK_WHOLE_SIZE,
@@ -417,7 +422,7 @@ static void rgComputeBarriers(RenderGraph* rg)
                     if (writerPass->outputs[o].resourceIndex == usage->resourceIndex)
                     {
                         // Cross-queue acquire: srcAccess=0 (release side handles it)
-                        barrier.srcAccessMask = crossQueue ? 0 : writerPass->outputs[o].accessMask;
+                        barrier.srcAccessMask = bufferQFOT ? 0 : writerPass->outputs[o].accessMask;
                         pass->barrierSrcStageMask |= writerPass->outputs[o].stageMask;
                         break;
                     }
@@ -431,7 +436,7 @@ static void rgComputeBarriers(RenderGraph* rg)
                 pass->bufferBarriers[pass->bufferBarrierCount++]         = barrier;
 
                 // Cross-queue: pre-compute release barrier on the writer pass
-                if (crossQueue)
+                if (bufferQFOT)
                 {
                     VkBufferMemoryBarrier releaseBarrier = barrier;
                     releaseBarrier.srcQueueFamilyIndex = srcQueueFamily;
