@@ -51,7 +51,6 @@ void metaInitGeometryBuffers(MetaInitContext &ctx)
 
     // Sync — per-pipeline semaphores/fences + per-frame sync
     createSyncObjects(gdp, &ld->device);
-    createSyncObjects(particleGraphicPipeline, &ld->device);
     createFrameSync(&ld->frameSync, ld->device, gdp->maxFrames);
 
     // Vulkan validation / debug messenger

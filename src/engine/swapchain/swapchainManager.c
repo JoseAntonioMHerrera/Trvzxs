@@ -176,6 +176,10 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, 
         gps->swapchain->scImagesLen = swapChainSupportDetails->capabilities.maxImageCount;
     }
 
+    // Clamp to the capacity of p_scImages / p_scImageView.
+    if (gps->swapchain->scImagesLen > SC_MAX_IMAGES)
+        gps->swapchain->scImagesLen = SC_MAX_IMAGES;
+
     // Finally, we build the SwapChain info struct
     uint32_t familyIndices[] = {pd->queueFamilyIndices.graphicsFamily, pd->queueFamilyIndices.transferFamily};
     VkSwapchainCreateInfoKHR creationSwapChainInfo = {
@@ -208,8 +212,15 @@ void createSwapChain(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, 
         exit(1);
     }
     vkGetSwapchainImagesKHR(ld->device, gps->swapchain->VkSwapchain, &gps->swapchain->scImagesLen, NULL);
-    // displaySwapCh->p_scImages = (VkImage*) malloc(sizeof(VkImage)*
-    // displaySwapCh->scImagesLen);
+
+    // The driver may create more images than requested; every one of them
+    // can be returned by acquire, so they must all fit.
+    if (gps->swapchain->scImagesLen > SC_MAX_IMAGES)
+    {
+        fprintf(stderr, "[swapchain] driver created %u images, capacity is %d (SC_MAX_IMAGES)\n",
+                gps->swapchain->scImagesLen, SC_MAX_IMAGES);
+        exit(1);
+    }
 
     if (vkGetSwapchainImagesKHR(ld->device, gps->swapchain->VkSwapchain, &gps->swapchain->scImagesLen,
                                 gps->swapchain->p_scImages) != VK_SUCCESS)
@@ -284,7 +295,7 @@ void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window
     createGeometryBufferResources(pd, ld, sc);
     createNormalsBufferResources(pd, ld, sc);
     createGBufferSampler(ld->device, sc);
-    createSyncObjects(ld->displayManager->graphicPipeline, ld->device);
+    createSyncObjects(ld->displayManager->graphicPipeline, &ld->device);
 
     for (uint32_t i = 0; i < sc->scImagesLen; i++)
     {

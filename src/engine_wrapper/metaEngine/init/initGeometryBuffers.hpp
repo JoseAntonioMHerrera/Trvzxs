@@ -14,7 +14,7 @@
 //     index buffer creation skipped if packedLightIndex is empty)
 //
 // Sync:
-//   - createSyncObjects for models (gdp) and particle pipelines
+//   - createSyncObjects for models (gdp); only its acquire/present semaphores are used
 //   - createFrameSync on the logical device (per-frame semaphores/fences)
 //
 // MUST run after command pools are created (uses commandPool for staging

@@ -3,6 +3,11 @@
 #include <stddef.h>
 #include "imageTypes.h"
 #include "textureManagerTypes.h"
+
+// Capacity of the swapchain image/view arrays. createSwapChain clamps the
+// requested image count to this and fails if the driver creates more.
+#define SC_MAX_IMAGES 16
+
 typedef struct SwapChainSupportDetails
 {
     VkSurfaceCapabilitiesKHR capabilities;
@@ -20,7 +25,7 @@ typedef struct GraphicSwapchain
     VkSwapchainKHR VkSwapchain;
 
     uint32_t scImagesLen; // size_t TODO
-    VkImage  p_scImages[4];
+    VkImage  p_scImages[SC_MAX_IMAGES];
     VkFormat swapchainImageFormat;
 
     // ANTI-ALIASING RESOURCES
@@ -36,7 +41,7 @@ typedef struct GraphicSwapchain
     Texture2D* hiZBuffer;
 
     uint32_t                 scImageViewLen;
-    VkImageView              p_scImageView[4];
+    VkImageView              p_scImageView[SC_MAX_IMAGES];
     VkSurfaceFormatKHR*      currentSurfaceFormat;
     SwapChainSupportDetails* swapChainSupportDetails;
     VkSubpassDependency*     subpassDependency;
