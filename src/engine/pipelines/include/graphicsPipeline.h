@@ -17,7 +17,6 @@
 #define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
 
-void            createSyncObjects(GraphicPipelineToSurface* gd, VkDevice* device);
 VkShaderModule* createShaderModule(VkDevice device, char** code, size_t codeSize);
 
 void fillObjectBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,

@@ -56,10 +56,6 @@ typedef struct GraphicPipelineToSurface
     VkVertexInputAttributeDescription* objectIAD;
     size_t                             objectIADLen;
 
-    // SYNC //
-    VkSemaphore* renderEndFlag;
-    VkSemaphore* imageAvailableSemaphore;
-
     // SHADERS //
     VkShaderModule* vertShader;
     VkShaderModule* fragShader;

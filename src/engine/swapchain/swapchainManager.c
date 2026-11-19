@@ -284,7 +284,7 @@ void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window
 {
     vkDeviceWaitIdle(ld->device);
     cleanupSwapChain(ld, ld->displayManager);
-    cleanupSyncObjects(ld->device, ld->displayManager->graphicPipeline);
+    destroySwapchainSemaphores(&ld->frameSync, ld->device);
     createSwapChain(pd, ld, ld->displayManager, ld->displayManager->graphicPipeline, window);
 
     GraphicSwapchain* sc = ld->displayManager->graphicPipeline->swapchain;
@@ -295,7 +295,7 @@ void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window
     createGeometryBufferResources(pd, ld, sc);
     createNormalsBufferResources(pd, ld, sc);
     createGBufferSampler(ld->device, sc);
-    createSyncObjects(ld->displayManager->graphicPipeline, &ld->device);
+    createSwapchainSemaphores(&ld->frameSync, ld->device, sc->scImagesLen);
 
     for (uint32_t i = 0; i < sc->scImagesLen; i++)
     {

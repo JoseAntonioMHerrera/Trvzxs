@@ -6,40 +6,6 @@
 #define TRIANGLE_VERT_SHADER "shaders/bin/triangle.vert.spv\0"
 #define TRIANGLE_FRAG_SHADER "shaders/bin/triangle.frag.spv\0"
 
-void createSyncObjects(GraphicPipelineToSurface* gd, VkDevice* device)
-{
-    VkSemaphoreCreateInfo semaphoreInfo = {
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-    };
-
-    assert(gd->commandLen >= 2);
-    gd->imageAvailableSemaphore = malloc(sizeof(VkSemaphore) * gd->commandLen);
-    gd->renderEndFlag    = malloc(sizeof(VkSemaphore) * gd->swapchain->scImagesLen);
-
-    assert(gd->renderEndFlag);
-    assert(gd->imageAvailableSemaphore);
-
-    for (uint32_t i = 0; i < gd->commandLen; i++)
-    {
-        VkResult result = vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->imageAvailableSemaphore[i]);
-        if (result != VK_SUCCESS)
-        {
-            fprintf(stderr, "[sync] createSyncObjects: vkCreateSemaphore failed for imageAvailableSemaphore[%u] (VkResult %d)\n",
-                    i, (int) result);
-        }
-    }
-
-    for (uint32_t i = 0; i < gd->swapchain->scImagesLen; i++)
-    {
-        VkResult result = vkCreateSemaphore(*device, &semaphoreInfo, NULL, &gd->renderEndFlag[i]);
-        if (result != VK_SUCCESS)
-        {
-            fprintf(stderr, "[sync] createSyncObjects: vkCreateSemaphore failed for renderEndFlag[%u] (VkResult %d)\n",
-                    i, (int) result);
-        }
-    }
-}
-
 void fillParticleVertexBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,
                                            size_t stride)
 {

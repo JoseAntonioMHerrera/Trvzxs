@@ -238,7 +238,6 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     vkDestroyPipeline(ld->device, *gdp->pipeline, NULL);
     // vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL); // DORMANT A11 — gdp->dsl no longer created (metaInitDescriptors is dormant)
     vkDestroyPipelineLayout(ld->device, *gdp->pipelineLayout, NULL);
-    cleanupSyncObjects(ld->device, gdp);
     destroyFrameSync(&ld->frameSync, ld->device);
 
     // Flush all deferred deletions (both from the last 1-2 frames and the

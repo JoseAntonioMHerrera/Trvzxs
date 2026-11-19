@@ -50,8 +50,8 @@ void metaInitGeometryBuffers(MetaInitContext &ctx)
     }
 
     // Sync — per-pipeline semaphores/fences + per-frame sync
-    createSyncObjects(gdp, &ld->device);
     createFrameSync(&ld->frameSync, ld->device, gdp->maxFrames);
+    createSwapchainSemaphores(&ld->frameSync, ld->device, gdp->swapchain->scImagesLen);
 
     // Vulkan validation / debug messenger
     dm->logCallback = createDebugCallbackForVulkan(dm->instance);

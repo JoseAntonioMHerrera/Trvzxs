@@ -257,22 +257,6 @@ void displayBenchBeginScenario(const char* name) { (void) name; }
 void displayBenchEndScenario(void) {}
 void displayBenchRecordLodSample(const struct SCENE* scene) { (void) scene; }
 #endif // DEBUG
-void cleanupSyncObjects(VkDevice device, GraphicPipelineToSurface* gdp)
-{
-    for (size_t i = 0; i < gdp->commandLen; i++)
-    {
-        vkDestroySemaphore(device, gdp->imageAvailableSemaphore[i], NULL);
-    }
-    for (size_t i = 0; i < gdp->swapchain->scImagesLen; i++)
-    {
-        vkDestroySemaphore(device, gdp->renderEndFlag[i], NULL);
-    }
-
-    free(gdp->imageAvailableSemaphore);
-    gdp->imageAvailableSemaphore = 0;
-    free(gdp->renderEndFlag);
-    gdp->renderEndFlag = 0;
-}
 
 void createSDLSurface(DisplayManager* dm, VkInstance* instance, SDL_Window* window)
 {
@@ -390,7 +374,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     VkResult nextImageResult =
         vkAcquireNextImageKHR(device, dm->graphicPipeline->swapchain->VkSwapchain, 100000000ULL, // 100ms
-                              gdp->imageAvailableSemaphore[dm->currentFrame], VK_NULL_HANDLE, &aquireImageIndex);
+                              sync->imageAvailableSemaphore[dm->currentFrame], VK_NULL_HANDLE, &aquireImageIndex);
 
     switch (nextImageResult)
     {
@@ -552,15 +536,15 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
 
     // Submit both queues with timeline semaphore sync
     rgSubmit(rg, graphicsCB, computeCB, sync,
-             gdp->imageAvailableSemaphore[dm->currentFrame],
-             gdp->renderEndFlag[aquireImageIndex]);
+             sync->imageAvailableSemaphore[dm->currentFrame],
+             sync->renderEndFlag[aquireImageIndex]);
 
 #ifdef DEBUG
     MARK_TIME(tAfterSubmit);
 #endif
 
     // Present
-    VkSemaphore    presentWait[] = {gdp->renderEndFlag[aquireImageIndex]};
+    VkSemaphore    presentWait[] = {sync->renderEndFlag[aquireImageIndex]};
     VkSwapchainKHR swapChains[]  = {dm->graphicPipeline->swapchain->VkSwapchain};
 
     VkPresentInfoKHR presentInfo = {
