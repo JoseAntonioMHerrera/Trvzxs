@@ -32,8 +32,8 @@ typedef struct DeletionQueueSlot
 
 } DeletionQueueSlot;
 
-// Ring buffer of deletion slots, one per in-flight frame (slotCount equals the
-// graphics pipeline's maxFrames, i.e. frames in flight). Resources are deferred
+// Ring buffer of deletion slots, one per in-flight frame (slotCount equals
+// ld->frameSync.maxFramesInFlight). Resources are deferred
 // for slotCount frames before destruction, matching the GPU's pipeline depth.
 // currentSlot is derived from the frame number on every flush:
 //   currentSlot = graphicsWorkloadRun % slotCount
@@ -47,7 +47,7 @@ typedef struct DeletionQueue
 } DeletionQueue;
 
 // Allocate slotCount slots with starting capacity. Call once after device
-// creation, passing the graphics pipeline's maxFrames.
+// creation, passing ld->frameSync.maxFramesInFlight.
 void initDeletionQueue(DeletionQueue* queue, uint32_t slotCount);
 
 // Set currentSlot = frameRun % slotCount and destroy all resources in it.

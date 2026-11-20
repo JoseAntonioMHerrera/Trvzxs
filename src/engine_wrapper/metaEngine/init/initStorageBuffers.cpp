@@ -32,7 +32,7 @@ void metaInitStorageBuffers(MetaInitContext &ctx)
     particleGraphicPipeline->computeP->deviceBuffer->ssbos =
         (SSBOBufferManager *)malloc(sizeof(*gdp->deviceBuffer->ssbos));
     createParticleSSBOBuffer(
-        pd, ld, particleGraphicPipeline->maxFrames,
+        pd, ld, ld->frameSync.maxFramesInFlight,
         particleGraphicPipeline->computeP->deviceBuffer->ssbos,
         particleGraphicPipeline->computeP->commandPool,
         particleGraphicPipeline->scene);
@@ -41,7 +41,7 @@ void metaInitStorageBuffers(MetaInitContext &ctx)
     lightVolumeGraphicPipeline->deviceBuffer->ssbos =
         (SSBOBufferManager *)malloc(sizeof(*lightVolumeGraphicPipeline->deviceBuffer->ssbos));
     createReadbackLightPass1SSBOBuffers(
-        pd, ld, lightVolumeGraphicPipeline->maxFrames,
+        pd, ld, ld->frameSync.maxFramesInFlight,
         lightVolumeGraphicPipeline->deviceBuffer->ssbos,
         lightVolumeGraphicPipeline->commandPool);
 
@@ -54,15 +54,15 @@ void metaInitStorageBuffers(MetaInitContext &ctx)
 
     mat4 proj;
     buildInitialProj(ctx.dsm, proj);
-    createClusterAABBSSBOs(pd, ld, lightCullCP->maxFrames, lightCullCP->deviceBuffer->ssbos,
+    createClusterAABBSSBOs(pd, ld, ld->frameSync.maxFramesInFlight, lightCullCP->deviceBuffer->ssbos,
                            lightCullCP->commandPool, proj, 0.1f, 30000.0f);
 
     // Clustered forward+ Phase 2: lightCull output ring (3 buffer types, each
     // one SSBOBufferManager with a maxFrames-deep ring). Device-local, written
     // per frame by the compute pass, zeroed (globalIndexCount only) at pass start.
     LightCullResources *lcr = (LightCullResources *)calloc(1, sizeof(LightCullResources));
-    createLightIndexListSSBOs  (pd, ld, lightCullCP->maxFrames, &lcr->lightIndexList);
-    createLightGridSSBOs       (pd, ld, lightCullCP->maxFrames, &lcr->lightGrid);
-    createGlobalIndexCountSSBOs(pd, ld, lightCullCP->maxFrames, &lcr->globalIndexCount);
+    createLightIndexListSSBOs  (pd, ld, ld->frameSync.maxFramesInFlight, &lcr->lightIndexList);
+    createLightGridSSBOs       (pd, ld, ld->frameSync.maxFramesInFlight, &lcr->lightGrid);
+    createGlobalIndexCountSSBOs(pd, ld, ld->frameSync.maxFramesInFlight, &lcr->globalIndexCount);
     lightCullCP->lightCullResources = lcr;
 }

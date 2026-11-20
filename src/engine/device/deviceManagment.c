@@ -369,7 +369,7 @@ bool isDeviceSuitable(PhysicalDevice* pd, LogicalDevice* ld)
 
     return pd->queueFamilyIndices.graphicsFamily != DEFAULT_QUEUE_INDEX_VALUE;
 }
-void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* dispM)
+void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* dispM, uint32_t maxFramesInFlight)
 {
     uint32_t supportedGpuLen      = 0;
     VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supportedGpuLen, NULL);
@@ -460,9 +460,12 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
     // The allocator must exist before any buffer or image allocation.
     createVmaAllocator(*instance, pd, ld);
 
+    // Single source of truth for frames in flight: every per-frame ring reads it.
+    ld->frameSync.maxFramesInFlight = maxFramesInFlight;
+
     // Initialize the deletion queue after VMA — it defers resource destruction
-    // by maxFrames frames so in-flight command buffers never reference freed memory.
-    initDeletionQueue(&ld->deletionQueue, dispM->graphicPipeline[0].maxFrames);
+    // by maxFramesInFlight frames so in-flight command buffers never reference freed memory.
+    initDeletionQueue(&ld->deletionQueue, ld->frameSync.maxFramesInFlight);
 }
 
 void createVmaAllocator(VkInstance instance, PhysicalDevice* pd, LogicalDevice* ld)

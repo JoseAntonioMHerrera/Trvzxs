@@ -24,19 +24,19 @@ void metaInitUniformBuffers(MetaInitContext &ctx)
             sizeof(*lightVolumeGraphicPipeline->deviceBuffer->pUbo));
 
     createModelInstanceTransformationsUniformBuffersMapped(
-        pd, ld, gdp->maxFrames, gdp->deviceBuffer->pUbo,
+        pd, ld, ld->frameSync.maxFramesInFlight, gdp->deviceBuffer->pUbo,
         gdp->scene->modelsManager.modelInstanceCapacity);
     createLightInstanceTransformationsUniformBuffersMapped(
-        pd, ld, lightVolumeGraphicPipeline->maxFrames,
+        pd, ld, ld->frameSync.maxFramesInFlight,
         lightVolumeGraphicPipeline->deviceBuffer->pUbo,
         lightVolumeGraphicPipeline->scene->lightManager
             .lightInstanceCapacity);
 
     // Per-frame globals UBO (binding 9) — shared across all pipelines
     gdp->pGlobalsUbo = (UniformBufferManager *)calloc(1, sizeof(*gdp->pGlobalsUbo));
-    createFrameGlobalsUniformBuffersMapped(pd, ld, gdp->maxFrames, gdp->pGlobalsUbo);
+    createFrameGlobalsUniformBuffersMapped(pd, ld, ld->frameSync.maxFramesInFlight, gdp->pGlobalsUbo);
 
     createDeltaTimeUniformBuffers(
-        pd, ld, particleGraphicPipeline->computeP->maxFrames,
+        pd, ld, ld->frameSync.maxFramesInFlight,
         particleGraphicPipeline->computeP->deviceBuffer->pUbo);
 }

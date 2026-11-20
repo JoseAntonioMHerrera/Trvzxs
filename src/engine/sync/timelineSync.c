@@ -2,11 +2,11 @@
 #include <assert.h>
 #include <stdlib.h>
 
-void createFrameSync(FrameSync* sync, VkDevice device, uint32_t maxFramesInFlight)
+void createFrameSync(FrameSync* sync, VkDevice device)
 {
+    assert(sync->maxFramesInFlight >= 1);
     sync->graphicsWorkloadRun     = 0;
     sync->computeWorkloadRun      = 0;
-    sync->maxFramesInFlight = maxFramesInFlight;
     sync->imageAvailableSemaphore = NULL;
     sync->renderEndFlag           = NULL;
     sync->renderEndFlagLen        = 0;

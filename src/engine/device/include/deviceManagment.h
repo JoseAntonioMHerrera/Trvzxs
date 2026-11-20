@@ -9,7 +9,7 @@ typedef struct DeviceManager DeviceManager;
 // Superseded by VMA (VMA_MEMORY_USAGE_AUTO handles memory type selection internally)
 // uint32_t findMemoryType(PhysicalDevice *pd, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 void getMatchingQueueIndices(PhysicalDevice *pd, LogicalDevice* ld, VkQueueFamilyProperties* properties, int numProperties, QueueFamilyIndices *queuesIndices);
-void initDeviceManager(VkInstance *instance, DeviceManager* dm, DisplayManager* dispM);
+void initDeviceManager(VkInstance *instance, DeviceManager* dm, DisplayManager* dispM, uint32_t maxFramesInFlight);
 
 // VMA allocator lifecycle — create after device init, destroy before vkDestroyDevice
 void createVmaAllocator(VkInstance instance, PhysicalDevice* pd, LogicalDevice* ld);

@@ -12,9 +12,9 @@ void metaInitDescriptors(MetaInitContext &ctx)
     GraphicPipelineToSurface *particleGraphicPipeline     = ctx.particlePipeline;
     GraphicPipelineToSurface *lightVolumeGraphicPipeline  = ctx.lightPipeline;
 
-    createDescriptorPool(gdp->maxFrames, ld->device, gdp);
-    createDescriptorSetLayout(ld, gdp, gdp->maxFrames);
-    createDescriptorSet(gdp->maxFrames, ld->device, gdp,
+    createDescriptorPool(ld->frameSync.maxFramesInFlight, ld->device, gdp);
+    createDescriptorSetLayout(ld, gdp, ld->frameSync.maxFramesInFlight);
+    createDescriptorSet(ld->frameSync.maxFramesInFlight, ld->device, gdp,
                         particleGraphicPipeline,
                         lightVolumeGraphicPipeline, gdp->texture);
     particleGraphicPipeline->dsl            = gdp->dsl;

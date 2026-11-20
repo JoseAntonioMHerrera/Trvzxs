@@ -24,8 +24,6 @@ typedef struct LogicalDevice       LogicalDevice;
 
 typedef struct ComputePipeline
 {
-    uint32_t maxFrames;
-
     DeviceBufferManager* deviceBuffer;
 
     VkPipeline* pipeline;

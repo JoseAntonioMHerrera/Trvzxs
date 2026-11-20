@@ -364,7 +364,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     MARK_TIME(tAfterDeletion);
 #endif
 
-    // updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, particleGraphics->maxFrames); // DORMANT A11 — bindless compute uses push-constant slot indices
+    // updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, ld->frameSync.maxFramesInFlight); // DORMANT A11 — bindless compute uses push-constant slot indices
 
 #ifdef DEBUG
     MARK_TIME(tAfterSSBO);
@@ -511,7 +511,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     rg->resources[0].image     = gdp->swapchain->p_scImages[aquireImageIndex];
     rg->resources[0].imageView = gdp->swapchain->p_scImageView[aquireImageIndex];
 
-    uint32_t prevFrame = (dm->currentFrame - 1 + particleGraphics->maxFrames) % particleGraphics->maxFrames;
+    uint32_t prevFrame = (dm->currentFrame - 1 + ld->frameSync.maxFramesInFlight) % ld->frameSync.maxFramesInFlight;
     rg->resources[4].buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[prevFrame];
     rg->resources[5].buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[dm->currentFrame];
 

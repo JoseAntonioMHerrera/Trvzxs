@@ -179,12 +179,7 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
 
     BindlessSystem *bs = &ld->bindless;
     PerPassLayouts *pp = &ld->perPassLayouts;
-    // Each pipeline's per-frame sets and handles are sized by its own maxFrames.
-    const uint32_t  modelMaxFrames           = gdp->maxFrames;
-    const uint32_t  depthMaxFrames           = depthGdp->maxFrames;
-    const uint32_t  lightMaxFrames           = lightGdp->maxFrames;
-    const uint32_t  particleMaxFrames        = particleGdp->maxFrames;
-    const uint32_t  particleComputeMaxFrames = particleGdp->computeP->maxFrames;
+    const uint32_t framesInFlight = ld->frameSync.maxFramesInFlight;
 
     // --- Register model texture into the global table -----------------------
     const BindlessHandle texHandle =
@@ -195,8 +190,8 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
     // flight. Each gets its own bindless slot. The draw recorder selects the
     // slot matching currentFrame and pushes it as transformIdx.
     UniformBufferManager *transformUbos = gdp->deviceBuffer->pUbo; // actually SSBO; legacy name
-    BindlessHandle       *transformHandles = (BindlessHandle *)malloc(sizeof(BindlessHandle) * modelMaxFrames);
-    for (uint32_t i = 0; i < modelMaxFrames; ++i)
+    BindlessHandle       *transformHandles = (BindlessHandle *)malloc(sizeof(BindlessHandle) * framesInFlight);
+    for (uint32_t i = 0; i < framesInFlight; ++i)
     {
         transformHandles[i] = bindlessRegisterBuffer(bs, transformUbos->uniformBuffers[i],
                                                      transformUbos->stagingSize);
@@ -205,14 +200,14 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
     // --- Allocate + fill model pass set-1 descriptor sets -------------------
     VkDescriptorPool modelPool  = VK_NULL_HANDLE;
     VkDescriptorSet *modelSets  = nullptr;
-    allocPerPassPoolAndSets(ld->device, pp->modelPass, modelMaxFrames, &modelPool, &modelSets);
-    writeFrameGlobalsUBO(ld->device, modelMaxFrames, modelSets, gdp->pGlobalsUbo);
+    allocPerPassPoolAndSets(ld->device, pp->modelPass, framesInFlight, &modelPool, &modelSets);
+    writeFrameGlobalsUBO(ld->device, framesInFlight, modelSets, gdp->pGlobalsUbo);
 
     // --- Allocate + fill depth prepass set-1 descriptor sets ----------------
     VkDescriptorPool depthPool = VK_NULL_HANDLE;
     VkDescriptorSet *depthSets = nullptr;
-    allocPerPassPoolAndSets(ld->device, pp->depthPrepassPass, depthMaxFrames, &depthPool, &depthSets);
-    writeFrameGlobalsUBO(ld->device, depthMaxFrames, depthSets, gdp->pGlobalsUbo);
+    allocPerPassPoolAndSets(ld->device, pp->depthPrepassPass, framesInFlight, &depthPool, &depthSets);
+    writeFrameGlobalsUBO(ld->device, framesInFlight, depthSets, gdp->pGlobalsUbo);
 
     // --- Plant handles on both pipelines ------------------------------------
     gdp->bindlessGlobalLayout      = bs->globalLayout;
@@ -234,8 +229,8 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
     // --- Light pipeline ------------------------------------------------------
     UniformBufferManager *lightUbos = lightGdp->deviceBuffer->pUbo;
     BindlessHandle       *lightTransformHandles =
-        (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightMaxFrames);
-    for (uint32_t i = 0; i < lightMaxFrames; ++i)
+        (BindlessHandle *)malloc(sizeof(BindlessHandle) * framesInFlight);
+    for (uint32_t i = 0; i < framesInFlight; ++i)
     {
         lightTransformHandles[i] =
             bindlessRegisterBuffer(bs, lightUbos->uniformBuffers[i], lightUbos->stagingSize);
@@ -243,11 +238,11 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
 
     VkDescriptorPool lightPool = VK_NULL_HANDLE;
     VkDescriptorSet *lightSets = nullptr;
-    allocLightPerPassPoolAndSets(ld->device, pp->lightPass, lightMaxFrames, &lightPool, &lightSets);
+    allocLightPerPassPoolAndSets(ld->device, pp->lightPass, framesInFlight, &lightPool, &lightSets);
     // Frame globals UBO is engine-shared — only gdp->pGlobalsUbo is populated
     // (initUniformBuffers.cpp). All pipelines reference the same buffer set.
-    writeFrameGlobalsUBO(ld->device, lightMaxFrames, lightSets, gdp->pGlobalsUbo);
-    writeLightPassSamplers(ld->device, lightMaxFrames, lightSets,
+    writeFrameGlobalsUBO(ld->device, framesInFlight, lightSets, gdp->pGlobalsUbo);
+    writeLightPassSamplers(ld->device, framesInFlight, lightSets,
                            gdp->swapchain->gBuffer->imageView,
                            gdp->swapchain->nBuffer->imageView,
                            gdp->swapchain->gBufferSampler);
@@ -266,11 +261,11 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
     // via push constants and the render pass can read current.
     SSBOBufferManager *particleSsbos = particleGdp->computeP->deviceBuffer->ssbos;
     BindlessHandle    *particleSSBOHandles =
-        (BindlessHandle *)malloc(sizeof(BindlessHandle) * particleMaxFrames);
+        (BindlessHandle *)malloc(sizeof(BindlessHandle) * framesInFlight);
     const VkDeviceSize particleBufSize =
         sizeof(ParticleInstance) *
         particleGdp->scene->particleManager.packedParticleInstanceLen;
-    for (uint32_t i = 0; i < particleMaxFrames; ++i)
+    for (uint32_t i = 0; i < framesInFlight; ++i)
     {
         particleSSBOHandles[i] =
             bindlessRegisterBuffer(bs, particleSsbos->buffers[i], particleBufSize);
@@ -280,19 +275,19 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
     // layout (identical shape).
     VkDescriptorPool particleRenderPool = VK_NULL_HANDLE;
     VkDescriptorSet *particleRenderSets = nullptr;
-    allocPerPassPoolAndSets(ld->device, pp->modelPass, particleMaxFrames,
+    allocPerPassPoolAndSets(ld->device, pp->modelPass, framesInFlight,
                             &particleRenderPool, &particleRenderSets);
-    writeFrameGlobalsUBO(ld->device, particleMaxFrames, particleRenderSets, gdp->pGlobalsUbo);
+    writeFrameGlobalsUBO(ld->device, framesInFlight, particleRenderSets, gdp->pGlobalsUbo);
 
     // Compute pass per-pass set: binding 0 = deltaTime UBO. A single-frame
     // buffer lives on computeP->deviceBuffer->pUbo->uniformBuffers[0].
     VkDescriptorPool particleComputePool = VK_NULL_HANDLE;
     VkDescriptorSet *particleComputeSets = nullptr;
-    allocPerPassPoolAndSets(ld->device, pp->particleComputePass, particleComputeMaxFrames,
+    allocPerPassPoolAndSets(ld->device, pp->particleComputePass, framesInFlight,
                             &particleComputePool, &particleComputeSets);
     {
         UniformBufferManager *deltaUbo = particleGdp->computeP->deviceBuffer->pUbo;
-        for (uint32_t i = 0; i < particleComputeMaxFrames; ++i)
+        for (uint32_t i = 0; i < framesInFlight; ++i)
         {
             const VkDescriptorBufferInfo buf = {
                 .buffer = deltaUbo->uniformBuffers[0], // single buffer shared across frames
@@ -338,8 +333,8 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
     SSBOBufferManager     *clusterSsbos = lightCullCP->deviceBuffer->ssbos;
     const VkDeviceSize     clusterBufSize = sizeof(ClusterAABB) * CLUSTER_COUNT;
     BindlessHandle        *clusterHandles =
-        (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightCullCP->maxFrames);
-    for (uint32_t i = 0; i < lightCullCP->maxFrames; ++i)
+        (BindlessHandle *)malloc(sizeof(BindlessHandle) * framesInFlight);
+    for (uint32_t i = 0; i < framesInFlight; ++i)
     {
         clusterHandles[i] = bindlessRegisterBuffer(bs, clusterSsbos->buffers[i], clusterBufSize);
     }
@@ -357,13 +352,13 @@ void metaInitBindlessRegistration(MetaInitContext &ctx)
         const VkDeviceSize counterBufSize    = sizeof(uint32_t);
 
         lcr->lightIndexListHandles   =
-            (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightCullCP->maxFrames);
+            (BindlessHandle *)malloc(sizeof(BindlessHandle) * framesInFlight);
         lcr->lightGridHandles        =
-            (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightCullCP->maxFrames);
+            (BindlessHandle *)malloc(sizeof(BindlessHandle) * framesInFlight);
         lcr->globalIndexCountHandles =
-            (BindlessHandle *)malloc(sizeof(BindlessHandle) * lightCullCP->maxFrames);
+            (BindlessHandle *)malloc(sizeof(BindlessHandle) * framesInFlight);
 
-        for (uint32_t i = 0; i < lightCullCP->maxFrames; ++i)
+        for (uint32_t i = 0; i < framesInFlight; ++i)
         {
             lcr->lightIndexListHandles[i]   =
                 bindlessRegisterBuffer(bs, lcr->lightIndexList.buffers[i], indexListBufSize);

@@ -81,11 +81,11 @@ void metaInitSwapchainResources(MetaInitContext &ctx, SDL_Window *window)
         lightVolumeGraphicPipeline->computeP[compIndex].commandPool = lightVolumeGraphicPipeline->commandPool;
     }
 
-    createCommandBuffer(gdp, &ld->device, gdp->maxFrames);
+    createCommandBuffer(gdp, &ld->device, ld->frameSync.maxFramesInFlight);
     createCommandBuffer(lightVolumeGraphicPipeline, &ld->device,
-                        lightVolumeGraphicPipeline->maxFrames);
+                        ld->frameSync.maxFramesInFlight);
     createCommandBufferWithCompute(particleGraphicPipeline, &ld->device,
-                                   particleGraphicPipeline->maxFrames);
+                                   ld->frameSync.maxFramesInFlight);
 
     // Publish outputs
     ctx.pd  = pd;

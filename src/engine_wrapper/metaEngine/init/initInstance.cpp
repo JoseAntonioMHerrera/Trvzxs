@@ -13,7 +13,7 @@ void metaInitInstance(MetaInitContext &ctx, SDL_Window *window)
 
     dm->lDevice    = (LogicalDevice **)malloc(sizeof(*dm->lDevice));
     (*dm->lDevice) = (LogicalDevice *)malloc(sizeof(**dm->lDevice) * 1);
-    dm->pDevice    = (PhysicalDevice *)malloc(sizeof(dm->pDevice));
+    dm->pDevice    = nullptr;
     dm->gpuIndex    = 0;
     dm->deviceIndex = 0;
 

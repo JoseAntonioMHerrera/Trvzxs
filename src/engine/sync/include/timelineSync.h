@@ -17,7 +17,7 @@ typedef struct FrameSync
     uint32_t     renderEndFlagLen;
 } FrameSync;
 
-void createFrameSync(FrameSync* sync, VkDevice device, uint32_t maxFramesInFlight);
+void createFrameSync(FrameSync* sync, VkDevice device);
 void destroyFrameSync(FrameSync* sync, VkDevice device);
 
 void createSwapchainSemaphores(FrameSync* sync, VkDevice device, uint32_t swapchainImageCount);

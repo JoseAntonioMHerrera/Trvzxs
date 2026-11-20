@@ -41,6 +41,9 @@ void metaInitDisplay(MetaInitContext &ctx, Scene *scene, SDL_Window *window)
     gdp->swapchain = (GraphicSwapchain *)malloc(sizeof(*gdp->swapchain));
 
     // Per-pipeline compute pipeline slots
+    gdp->computePipelineCount = 0;
+    gdp->computeP             = nullptr;
+
     particleGraphicPipeline->computePipelineCount = 1;
     particleGraphicPipeline->computeP = (ComputePipeline *)malloc(
         sizeof(*particleGraphicPipeline->computeP));
@@ -104,31 +107,11 @@ void metaInitDisplay(MetaInitContext &ctx, Scene *scene, SDL_Window *window)
     // alongside the other per-pipeline command pool aliasing, because the real
     // command pool handles don't exist until createGraphicsCommandPool runs.
 
-    // Frames in flight: fixed by MAX_FRAMES_IN_FLIGHT and independent of the
-    // swapchain. Every per-frame resource (indexed by currentFrame) is sized by
-    // maxFrames. The swapchain image count (scImagesLen) is whatever the driver
-    // returns in createSwapChain and only sizes per-image resources.
-    gdp->maxFrames                         = MAX_FRAMES_IN_FLIGHT;
-    particleGraphicPipeline->maxFrames     = MAX_FRAMES_IN_FLIGHT;
-    lightVolumeGraphicPipeline->maxFrames  = MAX_FRAMES_IN_FLIGHT;
-    depthPrepassGraphicPipeline->maxFrames = MAX_FRAMES_IN_FLIGHT;
-    // Compute pipelines inherit their owning graphics pipeline's maxFrames.
-    for (uint32_t compIndex = 0; compIndex < particleGraphicPipeline->computePipelineCount; compIndex++)
-    {
-        particleGraphicPipeline->computeP[compIndex].maxFrames = particleGraphicPipeline->maxFrames;
-    }
-    for (uint32_t compIndex = 0; compIndex < depthPrepassGraphicPipeline->computePipelineCount; compIndex++)
-    {
-        depthPrepassGraphicPipeline->computeP[compIndex].maxFrames = depthPrepassGraphicPipeline->maxFrames;
-    }
-    for (uint32_t compIndex = 0; compIndex < lightVolumeGraphicPipeline->computePipelineCount; compIndex++)
-    {
-        lightVolumeGraphicPipeline->computeP[compIndex].maxFrames = lightVolumeGraphicPipeline->maxFrames;
-    }
-
-    // SDL surface + Vulkan device selection
+    // SDL surface + Vulkan device selection. Frames in flight is fixed by
+    // MAX_FRAMES_IN_FLIGHT, independent of the swapchain image count, and
+    // stored once in ld->frameSync.maxFramesInFlight.
     createSDLSurface(dispM, dm->instance, window);
-    initDeviceManager(dm->instance, dm, dispM);
+    initDeviceManager(dm->instance, dm, dispM, MAX_FRAMES_IN_FLIGHT);
 
     // Publish outputs
     ctx.dispM                = dispM;

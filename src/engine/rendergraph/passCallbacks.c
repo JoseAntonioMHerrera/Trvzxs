@@ -258,7 +258,8 @@ void executeParticlePass(VkCommandBuffer cmd, const RGPass* pass, void* userData
     for (uint32_t g = 0; g < scene->particleManager.particleGroupLen; g++)
     {
         vkCmdDrawIndexed(cmd, scene->particleManager.packedParticleIndicesLen,
-                         scene->particleManager.pParticleGroup[g].particleInstancesLen, 0, 0, 0);
+                         scene->particleManager.pParticleGroup[g].particleInstancesLen, 0, 0,
+                         scene->particleManager.particleInstanceOffsets.items[g]);
     }
 }
 
@@ -279,7 +280,7 @@ void executeParticleComputePass(VkCommandBuffer cmd, const RGPass* pass, void* u
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *computeP->pipelineLayout, 0, 2,
                             computeSets, 0, 0);
 
-    uint32_t maxFrames    = pipeline->maxFrames;
+    uint32_t maxFrames    = data->ld->frameSync.maxFramesInFlight;
     uint32_t prevSSBOSlot = pipeline->bindlessTransformHandles[(frame + maxFrames - 1) % maxFrames];
     uint32_t currSSBOSlot = pipeline->bindlessTransformHandles[frame];
     BindlessPushConstants cpc = {

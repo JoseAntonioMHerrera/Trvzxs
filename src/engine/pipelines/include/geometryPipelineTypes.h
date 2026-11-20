@@ -18,8 +18,6 @@ typedef struct TextureManager
 
 typedef struct GraphicPipelineToSurface
 {
-    uint32_t maxFrames;
-
     size_t commandLen;
 
     // Render pass info
