@@ -25,8 +25,6 @@ void fillObjectInputAttributeDescription(VkVertexInputAttributeDescription** obj
 void fillParticleInputAttributeDescription(VkVertexInputAttributeDescription** objectsIAD, uint32_t viadLen);
 void fillParticleBindingDescriptions(VkVertexInputBindingDescription** objectIBD, VkVertexInputRate inputRate,
                                      size_t stride);
-void createParticleRenderPass(PhysicalDevice* pd, GraphicSwapchain* dsm, VkDevice device,
-                              GraphicPipelineToSurface* gdp);
 void createModelsGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* dm, VkDevice* device);
 void createParticleGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* dm, VkDevice* device);
 void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* dm, VkDevice* device);

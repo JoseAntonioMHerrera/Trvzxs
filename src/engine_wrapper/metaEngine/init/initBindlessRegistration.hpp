@@ -10,7 +10,4 @@
 // creation (initPipelines), which reads the layout handles this step
 // plants on each GraphicPipelineToSurface.
 //
-// Current migration scope: model pipeline + depth prepass pipeline.
-// Other pipelines (light, particle graphics, particle compute) keep the
-// dormant explicit-descriptor path until their respective cutovers.
 void metaInitBindlessRegistration(MetaInitContext &ctx);

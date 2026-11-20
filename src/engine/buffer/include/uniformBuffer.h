@@ -17,7 +17,6 @@
 #include "mat4.h"
 #include "affine.h"
 #include "camera.h"
-// #include "displayTimer.h"
 
 void                   updateModelUniformBuffersDirect(void* mappedBuffer, SCENE* scene);
 void                   updateLightUniformBuffersDirect(void* mappedBuffer, float deltaTime, SCENE* scene);

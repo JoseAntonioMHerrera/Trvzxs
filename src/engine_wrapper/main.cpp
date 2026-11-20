@@ -29,7 +29,6 @@ extern "C"
 #include "displayManager.h"
 #include "swapchainManager.h"
 #include "uniformBuffer.h"
-#include "descriptor.h"
 #include "textureManager.h"
 #include "scene.h"
 #include "model.h"
@@ -312,7 +311,6 @@ int main(int argc, char *argv[])
         window = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN);
         MetaEngine *engine = new MetaEngine();
         engine->initVkInstance(window);
-        //        std::this_thread::sleep_for(std::chrono::seconds(5));
         if (window == NULL)
         {
             const char *error = SDL_GetError();
@@ -756,8 +754,6 @@ int main(int argc, char *argv[])
 #endif
             }
 
-            // Aquí puedes añadir tus comandos de dibujo
-            //        SDL_RenderPresent(renderer);
         }
 
         // Flush stats for the final scenario before teardown.
@@ -774,16 +770,6 @@ int main(int argc, char *argv[])
     {
         std::cerr << "Error: " << e.what() << std::endl;
     }
-    /*
-       try {
-            engineEntryPoint();
-        } catch (const std::exception& e) {
-            std::cerr << "Caught exception: " << e.what() << std::endl;
-            throw;  // Re-throw the exception
-        } catch (...) {
-            std::cerr << "Caught unknown exception" << std::endl;
-            throw;  // Re-throw the exception
-        }*/
 
     return 0;
 }

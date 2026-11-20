@@ -267,56 +267,6 @@ void createSDLSurface(DisplayManager* dm, VkInstance* instance, SDL_Window* wind
     assert(result_surface_creation == SDL_TRUE);
 }
 
-
-void updateSSBODescriptorSets(VkDevice device, GraphicPipelineToSurface* particleGraphics, uint32_t currentFrame,
-                              uint32_t maxFrames)
-{
-    // Calculate previous frame index with wraparound
-    uint32_t prevFrame = (currentFrame - 1 + maxFrames) % maxFrames;
-
-    // Update SSBO descriptor bindings for previous and current frame
-    VkDescriptorBufferInfo prevSSBOBufferInfo = {
-        .buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[prevFrame],
-        .offset = 0,
-        .range  = sizeof(ParticleInstance) * particleGraphics->scene->particleManager.packedParticleInstanceLen,
-    };
-
-    VkDescriptorBufferInfo currentSSBOBufferInfo = {
-        .buffer = particleGraphics->computeP->deviceBuffer->ssbos->buffers[currentFrame],
-        .offset = 0,
-        .range  = sizeof(ParticleInstance) * particleGraphics->scene->particleManager.packedParticleInstanceLen,
-    };
-
-    // Create descriptor write updates for both SSBO bindings
-    VkWriteDescriptorSet descriptorWrites[] = {
-        {
-            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet           = particleGraphics->descriptorSet[currentFrame],
-            .dstBinding       = 2, // Previous frame SSBO binding
-            .dstArrayElement  = 0,
-            .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount  = 1,
-            .pBufferInfo      = &prevSSBOBufferInfo,
-            .pImageInfo       = VK_NULL_HANDLE,
-            .pTexelBufferView = VK_NULL_HANDLE,
-        },
-        {
-            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet           = particleGraphics->descriptorSet[currentFrame],
-            .dstBinding       = 3, // Current frame SSBO binding
-            .dstArrayElement  = 0,
-            .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount  = 1,
-            .pBufferInfo      = &currentSSBOBufferInfo,
-            .pImageInfo       = VK_NULL_HANDLE,
-            .pTexelBufferView = VK_NULL_HANDLE,
-        },
-    };
-
-    // Update the descriptor sets
-    vkUpdateDescriptorSets(device, 2, descriptorWrites, 0, VK_NULL_HANDLE);
-}
-
 void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, GraphicPipelineToSurface* gdp,
                GraphicPipelineToSurface* particleGraphics, GraphicPipelineToSurface* lightGraphics, VkDevice device,
                SDL_Window* window, float deltaTime, Camera3D camera, RenderGraph* rg)
@@ -358,6 +308,7 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     // GPU finished with frame (graphicsWorkloadRun - maxFramesInFlight).
     // Destroy what that frame queued; this frame's deferDestroy* calls then
     // reuse the same slot.
+    assert(sync->graphicsWorkloadRun != 0 || deletionQueueIsEmpty(&ld->deletionQueue));
     if (ld->deletionQueue.lastFlushedRun != sync->graphicsWorkloadRun)
         flushDeletionQueue(&ld->deletionQueue, sync->graphicsWorkloadRun, ld->device, ld->allocator);
 
@@ -365,7 +316,6 @@ void drawFrame(PhysicalDevice* pd, LogicalDevice* ld, DisplayManager* dm, Graphi
     MARK_TIME(tAfterDeletion);
 #endif
 
-    // updateSSBODescriptorSets(ld->device, particleGraphics, dm->currentFrame, ld->frameSync.maxFramesInFlight); // DORMANT A11 — bindless compute uses push-constant slot indices
 
 #ifdef DEBUG
     MARK_TIME(tAfterSSBO);

@@ -19,7 +19,6 @@
 #include "displayManager.h"
 #include "swapchainManager.h"
 #include "uniformBuffer.h"
-#include "descriptor.h"
 #include "bindless.h"
 #include "perPassLayouts.h"
 #include "textureManager.h"
@@ -236,7 +235,6 @@ void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM, Graphi
     vkDestroyCommandPool(ld->device, gdp->commandPool->graphicsCommandPool, NULL);
     vkDestroyCommandPool(ld->device, gdp->commandPool->transferCommandPool, NULL);
     vkDestroyPipeline(ld->device, *gdp->pipeline, NULL);
-    // vkDestroyDescriptorSetLayout(ld->device, gdp->dsl, NULL); // DORMANT A11 — gdp->dsl no longer created (metaInitDescriptors is dormant)
     vkDestroyPipelineLayout(ld->device, *gdp->pipelineLayout, NULL);
     destroyFrameSync(&ld->frameSync, ld->device);
 
@@ -427,16 +425,11 @@ void createInstance(VkInstance **instance, SDL_Window *window)
     const char **extensionNames = malloc((extensionCount + 2) * sizeof(char *)); // TODO refactor this method to handle memory properly
     SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, extensionNames);
 
-    // char* extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0", "VK_KHR_surface\0", "VK_KHR_dynamic_rendering", VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
     char *extensionsToSelect[] = {"VK_EXT_debug_utils\0", "VK_KHR_xlib_surface\0"};
     extensionNames[extensionCount++] = extensionsToSelect[0];
 #ifndef _WIN32
     extensionNames[extensionCount++] = extensionsToSelect[1];
 #endif
-    // extensionNames[extensionCount++] = extensionsToSelect[2];
-    /*
-    extensionNames[extensionCount++] = extensionsToSelect[3];
-        extensionNames[extensionCount++] = extensionsToSelect[4];*/
     VkValidationFeatureEnableEXT enables[] = {
         VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
         VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
@@ -455,7 +448,6 @@ void createInstance(VkInstance **instance, SDL_Window *window)
         .pNext = NULL,
     };
 
-    // VkInstance instance;
     VkInstanceCreateInfo instance_info = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &app,

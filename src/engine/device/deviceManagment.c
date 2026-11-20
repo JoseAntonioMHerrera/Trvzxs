@@ -23,10 +23,6 @@ static bool hasDeviceExtension(VkPhysicalDevice gpu, const char* name)
     return found;
 }
 
-uint32_t checkMemoryTypeCache(DeviceManager* pdmm) {}
-
-uint32_t createMemoryTypeCache(DeviceManager* pdmm) {}
-// TODO ADD IS DEVICE SUITABLE
 
 void initDeviceQueues(PhysicalDevice* const pd, LogicalDevice* const ld)
 {
@@ -268,37 +264,6 @@ void initPhysicalDeviceQueues(PhysicalDevice* pd)
     vkGetPhysicalDeviceMemoryProperties(*pd->gpu, pd->memProperties);
 }
 
-// findMemoryType — Pre-VMA manual memory type selection.
-//
-// This function searched VkPhysicalDeviceMemoryProperties for a memory type
-// matching the requested property flags (e.g. DEVICE_LOCAL, HOST_VISIBLE).
-// It was called by createVkBuffer() and createVkImage() before every allocation.
-//
-// Superseded by VMA's VMA_MEMORY_USAGE_AUTO, which handles memory type selection
-// internally based on allocation hints (HOST_ACCESS_SEQUENTIAL_WRITE, etc.),
-// with automatic fallback across memory types and ReBAR/SAM awareness.
-//
-// Retained for reference — no callers remain in the engine.
-/*
-uint32_t findMemoryType(PhysicalDevice* pd, uint32_t typeFilter, VkMemoryPropertyFlags properties)
-{
-
-    uint32_t memoryCount = pd->memProperties->memoryTypeCount;
-
-    for (uint32_t i = 0; i < memoryCount; i++)
-    {
-
-        if (typeFilter & (1 << i) && (pd->memProperties->memoryTypes[i].propertyFlags & properties) == properties)
-        {
-            return i;
-        }
-    }
-
-    // No fallback for specified memory type not available
-
-    exit(1);
-}
-*/
 #define FOR(var, start, end, step) for (int var = (start); var < (end); var += (step))
 void physicalDeviceTest(VkPhysicalDevice* gPhysicalDevice)
 {
@@ -426,18 +391,6 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
     dm->deviceIndex              = bestCandidateIndex;
     dm->lDevice[dm->deviceIndex] = malloc(sizeof(**dm->lDevice));
 
-    /*uint32_t extensionCount = 0;
-    vkEnumerateDeviceExtensionProperties(*dm->pDevice[dm->gpuIndex].gpu, NULL, &extensionCount, NULL);
-    VkExtensionProperties* availableExtensions = malloc(sizeof(VkExtensionProperties) * extensionCount);
-    vkEnumerateDeviceExtensionProperties(*dm->pDevice[dm->gpuIndex].gpu, NULL, &extensionCount, availableExtensions);
-
-    for (uint32_t i = 0; i < extensionCount; i++) {
-        if (strcmp(availableExtensions[i].extensionName, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME) == 0) {
-            break;
-        }
-    }
-    free(availableExtensions);
-    exit(0);*/
     // We instance the logical device for the candidate selected by his index (in the future, we we'll need more than
     // one logicaldevice per gpu)
 
@@ -452,7 +405,6 @@ void initDeviceManager(VkInstance* instance, DeviceManager* dm, DisplayManager* 
         exit(0);
     }
 
-    // getMatchingQueueIndices(pd, ld, pd->queueFamilyProperties, pd->queueFamilyCount, &pd->queueFamilyIndices);
 
     initDeviceQueues(&dm->pDevice[dm->gpuIndex], dm->lDevice[dm->deviceIndex]);
 
@@ -503,12 +455,3 @@ void printVmaStats(LogicalDevice* ld)
 #endif
 }
 
-/*
-void storePhysicalDevices(VkInstance* instance){
-    uint32_t supported_gpu_count = 0;
-
-    vkEnumeratePhysicalDevices(instance, &supported_gpu_count, NULL);
-    assert(supported_gpu_count >= 1);
-    initDeviceManager(supported_gpu_count);
-    VkResult vkEnumPhysDevcResult = vkEnumeratePhysicalDevices(*instance, &supported_gpu_count, pdmm->gpu);
-};*/

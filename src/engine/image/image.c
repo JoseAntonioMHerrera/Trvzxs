@@ -343,7 +343,6 @@ void createMsaaColorResources(LogicalDevice* ld, PhysicalDevice* pd, GraphicSwap
 {
     dsm->msaaColorRes    = malloc(sizeof(*dsm->msaaColorRes));
     VkFormat colorFormat = dsm->currentSurfaceFormat->format;
-    // dsm->msaaColorRes->numSamples = getMaxUsableSampleCount(pd);
     dsm->msaaColorRes->numSamples = VK_SAMPLE_COUNT_1_BIT;
     createVkImage(ld->allocator, pd, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -357,7 +356,6 @@ void createMsaaDepthResources(LogicalDevice* ld, PhysicalDevice* pd, GraphicSwap
 {
     dsm->msaaDepthRes    = malloc(sizeof(*dsm->msaaDepthRes));
     VkFormat depthFormat = findDepthImageFormat(pd->gpu);
-    // dsm->msaaDepthRes->numSamples = getMaxUsableSampleCount(pd);
     dsm->msaaDepthRes->numSamples = VK_SAMPLE_COUNT_1_BIT;
     createVkImage(ld->allocator, pd, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, dsm->msaaDepthRes,

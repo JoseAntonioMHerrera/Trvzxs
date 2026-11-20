@@ -14,8 +14,9 @@ class Scene;
 // Allocates the DisplayManager, the 4 graphic pipeline structs (models,
 // particles, lights, depth prepass), their per-pipeline compute pipeline
 // structs, DeviceBufferManager slots, CommandPools slots, and the shared
-// GraphicSwapchain. Wires scene pointers and the starting MAX_FRAMES_IN_FLIGHT
-// frame counts. Calls createSDLSurface + initDeviceManager.
+// GraphicSwapchain. Wires scene pointers. Calls createSDLSurface +
+// initDeviceManager, which stores MAX_FRAMES_IN_FLIGHT in
+// ld->frameSync.maxFramesInFlight.
 //
 // Inputs read from ctx (must be populated by Phase 7 — initInstance):
 //   dm

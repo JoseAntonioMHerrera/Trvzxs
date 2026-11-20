@@ -66,11 +66,6 @@ void createTextureImage(PhysicalDevice* pd, LogicalDevice* ld, GraphicPipelineTo
     copyBufferToImage(ld, ld->device, (gdp->commandPool->graphicsCommandPool), *(ld->queueManager.graphicsQueue),
                       stagingBuffer, (*texture)->common->image, width, height);
 
-    /*transitionImageLayout(ld, (gdp->commandPool->graphicsCommandPool),
-    (*texture)->common->image,
-    VK_FORMAT_R8G8B8A8_SRGB,
-    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, (*texture)->mipLevels);*/
 
     generateImageMipmaps((*pd->gpu), ld, gdp->commandPool, (*ld->queueManager.graphicsQueue), (*texture)->common->image,
                          (*texture)->textWidth, (*texture)->textHeight, (*texture)->mipLevels, VK_FORMAT_R8G8B8A8_SRGB);

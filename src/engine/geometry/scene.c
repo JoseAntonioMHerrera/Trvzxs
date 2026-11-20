@@ -96,7 +96,6 @@ GEOM_VERTEX* getModelVerticesFromScene(const SCENE* const scene)
             {
                 pVertex[indicesStorageIterator] =
                     scene->modelsManager.pModel[i].meshManager.pMesh[j].pVertice[indexObjVertex];
-                // pVertex[indexObjVertex].point.x,pVertex[indexObjVertex].point.y,pVertex[indexObjVertex].point.z);
                 indicesStorageIterator++;
             }
         }
@@ -774,7 +773,6 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
     uint32_t indexOffset                      = 0;
     uint32_t vertexOffset                     = 0;
     scene->lightManager.lightInstanceCount    = 0;
-    // printScene(objects, sceneLen);
 
     for (int objIndex = 0; objIndex < volumetricLightsLen; objIndex++)
     {
@@ -790,9 +788,6 @@ void fillSceneWithLightData(SCENE* scene, LightVolume* pLight, uint32_t volumetr
             light->pStagingInstances[i].lifecycle = LIGHT_INSTANCE_ALIVE;
         }
 
-        // apply_offset_to_indices(light->model.indices.items, light->model.indices.itemsLen,
-        // vertexIndexOffsetForModelIndices); vertexIndexOffsetForModelIndices +=
-        // light->model.meshManager.totalMeshVerticesLen;
         light->model.indiceOffset = indexOffset;
         light->model.vertexOffset = vertexOffset;
         indexOffset += light->model.indices.itemsLen;

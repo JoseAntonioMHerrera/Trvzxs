@@ -261,7 +261,6 @@ public:
 
         particleGroup->particleInstancesLen = instanceCount;
 
-        // free(instanceData);
     }
     // Two parallel planes of models at x = ±planeGap, each with instanceCount/2
     // models spread in a YZ grid. Designed for two overlapping light cubes.

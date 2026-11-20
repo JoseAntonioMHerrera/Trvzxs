@@ -39,11 +39,6 @@ typedef struct GraphicPipelineToSurface
     // SWAPCHAIN //
     GraphicSwapchain* swapchain;
 
-    // DESCRIPTORS //
-    VkDescriptorSetLayout dsl;
-    VkDescriptorPool      descriptorPool;
-    VkDescriptorSet*      descriptorSet;
-
     // COMMANDS //
     CommandPools*    commandPool;
     VkCommandBuffer* commandBuffer;

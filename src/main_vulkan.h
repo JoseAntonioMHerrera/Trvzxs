@@ -5,7 +5,6 @@
 #include "deviceManagmentTypes.h"
 #include "displayManager.h"
 
-// DeviceManager* initTRVZXSEngine(SDL_Window* window);
 void cleanup(DeviceManager *dm, LogicalDevice *ld, DisplayManager *dispM,
              GraphicPipelineToSurface *gdp, VkDebugUtilsMessengerEXT *logCallback);
 void physicalDeviceTest(VkPhysicalDevice *pd);

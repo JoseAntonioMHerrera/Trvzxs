@@ -63,22 +63,3 @@ typedef struct LightManager
 } LightManager;
 #define VOLUMETRIC_LIGHT_VERT_SHADER "shaders/bin/lightVolume.vert.spv\0"
 #define VOLUMETRIC_LIGHT_FRAG_SHADER "shaders/bin/lightVolume.frag.spv\0"
-
-/*
-
-    Model3D* pModel;
-    uint32_t modelLen;
-    Model3DInstance* pModelInstance;
-    uint32_t modelInstanceLen;
-
-    GEOM_VERTEX* pPackedModelVertex;
-    uint32_t packedModelVertexLen;
-
-    ArrayUint32_t packedModelIndex;
-
-    ArrayUint32_t vertexOffset;
-    ArrayUint32_t indiceInstanceOffset;
-    ArrayUint32_t instanceOffset;
-
-
-*/

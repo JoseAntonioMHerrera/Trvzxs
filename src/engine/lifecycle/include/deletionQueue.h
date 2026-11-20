@@ -1,5 +1,6 @@
 #pragma once
 #include <vulkan/vulkan.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include "vma_bridge.h"
 
@@ -60,6 +61,8 @@ void flushDeletionQueue(DeletionQueue* queue, uint64_t frameRun, VkDevice device
 // Flush ALL slots and free the queue's internal arrays. Call at shutdown
 // after vkDeviceWaitIdle, before destroying the VMA allocator.
 void destroyDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator allocator);
+
+bool deletionQueueIsEmpty(const DeletionQueue* queue);
 
 // --- Enqueue functions ---
 // Each pushes a resource into the current slot for deferred destruction.

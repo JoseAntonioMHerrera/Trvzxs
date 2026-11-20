@@ -17,7 +17,6 @@ typedef struct Mesh3DManager
     Mesh3D*  pMesh;
     uint32_t meshesLen;
     uint32_t totalMeshVerticesLen;
-    // vec4     boundingBox[2];
 } Mesh3DManager;
 // Instance-level alive flag values
 #define INSTANCE_ALIVE     1
@@ -114,4 +113,3 @@ Model3D* load_obj_to_geom_object(const char* filename);
 void     freeModel3D(Model3D* model);
 void     freeMesh(Mesh3D* mesh);
 void     freeMeshManager(Mesh3DManager* meshManager);
-// void     getModelInstancesCount(const Models3DManager const* manager);

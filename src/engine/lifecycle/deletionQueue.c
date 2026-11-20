@@ -93,6 +93,17 @@ void flushDeletionQueue(DeletionQueue* queue, uint64_t frameRun, VkDevice device
     queue->lastFlushedRun = frameRun;
 }
 
+bool deletionQueueIsEmpty(const DeletionQueue* queue)
+{
+    for (uint32_t i = 0; i < queue->slotCount; i++)
+    {
+        const DeletionQueueSlot* slot = &queue->slots[i];
+        if (slot->bufferCount || slot->imageCount || slot->imageViewCount)
+            return false;
+    }
+    return true;
+}
+
 void destroyDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator allocator)
 {
     // Flush every slot — at shutdown there may be entries from the last slotCount frames.

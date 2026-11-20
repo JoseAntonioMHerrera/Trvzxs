@@ -137,75 +137,6 @@ void fillLightVolumeVertexInputAttributeDescription(VkVertexInputAttributeDescri
     (*objectsIAD)[1].offset   = offsetof(GEOM_VERTEX, bary);
 }
 
-/*
- void createParticleRenderPass(PhysicalDevice *pd, GraphicSwapchain *dsm, VkDevice device, GraphicPipelineToSurface
-*gdp) {
-    //TODO make abstractions for resources attachtments and resolvers
-    VkAttachmentReference depthAttachmentRef = {
-        .attachment = 1,
-        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-
-    VkAttachmentDescription depthAttachment = {
-        .format = (findDepthImageFormat(pd->gpu)),
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-    };
-
-    VkAttachmentDescription colorAttachment = {
-        .format = (dsm->currentSurfaceFormat)->format,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-    };
-        VkAttachmentReference colorAttachmentRef = {
-        .attachment = 0,
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-
-    VkSubpassDescription subpass = {
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachmentRef,
-        .pDepthStencilAttachment = &depthAttachmentRef,
-        .pResolveAttachments =  NULL,
-    };
-
-
-    // TODO MANAGE SUBPASS TREE
-
-    dsm->subpassDependency = malloc(sizeof(VkSubpassDependency)); //TODO this subpassDependency doesnt need to be  a
-pointer dsm->subpassDependency->srcSubpass = VK_SUBPASS_EXTERNAL; dsm->subpassDependency->dstSubpass = 0;
-    dsm->subpassDependency->srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; dsm->subpassDependency->srcAccessMask = 0;
-    dsm->subpassDependency->dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; dsm->subpassDependency->dstAccessMask =
-VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-dsm->subpassDependency->dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT; VkAttachmentDescription attatchments[2] =
-{colorAttachment, depthAttachment}; VkRenderPassCreateInfo renderPassInfo = { .sType =
-VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, .attachmentCount = 2, .pAttachments = attatchments, .subpassCount = 1,
-        .pSubpasses = &subpass,
-        .dependencyCount = 1,
-        .pDependencies = dsm->subpassDependency,
-    };
-
-    gdp->renderPass = malloc(sizeof(*gdp->renderPass));
-    if (vkCreateRenderPass(device, &renderPassInfo, NULL, gdp->renderPass) != VK_SUCCESS) {
-
-        exit(0);
-    }
-
-
-}*/
 
 void createModelsGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* dm, VkDevice* device)
 {
@@ -395,7 +326,6 @@ void createModelsGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager* 
         exit(1);
     }
 
-    // createRenderPass(dm->swapchain,*device,gdp);
 
     VkGraphicsPipelineCreateInfo pipelineInfo = {
         .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -607,7 +537,6 @@ void createParticleGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayManager
         exit(1);
     }
 
-    // createRenderPass(dm->swapchain,*device,gdp);
 
     VkGraphicsPipelineCreateInfo pipelineInfo = {
         .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -820,7 +749,6 @@ void createLightVolumeGraphicPipeline(GraphicPipelineToSurface* gdp, DisplayMana
         exit(1);
     }
 
-    // createRenderPass(dm->swapchain,*device,gdp);
 
     VkGraphicsPipelineCreateInfo pipelineInfo = {
         .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,

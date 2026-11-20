@@ -3,7 +3,6 @@
 #include "initContext.hpp"
 #include "initBindless.hpp"
 #include "initBindlessRegistration.hpp"
-#include "initDescriptors.hpp"
 #include "initDeviceFeatures.hpp"
 #include "initDisplay.hpp"
 #include "initGeometryBuffers.hpp"
@@ -49,7 +48,6 @@ void MetaEngine::bulkInitVulkanWithScene(SDL_Window *window, Scene *scene)
     metaInitUniformBuffers(_initCtx);
     metaInitStorageBuffers(_initCtx);
     metaInitGeometryBuffers(_initCtx);
-    // metaInitDescriptors(_initCtx); // DORMANT A11 — explicit descriptor path, preserved
     metaInitBindlessRegistration(_initCtx); // A11 — register texture+SSBOs, alloc per-pass sets
 
     metaInitRenderGraph(_initCtx,

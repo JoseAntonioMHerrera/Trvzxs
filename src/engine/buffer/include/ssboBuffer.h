@@ -17,7 +17,6 @@
 #include "cam.h"
 #include "mat4.h"
 #include "affine.h"
-// #include "displayTimer.h"
 
 int createParticleSSBOBuffer(PhysicalDevice* pd, LogicalDevice* ld, uint32_t ssbosLen, SSBOBufferManager* ssbos,
                              CommandPools* commandPool, SCENE* scene);

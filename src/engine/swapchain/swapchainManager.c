@@ -1,7 +1,6 @@
 #include "swapchainManager.h"
 #include "image.h"
 #include "deletionQueue.h"
-#include "descriptor.h"
 #include "renderGraph.h"
 #include "graphicConfiguration.h"
 #include "graphicsPipeline.h"
@@ -306,7 +305,6 @@ void recreateSwapChain(PhysicalDevice* pd, LogicalDevice* ld, SDL_Window* window
 
     // Re-write G-buffer/normals descriptors (bindings 5/6) with new image views
     GraphicPipelineToSurface* gdp = ld->displayManager->graphicPipeline;
-    // updateGBufferDescriptors(ld->frameSync.maxFramesInFlight, ld->device, gdp); // DORMANT A11 — light pass uses bindless per-pass set
 
     // A11 — bindless light per-pass set holds the G-buffer + normals samplers
     // at bindings 1,2. After swapchain recreate the image views are fresh;

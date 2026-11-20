@@ -8,7 +8,6 @@ void createGraphicsCommandPool(PhysicalDevice* pd, VkDevice device, GraphicPipel
         .queueFamilyIndex = pd->queueFamilyIndices.graphicsFamily,
     };
 
-    //gdp->commandPool->graphicsCommandPool = malloc(sizeof(*gdp->commandPool->graphicsCommandPool));
 
     if (vkCreateCommandPool(device, &poolInfo, VK_NULL_HANDLE, &(gdp->commandPool->graphicsCommandPool)) != VK_SUCCESS) {
 
@@ -23,7 +22,6 @@ void createTransferQueueCommandPool(PhysicalDevice* pd, VkDevice device, Graphic
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
         .queueFamilyIndex = pd->queueFamilyIndices.transferFamily,
     };
-    //gdp->commandPool->transferCommandPool = malloc(sizeof(*gdp->commandPool->transferCommandPool));
     if (vkCreateCommandPool(device, &transferPoolInfo, VK_NULL_HANDLE, &(gdp->commandPool->transferCommandPool)) != VK_SUCCESS) {
 
         exit(0);
@@ -36,7 +34,6 @@ void createComputeQueueCommandPool(PhysicalDevice* pd, VkDevice device, GraphicP
         .queueFamilyIndex = pd->queueFamilyIndices.computeFamily,
     };
 
-//    compP->commandPool->transferCommandPool = malloc(sizeof(*compP->commandPool->transferCommandPool));
     if (vkCreateCommandPool(device, &computePoolInfo, VK_NULL_HANDLE, &(gdp->commandPool->computeCommandPool)) != VK_SUCCESS) {
 
         exit(0);
