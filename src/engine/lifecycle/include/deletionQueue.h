@@ -44,6 +44,7 @@ typedef struct DeletionQueue
     DeletionQueueSlot* slots;
     uint32_t           slotCount;
     uint32_t           currentSlot; // graphicsWorkloadRun % slotCount, set by flushDeletionQueue
+    uint64_t           lastFlushedRun;
 } DeletionQueue;
 
 // Allocate slotCount slots with starting capacity. Call once after device

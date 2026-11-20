@@ -73,9 +73,10 @@ static void freeSlot(DeletionQueueSlot* slot)
 void initDeletionQueue(DeletionQueue* queue, uint32_t slotCount)
 {
     assert(slotCount >= 1);
-    queue->slotCount   = slotCount;
-    queue->currentSlot = 0;
-    queue->slots       = malloc(sizeof(DeletionQueueSlot) * slotCount);
+    queue->slotCount      = slotCount;
+    queue->currentSlot    = 0;
+    queue->lastFlushedRun = UINT64_MAX;
+    queue->slots          = malloc(sizeof(DeletionQueueSlot) * slotCount);
     assert(queue->slots);
     for (uint32_t i = 0; i < slotCount; i++)
     {
@@ -89,6 +90,7 @@ void flushDeletionQueue(DeletionQueue* queue, uint64_t frameRun, VkDevice device
     // G uses slot G % slotCount, which was last filled by frame G - slotCount.
     queue->currentSlot = (uint32_t) (frameRun % queue->slotCount);
     flushSlot(&queue->slots[queue->currentSlot], device, allocator);
+    queue->lastFlushedRun = frameRun;
 }
 
 void destroyDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator allocator)
@@ -101,8 +103,9 @@ void destroyDeletionQueue(DeletionQueue* queue, VkDevice device, VmaAllocator al
     }
     free(queue->slots);
     queue->slots       = NULL;
-    queue->slotCount   = 0;
-    queue->currentSlot = 0;
+    queue->slotCount      = 0;
+    queue->currentSlot    = 0;
+    queue->lastFlushedRun = UINT64_MAX;
 }
 
 // --- Enqueue functions ---
